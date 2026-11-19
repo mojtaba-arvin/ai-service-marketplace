@@ -6,12 +6,12 @@ import (
  "encoding/json"
  "errors"
  "fmt"
- "math"
  "strconv"
  "strings"
  "time"
 
  "github.com/jackc/pgx/v5"
+ "github.com/jackc/pgx/v5/pgconn"
  "github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -20,48 +20,33 @@ var (
  ErrLeaseLost=errors.New("outbox event lease was lost")
 )
 
-type Event struct {
- ID int64
- AggregateType string
- AggregateID string
- EventType string
- Payload json.RawMessage
- Attempts int
-}
-
+type Event struct { ID int64; AggregateType string; AggregateID string; EventType string; Payload json.RawMessage; Attempts int }
 type Publisher interface { Publish(context.Context,Event,string) error }
 type PublishFunc func(context.Context,Event,string) error
 func (f PublishFunc) Publish(ctx context.Context,e Event,key string) error { return f(ctx,e,key) }
 
-type Transaction interface {
- QueryRow(context.Context,string,...any) pgx.Row
-}
+type Transaction interface { QueryRow(context.Context,string,...any) pgx.Row }
 
 func Append(ctx context.Context,tx Transaction,aggregateType,aggregateID,eventType string,payload json.RawMessage)(int64,error) {
- if tx==nil||strings.TrimSpace(aggregateType)==""||strings.TrimSpace(aggregateID)==""||strings.TrimSpace(eventType)==""||len(payload)==0||!json.Valid(payload) {
-  return 0,ErrInvalidPolicy
- }
+ if tx==nil||strings.TrimSpace(aggregateType)==""||strings.TrimSpace(aggregateID)==""||strings.TrimSpace(eventType)==""||len(payload)==0||!json.Valid(payload){return 0,ErrInvalidPolicy}
  var id int64
  err:=tx.QueryRow(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES($1,$2,$3,$4::jsonb) RETURNING id`,aggregateType,aggregateID,eventType,[]byte(payload)).Scan(&id)
  return id,err
 }
 
 type Repository struct { DB *pgxpool.Pool }
-
 func (r *Repository) Claim(ctx context.Context,workerID string,limit int,lease time.Duration)([]Event,error) {
  if r==nil||r.DB==nil||strings.TrimSpace(workerID)==""||limit<1||limit>500||lease<time.Second||lease>5*time.Minute{return nil,ErrInvalidPolicy}
  tx,err:=r.DB.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return nil,err};defer tx.Rollback(ctx)
  rows,err:=tx.Query(ctx,`
-  WITH candidates AS (
-   SELECT id FROM outbox_events
-   WHERE published_at IS NULL AND dead_lettered_at IS NULL
-    AND next_attempt_at<=now()
-    AND (locked_until IS NULL OR locked_until<now())
-   ORDER BY id FOR UPDATE SKIP LOCKED LIMIT $1
-  )
-  UPDATE outbox_events e SET locked_by=$2,locked_until=now()+($3 * interval '1 second')
-  FROM candidates c WHERE e.id=c.id
-  RETURNING e.id,e.aggregate_type,e.aggregate_id,e.event_type,e.payload,e.attempts
+ WITH candidates AS (
+  SELECT id FROM outbox_events WHERE published_at IS NULL AND dead_lettered_at IS NULL
+   AND next_attempt_at<=now() AND (locked_until IS NULL OR locked_until<now())
+  ORDER BY id FOR UPDATE SKIP LOCKED LIMIT $1
+ )
+ UPDATE outbox_events e SET locked_by=$2,locked_until=now()+($3 * interval '1 second')
+ FROM candidates c WHERE e.id=c.id
+ RETURNING e.id,e.aggregate_type,e.aggregate_id,e.event_type,e.payload,e.attempts
  `,limit,workerID,lease.Seconds())
  if err!=nil{return nil,err}
  defer rows.Close()
@@ -71,27 +56,21 @@ func (r *Repository) Claim(ctx context.Context,workerID string,limit int,lease t
  if err=tx.Commit(ctx);err!=nil{return nil,err}
  return events,nil
 }
-
 func (r *Repository) MarkPublished(ctx context.Context,workerID string,eventID int64)error{
  tag,err:=r.DB.Exec(ctx,`UPDATE outbox_events SET published_at=now(),locked_by=NULL,locked_until=NULL,last_error=NULL WHERE id=$1 AND locked_by=$2 AND published_at IS NULL AND dead_lettered_at IS NULL`,eventID,workerID)
  if err!=nil{return err};if tag.RowsAffected()!=1{return ErrLeaseLost};return nil
 }
-
 func (r *Repository) MarkFailed(ctx context.Context,workerID string,eventID int64,maxAttempts int,retryAt time.Time,cause error,retryable bool)error{
  if maxAttempts<1||maxAttempts>20||cause==nil{return ErrInvalidPolicy}
  message:=cause.Error();if len(message)>500{message=message[:500]}
- var tagErr error
+ var tag pgconn.CommandTag
+ var err error
  if !retryable {
-  _,tagErr=r.DB.Exec(ctx,`UPDATE outbox_events SET attempts=attempts+1,last_error=$3,dead_lettered_at=now(),locked_by=NULL,locked_until=NULL WHERE id=$1 AND locked_by=$2 AND published_at IS NULL`,eventID,workerID,message)
+  tag,err=r.DB.Exec(ctx,`UPDATE outbox_events SET attempts=attempts+1,last_error=$3,dead_lettered_at=now(),locked_by=NULL,locked_until=NULL WHERE id=$1 AND locked_by=$2 AND published_at IS NULL AND dead_lettered_at IS NULL`,eventID,workerID,message)
  } else {
-  _,tagErr=r.DB.Exec(ctx,`UPDATE outbox_events SET attempts=attempts+1,last_error=$3,next_attempt_at=CASE WHEN attempts+1 >= $4 THEN next_attempt_at ELSE $5 END,dead_lettered_at=CASE WHEN attempts+1 >= $4 THEN now() ELSE NULL END,locked_by=NULL,locked_until=NULL WHERE id=$1 AND locked_by=$2 AND published_at IS NULL`,eventID,workerID,message,maxAttempts,retryAt.UTC())
+  tag,err=r.DB.Exec(ctx,`UPDATE outbox_events SET attempts=attempts+1,last_error=$3,next_attempt_at=CASE WHEN attempts+1 >= $4 THEN next_attempt_at ELSE $5 END,dead_lettered_at=CASE WHEN attempts+1 >= $4 THEN now() ELSE NULL END,locked_by=NULL,locked_until=NULL WHERE id=$1 AND locked_by=$2 AND published_at IS NULL AND dead_lettered_at IS NULL`,eventID,workerID,message,maxAttempts,retryAt.UTC())
  }
- if tagErr!=nil{return tagErr}
- var owner string
- err:=r.DB.QueryRow(ctx,`SELECT COALESCE(locked_by,'') FROM outbox_events WHERE id=$1`,eventID).Scan(&owner)
- if err!=nil{return err}
- if owner==workerID{return ErrLeaseLost}
- return nil
+ if err!=nil{return err};if tag.RowsAffected()!=1{return ErrLeaseLost};return nil
 }
 
 type Worker struct {
@@ -105,7 +84,6 @@ type Worker struct {
  MaxBackoff time.Duration
  Retryable func(error)bool
 }
-
 func (w Worker) RunOnce(ctx context.Context)(int,error){
  if w.Repository==nil||w.Publisher==nil||strings.TrimSpace(w.WorkerID)==""||w.BatchSize<1||w.BatchSize>500||
   w.Lease<time.Second||w.MaxAttempts<1||w.MaxAttempts>20||w.BaseBackoff<0||w.MaxBackoff<w.BaseBackoff{return 0,ErrInvalidPolicy}
@@ -126,23 +104,21 @@ func (w Worker) RunOnce(ctx context.Context)(int,error){
  }
  return published,errors.Join(failures...)
 }
-
 func RetryDelay(attempt int,base,max time.Duration)time.Duration{
  if attempt<1||base<=0||max<=0{return 0};if base>=max{return max}
  delay:=base
- for i:=1;i<attempt&&delay<max;i++{if delay>time.Duration(math.MaxInt64/2){return max};delay*=2}
+ for i:=1;i<attempt&&delay<max;i++{if delay>max/2{return max};delay*=2}
  if delay>max{return max};return delay
 }
 
 type ConsumerHandler func(context.Context,pgx.Tx,Event)error
 type Consumer struct { DB *pgxpool.Pool; Name string; Handler ConsumerHandler }
-
 func (c Consumer) Process(ctx context.Context,event Event)(bool,error){
  if c.DB==nil||strings.TrimSpace(c.Name)==""||event.ID<=0||c.Handler==nil{return false,ErrInvalidPolicy}
  tx,err:=c.DB.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return false,err};defer tx.Rollback(ctx)
  tag,err:=tx.Exec(ctx,`INSERT INTO processed_events(consumer_name,event_id) VALUES($1,$2) ON CONFLICT DO NOTHING`,c.Name,event.ID)
  if err!=nil{return false,err}
- if tag.RowsAffected()==0 {if err=tx.Commit(ctx);err!=nil{return false,err};return false,nil}
+ if tag.RowsAffected()==0{if err=tx.Commit(ctx);err!=nil{return false,err};return false,nil}
  if err=c.Handler(ctx,tx,event);err!=nil{return false,err}
  if err=tx.Commit(ctx);err!=nil{return false,err}
  return true,nil
