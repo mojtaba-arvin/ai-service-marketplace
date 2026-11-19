@@ -28,7 +28,7 @@ func (f PublishFunc) Publish(ctx context.Context,e Event,key string) error { ret
 type Transaction interface { QueryRow(context.Context,string,...any) pgx.Row }
 
 func Append(ctx context.Context,tx Transaction,aggregateType,aggregateID,eventType string,payload json.RawMessage)(int64,error) {
- if tx==nil||strings.TrimSpace(aggregateType)==""||strings.TrimSpace(aggregateID)==""||strings.TrimSpace(eventType)==""||len(payload)==0||!json.Valid(payload){return 0,ErrInvalidPolicy}
+ if tx==nil||strings.TrimSpace(aggregateType)==""||strings.TrimSpace(aggregateID)==""||strings.TrimSpace(eventType)==""||len(payload)==0||len(payload)>256*1024||!json.Valid(payload){return 0,ErrInvalidPolicy}
  var id int64
  err:=tx.QueryRow(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES($1,$2,$3,$4::jsonb) RETURNING id`,aggregateType,aggregateID,eventType,[]byte(payload)).Scan(&id)
  return id,err
@@ -86,7 +86,7 @@ type Worker struct {
 }
 func (w Worker) RunOnce(ctx context.Context)(int,error){
  if w.Repository==nil||w.Publisher==nil||strings.TrimSpace(w.WorkerID)==""||w.BatchSize<1||w.BatchSize>500||
-  w.Lease<time.Second||w.MaxAttempts<1||w.MaxAttempts>20||w.BaseBackoff<0||w.MaxBackoff<w.BaseBackoff{return 0,ErrInvalidPolicy}
+  w.Lease<time.Second||w.MaxAttempts<1||w.MaxAttempts>20||w.BaseBackoff<0||w.MaxBackoff<w.BaseBackoff||w.Retryable==nil{return 0,ErrInvalidPolicy}
  events,err:=w.Repository.Claim(ctx,w.WorkerID,w.BatchSize,w.Lease);if err!=nil{return 0,err}
  published:=0
  var failures []error
@@ -98,7 +98,7 @@ func (w Worker) RunOnce(ctx context.Context)(int,error){
    if err=w.Repository.MarkPublished(ctx,w.WorkerID,event.ID);err!=nil{failures=append(failures,fmt.Errorf("ack event %d: %w",event.ID,err));continue}
    published++;continue
   }
-  retryable:=true;if w.Retryable!=nil{retryable=w.Retryable(publishErr)}
+  retryable:=w.Retryable(publishErr)
   delay:=RetryDelay(event.Attempts+1,w.BaseBackoff,w.MaxBackoff)
   if err=w.Repository.MarkFailed(ctx,w.WorkerID,event.ID,w.MaxAttempts,time.Now().Add(delay),publishErr,retryable);err!=nil{failures=append(failures,fmt.Errorf("record failure for event %d: %w",event.ID,err))}
  }
