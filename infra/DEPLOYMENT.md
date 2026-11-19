@@ -32,9 +32,40 @@ OTP_DELIVERY_URL=https://sms-provider.example.com/v1/messages
 OTP_DELIVERY_TOKEN=replace-with-provider-token
 OTP_PEPPER=replace-with-at-least-32-random-bytes
 SESSION_PEPPER=replace-with-a-different-32-random-bytes
+DEFAULT_TENANT_ID=market-om
+DEFAULT_MARKET_CODE=OM
+BOOTSTRAP_OPERATOR_PHONE=+96890000000
 ```
 
 Use URL encoding for reserved characters in the PostgreSQL password embedded in DATABASE_URL. Generate peppers on the host, for example with openssl rand -hex 32. Never commit .env.production.
+
+## Seed the initial single-market catalog and professional
+
+The following example uses Oman values because the repository's existing examples use +968 and OMR. Replace them if the launch market is different. The market code must be a two-letter ISO country code; DEFAULT_TENANT_ID is an internal tenant identifier and must match across the API and seed data.
+
+After the API has started and applied migrations, load one sample category, price menu, operator identity, and professional profile. The operator phone must exactly match BOOTSTRAP_OPERATOR_PHONE. Both phone numbers must be real E.164 numbers that can receive OTPs.
+
+```sh
+set -a
+. ./.env.production
+set +a
+docker compose --env-file .env.production -f infra/compose.production.yml exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -v market_code="$DEFAULT_MARKET_CODE" \
+  -v tenant_id="$DEFAULT_TENANT_ID" \
+  -v locale=en -v currency=OMR -v timezone=Asia/Muscat -v policy_version=mvp-1 \
+  -v category_id=mvp-home-cleaning -v category_slug=home-cleaning \
+  -v category_name="Home cleaning" -v category_description="Standard home cleaning service" \
+  -v menu_id=mvp-home-cleaning-standard -v service_code=standard-cleaning \
+  -v price_version_id=mvp-home-cleaning-standard-v1 -v price_minor=2500 \
+  -v operator_phone="$BOOTSTRAP_OPERATOR_PHONE" \
+  -v professional_phone="+96890000001" -v professional_name="Demo Professional" \
+  -v region_code=Muscat -v city_code=Muscat -v area_code=Al-Khuwair \
+  -f - < scripts/seed-mvp.sql
+```
+
+The sample price is 2.500 OMR in the currency's minor-unit representation. Change the amount, locale, timezone, area, and sample professional phone before using the seed for a different market. The professional remains inactive and unverified until the operator verifies the profile and skill through the operator API.
+
 
 The OTP delivery adapter sends an HTTPS POST with a bearer token and an idempotency key. Verify the provider request/response contract before enabling sign-in. Missing or invalid delivery configuration must fail startup rather than silently falling back to test authentication.
 
