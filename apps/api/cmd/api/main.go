@@ -50,6 +50,7 @@ func main() {
   if deliveryErr!=nil{log.Fatalf("configure OTP delivery: %v",deliveryErr)}
   tenantID:=requiredValue("DEFAULT_TENANT_ID")
   marketCode:=strings.ToUpper(requiredValue("DEFAULT_MARKET_CODE"))
+  if len(marketCode)!=2 { log.Fatal("DEFAULT_MARKET_CODE must be a two-letter ISO country code") }
   operatorPhone:=requiredValue("BOOTSTRAP_OPERATOR_PHONE")
   if _,phoneErr:=marketplace.NormalizeE164Phone(operatorPhone);phoneErr!=nil{log.Fatalf("BOOTSTRAP_OPERATOR_PHONE is invalid: %v",phoneErr)}
   handler=&marketplace.Handler{
