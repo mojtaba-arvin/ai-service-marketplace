@@ -56,12 +56,12 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 	var priorMenuID string
 	err=tx.QueryRow(ctx,`
 		SELECT o.id,o.customer_id,o.amount_minor,o.currency,o.status,o.price_version_id,v.menu_id,
-			o.scheduled_at,o.country_code,o.region_code,o.city_code,o.area_code
+			o.scheduled_at,o.country_code,o.region_code,o.city_code,o.area_code,o.assigned_provider_id
 		FROM orders o JOIN service_price_versions v ON v.id=o.price_version_id
 		WHERE o.customer_id=$1 AND o.idempotency_key=$2
 	`,actor.SubjectID,idempotencyKey).Scan(&prior.ID,&prior.CustomerID,&prior.AmountMinor,&prior.Currency,
 		&prior.Status,&prior.PriceVersionID,&priorMenuID,&prior.ScheduledAt,&prior.CountryCode,
-		&prior.RegionCode,&prior.CityCode,&prior.AreaCode)
+		&prior.RegionCode,&prior.CityCode,&prior.AreaCode,&prior.AssignedProviderID)
 	if err==nil {
 		if !sameScheduledOrder(prior,menuID,scheduledAt,country,region,city,area,priorMenuID) {
 			return Order{},false,ErrOrderIdempotencyConflict
@@ -108,7 +108,7 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 			WHERE o.customer_id=$1 AND o.idempotency_key=$2
 		`,actor.SubjectID,idempotencyKey).Scan(&existing.ID,&existing.CustomerID,&existing.AmountMinor,&existing.Currency,
 			&existing.Status,&existing.PriceVersionID,&existingMenuID,&existing.ScheduledAt,&existing.CountryCode,
-			&existing.RegionCode,&existing.CityCode,&existing.AreaCode)
+			&existing.RegionCode,&existing.CityCode,&existing.AreaCode,&existing.AssignedProviderID)
 		if errors.Is(err,pgx.ErrNoRows) { return Order{},false,ErrOrderIdempotencyConflict }
 		if err!=nil { return Order{},false,err }
 		if !sameScheduledOrder(existing,menuID,scheduledAt,country,region,city,area,existingMenuID) {
