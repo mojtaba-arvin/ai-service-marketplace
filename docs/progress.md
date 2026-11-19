@@ -3,29 +3,30 @@
 > Keep this file concise (maximum 60 lines). Update it at the end of each work session.
 
 ## Current phase
-Session 0B complete; Session 0C implementation is the next engineering milestone.
+Session 0B complete; Session 0C walking skeleton is in implementation and not yet verified.
 
 ## Completed
 - Established repository foundation, agent guidance, ADRs, module placeholders, verification entry points, and Docker Compose infrastructure.
-- Decomposed all 14 product modules into 44 atomic, dependency-aware feature records with acceptance criteria, ownership, size, nature tags, and QA status.
-- Added a standard-library backlog checker for exact fields, IDs, dependency existence/cycles, S/M sizing, and QA evidence invariants.
-- Created one implementation tracking issue for each of M1–M14 (#5–#18).
-- Inspected PR #1 Actions: CI passed. Security failed because dependency review requires the repository dependency graph and CodeQL was configured for Go/JS before source files existed.
-- Adjusted Security workflow to analyze the currently present Python source and gate dependency review on an explicit repository variable until dependency graph is enabled.
+- Decomposed all 14 product modules into 44 atomic, dependency-aware features with acceptance criteria, ownership, S/M sizing, nature tags, and QA status.
+- Added a standard-library backlog checker for exact fields, IDs, dependency existence/cycles, sizing, and QA evidence invariants.
+- Created module tracking issues #5–#18 and closed Session 0B planning issue #3.
+- Investigated PR #1 Actions: CI passed. Security failed because dependency review requires repository dependency graph and CodeQL was configured for Go/JS before source files existed.
+- Added Go API walking-skeleton code: test-only OTP boundary, PostgreSQL-backed idempotent order creation, guarded state transitions, simulated double-entry ledger, append-only constraints, and transactional outbox schema.
+- Added Go domain tests and CI Go formatting/race-test steps; scoped CodeQL to Go and Python.
 
 ## Verification
-- GitHub confirms PR #1 CI run passed.
-- PR #1 Security failure causes are confirmed from job logs; remediation is included in this branch but awaits a new Actions run.
-- Backlog JSON was written and its dependency graph is structurally validated by inspection; no local Python execution was available in this session.
-- No feature is marked as independently QA-passing.
+- PR #1 CI passed; Security failure causes are confirmed from Actions logs.
+- PR #19 (Session 0B) has been opened; its Actions result is not yet available.
+- Session 0C code has not been run locally or by CI yet. Do not treat it as verified.
+- No product feature is marked independently QA-passing.
 
 ## Human/repository gates
-- Enable dependency graph, then set repository variable `DEPENDENCY_GRAPH_ENABLED=true` to activate dependency review.
+- Enable dependency graph, then set `DEPENDENCY_GRAPH_ENABLED=true` to activate dependency review.
 - Configure rulesets, Actions permissions, Dependabot, secret scanning/push protection, and verified CODEOWNERS in repository settings.
 - Choose a license before the first public release.
 - Confirm launch jurisdiction before enabling payment, KYC, tax, and labor workflows.
 
 ## Next
-1. Merge the foundation only after all required checks and repository controls are verified.
-2. Implement the Postgres-backed Session 0C vertical workflow with fake OTP, idempotent order creation, test-only balanced ledger, outbox, and E2E verification.
-3. Deliver M1–M14 features in dependency order; do not mark features passing without independent QA evidence.
+1. Obtain passing CI for PR #19 and the Session 0C PR; fix all failures.
+2. Complete the outbox publisher/idempotent consumer and real E2E smoke path before closing issue #4.
+3. Deliver M1–M14 features in dependency order; only independent QA may mark features passing.
