@@ -59,7 +59,9 @@ function localDateTime(date: Date): string {
 }
 
 function money(amountMinor: number, currency: string): string {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amountMinor / 1000);
+  const formatter = new Intl.NumberFormat(undefined, { style: "currency", currency });
+  const digits = formatter.resolvedOptions().maximumFractionDigits;
+  return formatter.format(amountMinor / (10 ** digits));
 }
 
 function friendlyDate(value?: string): string {
@@ -127,7 +129,6 @@ export default function HomePage() {
         if (!active) return;
         setCatalog(data);
         if (data.items.length > 0 && !selectedMenu) setSelectedMenu(data.items[0].menu_id);
-        setCountryFromMarket(data.market);
         if (activeRole === "customer") {
           const history = await api<{ items: OrderHistoryItem[] }>("/orders?limit=20", accessToken);
           if (active) setOrders(history.items ?? []);
@@ -160,12 +161,6 @@ export default function HomePage() {
     void load();
     return () => { active = false; };
   }, [accessToken, me, activeRole, selectedMenu]);
-
-  const [countryCode, setCountryCode] = useState("OM");
-
-  function setCountryFromMarket(value: string) {
-    setCountryCode(value);
-  }
 
   async function requestCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
