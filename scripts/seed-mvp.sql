@@ -52,6 +52,24 @@ SELECT 'mvp-operator-membership',id,:'tenant_id','operator'
 FROM phone_identities WHERE phone_e164=:'operator_phone'
 ON CONFLICT(identity_id,tenant_id,role) DO NOTHING;
 
+INSERT INTO cancellation_policies(
+    id,market_code,policy_version,actor_role,from_status,cutoff_minutes,
+    fee_basis_points,effective_from,created_by_identity_id
+)
+SELECT 'mvp-cancel-requested',:'market_code',:'policy_version','customer','requested',
+       0,0,now()-interval '1 day',id
+FROM phone_identities WHERE phone_e164=:'operator_phone'
+ON CONFLICT(market_code,policy_version,actor_role,from_status) DO NOTHING;
+
+INSERT INTO cancellation_policies(
+    id,market_code,policy_version,actor_role,from_status,cutoff_minutes,
+    fee_basis_points,effective_from,created_by_identity_id
+)
+SELECT 'mvp-cancel-accepted',:'market_code',:'policy_version','customer','accepted',
+       0,0,now()-interval '1 day',id
+FROM phone_identities WHERE phone_e164=:'operator_phone'
+ON CONFLICT(market_code,policy_version,actor_role,from_status) DO NOTHING;
+
 INSERT INTO phone_identities(id,phone_e164)
 VALUES ('mvp-professional-identity',:'professional_phone')
 ON CONFLICT(phone_e164) DO NOTHING;
