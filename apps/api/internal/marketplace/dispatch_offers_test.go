@@ -81,11 +81,12 @@ func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
 	results:=make(chan result,2)
 	for _,offer:=range offers {
 		wg.Add(1)
-		go func(id string) {
+		offerID,offerProviderID:=offer.ID,offer.ProviderID
+		go func(id,providerID string) {
 			defer wg.Done()
-			assignment,acceptErr:=store.AcceptDispatchOffer(context.Background(),map[string]Actor{providerA.ID:proA,providerB.ID:proB}[id],id)
+			assignment,acceptErr:=store.AcceptDispatchOffer(context.Background(),map[string]Actor{providerA.ID:proA,providerB.ID:proB}[providerID],id)
 			results<-result{assignment:assignment,err:acceptErr}
-		}(offer.ID)
+		}(offerID,offerProviderID)
 	}
 	wg.Wait()
 	close(results)
