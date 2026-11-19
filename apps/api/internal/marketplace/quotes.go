@@ -273,13 +273,16 @@ func (s *Store) AcceptQuote(ctx context.Context,actor Actor,quoteID string) (Quo
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{})
 	if err!=nil { return QuoteDecision{},err }
 	defer tx.Rollback(ctx)
-	var providerIdentityID,providerTenant string
+	var providerIdentityID,providerTenant,orderID,customerID string
 	var expiresAt time.Time
+	var quoteTotal,currentAmount int64
 	err=tx.QueryRow(ctx,`
-		SELECT p.identity_id,p.tenant_id,q.expires_at
-		FROM inspection_quotes q JOIN provider_profiles p ON p.id=q.provider_id
-		WHERE q.id=$1 FOR UPDATE OF q
-	`,quoteID).Scan(&providerIdentityID,&providerTenant,&expiresAt)
+		SELECT p.identity_id,p.tenant_id,q.expires_at,q.order_id,q.total_minor,o.customer_id,o.amount_minor
+		FROM inspection_quotes q
+		JOIN provider_profiles p ON p.id=q.provider_id
+		JOIN orders o ON o.id=q.order_id
+		WHERE q.id=$1 FOR UPDATE OF q,o
+	`,quoteID).Scan(&providerIdentityID,&providerTenant,&expiresAt,&orderID,&quoteTotal,&customerID,&currentAmount)
 	if errors.Is(err,pgx.ErrNoRows) { return QuoteDecision{},ErrQuoteNotFound }
 	if err!=nil { return QuoteDecision{},err }
 	if providerIdentityID!=actor.SubjectID { return QuoteDecision{},ErrForbidden }
@@ -288,6 +291,23 @@ func (s *Store) AcceptQuote(ctx context.Context,actor Actor,quoteID string) (Quo
 	last,err:=latestQuoteAction(ctx,tx,quoteID)
 	if err!=nil { return QuoteDecision{},err }
 	if last!="approved" { return QuoteDecision{},ErrQuoteStateConflict }
+	var revisionNo int
+	if err=tx.QueryRow(ctx,`SELECT COALESCE(MAX(revision_no),0)+1 FROM order_price_revisions WHERE order_id=$1`,orderID).Scan(&revisionNo); err!=nil {
+		return QuoteDecision{},err
+	}
+	revisionID,err:=newID()
+	if err!=nil { return QuoteDecision{},err }
+	if _,err=tx.Exec(ctx,`
+		INSERT INTO order_price_revisions(id,order_id,revision_no,source_type,source_id,previous_amount_minor,new_amount_minor,approved_by_identity_id)
+		VALUES($1,$2,$3,'quote',$4,$5,$6,$7)
+	`,revisionID,orderID,revisionNo,quoteID,currentAmount,quoteTotal,customerID); err!=nil {
+		return QuoteDecision{},err
+	}
+	if currentAmount!=quoteTotal {
+		if _,err=tx.Exec(ctx,`UPDATE orders SET amount_minor=$2,updated_at=now() WHERE id=$1`,orderID,quoteTotal); err!=nil {
+			return QuoteDecision{},err
+		}
+	}
 	decision,err:=s.appendQuoteDecision(ctx,tx,quoteID,actor,"accepted","")
 	if err!=nil { return QuoteDecision{},err }
 	if err=tx.Commit(ctx); err!=nil { return QuoteDecision{},err }
