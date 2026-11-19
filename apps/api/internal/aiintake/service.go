@@ -52,6 +52,10 @@ type Model interface {
 	Generate(context.Context, ModelInput) (ModelOutput, error)
 }
 
+type Redactor interface {
+	Redact(context.Context, string) (string, error)
+}
+
 type Suggestion struct {
 	CategoryID string `json:"category_id"`
 	Summary string `json:"summary"`
@@ -77,16 +81,21 @@ type modelSuggestion struct {
 type Service struct {
 	Catalog Catalog
 	Model Model
+	Redactor Redactor
 	Timeout time.Duration
 	Now func() time.Time
 }
 
 func (s Service) Suggest(ctx context.Context, request Request) (Suggestion, error) {
-	if s.Catalog == nil || s.Model == nil || s.Timeout <= 0 ||
+	if s.Catalog == nil || s.Model == nil || s.Redactor == nil || s.Timeout <= 0 ||
 		strings.TrimSpace(request.Market) == "" || strings.TrimSpace(request.Locale) == "" ||
 		strings.TrimSpace(request.Text) == "" || len(request.Text) > 8000 {
 		return Suggestion{}, ErrInvalidRequest
 	}
+	redactedText, err := s.Redactor.Redact(ctx, strings.TrimSpace(request.Text))
+	if err != nil { return Suggestion{}, fmt.Errorf("redact intake text: %w", err) }
+	redactedText = strings.TrimSpace(redactedText)
+	if redactedText == "" || len(redactedText) > 8000 { return Suggestion{}, ErrInvalidRequest }
 	categories, err := s.Catalog.EnabledCategories(ctx, request.Market, request.Locale)
 	if err != nil { return Suggestion{}, fmt.Errorf("load enabled catalog categories: %w", err) }
 	if len(categories) == 0 { return Suggestion{}, ErrInvalidRequest }
@@ -100,7 +109,7 @@ func (s Service) Suggest(ctx context.Context, request Request) (Suggestion, erro
 	defer cancel()
 	output, err := s.Model.Generate(modelCtx, ModelInput{
 		Market: request.Market, Locale: request.Locale,
-		Text: strings.TrimSpace(request.Text), AllowedCategories: categories,
+		Text: redactedText, AllowedCategories: categories,
 	})
 	if err != nil { return Suggestion{}, fmt.Errorf("generate intake suggestion: %w", err) }
 	if err := modelCtx.Err(); err != nil { return Suggestion{}, err }
@@ -130,7 +139,7 @@ func (s Service) Suggest(ctx context.Context, request Request) (Suggestion, erro
 		if strings.TrimSpace(detail) == "" || len(detail) > 160 { return Suggestion{}, ErrInvalidSuggestion }
 	}
 
-	fingerprint := sha256.Sum256([]byte(strings.TrimSpace(request.Text)))
+	fingerprint := sha256.Sum256([]byte(redactedText))
 	now := time.Now
 	if s.Now != nil { now = s.Now }
 	return Suggestion{
