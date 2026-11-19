@@ -24,7 +24,7 @@ func ProcessOutboxBatch(ctx context.Context, db *pgxpool.Pool, consumerName stri
 	if consumerName=="" || limit<1 || limit>100 || handler==nil { return 0,fmt.Errorf("consumer name, handler, and limit 1..100 are required") }
 	tx,err:=db.BeginTx(ctx,pgx.TxOptions{}); if err!=nil { return 0,err }; defer tx.Rollback(ctx)
 	rows,err:=tx.Query(ctx,`SELECT id,aggregate_type,aggregate_id,event_type,payload FROM outbox_events
-		WHERE published_at IS NULL ORDER BY id FOR UPDATE SKIP LOCKED LIMIT $1`,limit)
+		WHERE published_at IS NULL ORDER BY id LIMIT $1 FOR UPDATE SKIP LOCKED`,limit)
 	if err!=nil { return 0,err }
 	events:=make([]OutboxEvent,0,limit)
 	for rows.Next() {
