@@ -46,7 +46,7 @@ func (s *Store) ProposeQuoteVariation(ctx context.Context,actor Actor,quoteID,sc
 	var currentAmount int64
 	err=tx.QueryRow(ctx,`
 		SELECT p.identity_id,p.tenant_id,q.order_id,o.amount_minor
-		FROM inspection_quotes q JOIN provider_profiles p ON p.id=q.provider_id
+		FROM inspection_quotes q JOIN provider_profiles p ON p.id=q.provider_id AND p.active=true AND p.verified_at IS NOT NULL
 		JOIN orders o ON o.id=q.order_id
 		WHERE q.id=$1 FOR UPDATE OF q,o
 	`,quoteID).Scan(&providerIdentity,&providerTenant,&orderID,&currentAmount)
