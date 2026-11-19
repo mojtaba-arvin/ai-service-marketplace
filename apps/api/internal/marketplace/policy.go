@@ -27,7 +27,7 @@ const (
 	ActionSupportCaseRead   Action = "support:case:read"
 	ActionSupportCaseComment Action = "support:case:comment"
 	ActionLedgerPost        Action = "ledger:post"
-	ActionIdentityRead      Action = "identity:read_sensitive"
+	ActionIdentityRead      Action = "identity:read_sensitive"\n\tActionMarketConfigure Action = "market:configure"\n\tActionCatalogManage Action = "catalog:manage"
 )
 
 var ErrForbidden = errors.New("access denied")
@@ -81,7 +81,7 @@ func Authorize(actor Actor, resource Resource, action Action) error {
 		}
 	case RoleOperator:
 		switch action {
-		case ActionOrderRead, ActionOrderAssign, ActionProviderVerify, ActionCaseRead:
+		case ActionOrderRead, ActionOrderAssign, ActionProviderVerify, ActionCaseRead, ActionMarketConfigure, ActionCatalogManage:
 			allowed = true
 		}
 	case RoleSupport:
