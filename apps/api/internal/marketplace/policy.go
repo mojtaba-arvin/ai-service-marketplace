@@ -27,7 +27,9 @@ const (
 	ActionSupportCaseRead   Action = "support:case:read"
 	ActionSupportCaseComment Action = "support:case:comment"
 	ActionLedgerPost        Action = "ledger:post"
-	ActionIdentityRead      Action = "identity:read_sensitive"\n\tActionMarketConfigure Action = "market:configure"\n\tActionCatalogManage Action = "catalog:manage"
+	ActionIdentityRead      Action = "identity:read_sensitive"
+	ActionMarketConfigure Action = "market:configure"
+	ActionCatalogManage Action = "catalog:manage"
 )
 
 var ErrForbidden = errors.New("access denied")
