@@ -20,7 +20,7 @@ func TestProviderAvailabilityAndNonOverlappingBookingsPostgres(t *testing.T) {
 	pool,err:=pgxpool.New(ctx,dsn)
 	if err!=nil { t.Fatal(err) }
 	defer pool.Close()
-	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","006_provider_eligibility.sql","015_order_schedule.sql","017_provider_availability.sql"} {
+	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","006_provider_eligibility.sql","007_market_config.sql","015_order_schedule.sql","016_cancellation_policy.sql","017_provider_availability.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
 		if _,err=pool.Exec(ctx,string(migration)); err!=nil { t.Fatalf("apply %s: %v",name,err) }
@@ -36,6 +36,9 @@ func TestProviderAvailabilityAndNonOverlappingBookingsPostgres(t *testing.T) {
 	customer:=Actor{SubjectID:ids[0],TenantID:"market-dispatch",Role:RoleCustomer}
 	professional:=Actor{SubjectID:ids[1],TenantID:"market-dispatch",Role:RoleProfessional}
 	operator:=Actor{SubjectID:ids[2],TenantID:"market-dispatch",Role:RoleOperator}
+	if _,err=store.SaveMarket(ctx,operator,MarketConfig{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"dispatch-market-v1",Enabled:true,Locales:[]string{"en","ar"}}); err!=nil { t.Fatal(err) }
+	policyVersion:="dispatch-cancel-"+fmt.Sprint(time.Now().UnixNano())
+	if _,err=store.SaveCancellationPolicy(ctx,operator,CancellationPolicy{MarketCode:"OM",PolicyVersion:policyVersion,ActorRole:RoleCustomer,FromStatus:"requested",CutoffMinutes:60,FeeBasisPoints:1000,EffectiveFrom:time.Now().UTC().Add(-time.Hour)}); err!=nil { t.Fatal(err) }
 	category,err:=store.CreateCategory(ctx,nil,fmt.Sprintf("availability-%d",time.Now().UnixNano()),"Availability")
 	if err!=nil { t.Fatal(err) }
 	menu,err:=store.CreatePriceMenu(ctx,category.ID,"availability-service")
@@ -82,6 +85,14 @@ func TestProviderAvailabilityAndNonOverlappingBookingsPostgres(t *testing.T) {
 	if _,err=store.CreateProviderBooking(ctx,operator,provider.ID,second.ID,start.Add(30*time.Minute),start.Add(time.Hour),loc.String()); !errors.Is(err,ErrProviderBookingConflict) {
 		t.Fatalf("overlapping provider booking must fail transactionally: %v",err)
 	}
+	cancellation,err:=store.CancelOrder(ctx,customer,first.ID,"cancel-booking-"+fmt.Sprint(time.Now().UnixNano()),"Customer cancelled reserved order")
+	if err!=nil || cancellation.FeeMinor!=0 { t.Fatalf("cancel order should release provider slot: %#v %v",cancellation,err) }
+	var bookingStatus string
+	if err=pool.QueryRow(ctx,`SELECT status FROM provider_bookings WHERE id=$1`,booking.ID).Scan(&bookingStatus); err!=nil || bookingStatus!="cancelled" {
+		t.Fatalf("order cancellation must release provider booking: status=%s err=%v",bookingStatus,err)
+	}
+	secondBooking,err:=store.CreateProviderBooking(ctx,operator,provider.ID,second.ID,start.Add(30*time.Minute),start.Add(time.Hour),loc.String())
+	if err!=nil || secondBooking.Status!="booked" { t.Fatalf("released slot should be reservable: %#v %v",secondBooking,err) }
 	outside:=createOrder("booking-outside-"+fmt.Sprint(time.Now().UnixNano()),end.Add(30*time.Minute))
 	if _,err=store.CreateProviderBooking(ctx,operator,provider.ID,outside.ID,end.Add(15*time.Minute),end.Add(time.Hour),loc.String()); !errors.Is(err,ErrProviderUnavailable) {
 		t.Fatalf("booking outside available window must fail: %v",err)
