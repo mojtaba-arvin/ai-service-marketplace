@@ -103,10 +103,8 @@ FOR EACH ROW EXECUTE FUNCTION reject_price_revision_mutation();
 CREATE OR REPLACE FUNCTION validate_quote_decision_actor() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
     expected_identity text;
+    previous_action text;
 BEGIN
-    DECLARE
-        previous_action text;
-    BEGIN
     SELECT action INTO previous_action FROM quote_decisions
         WHERE quote_id=NEW.quote_id ORDER BY created_at DESC,id DESC LIMIT 1;
     IF NEW.action IN ('approved','rejected') AND previous_action IS NOT NULL THEN
@@ -129,8 +127,7 @@ BEGIN
         END IF;
     END IF;
     RETURN NEW;
-    END;
-END $;
+END $$;
 DROP TRIGGER IF EXISTS quote_decision_actor_guard ON quote_decisions;
 CREATE TRIGGER quote_decision_actor_guard BEFORE INSERT ON quote_decisions
 FOR EACH ROW EXECUTE FUNCTION validate_quote_decision_actor();
