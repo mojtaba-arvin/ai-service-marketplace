@@ -60,7 +60,19 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
 
     suffix := fmt.Sprint(time.Now().UnixNano())
     tenantID := "mvp-test-" + suffix
-    marketCode := "ZZ"
+    marketCode := ""
+    startCode := time.Now().UnixNano() % 676
+    for offset:=int64(0);offset<676;offset++ {
+        value := (startCode+offset)%676
+        candidate := string([]byte{byte('A'+value/26),byte('A'+value%26)})
+        if candidate=="ZZ" { continue }
+        var exists bool
+        if err=pool.QueryRow(ctx,`SELECT EXISTS(SELECT 1 FROM markets WHERE code=$1)`,candidate).Scan(&exists);err!=nil {
+            t.Fatal(err)
+        }
+        if !exists { marketCode=candidate;break }
+    }
+    if marketCode=="" { t.Fatal("no unused two-letter market code available for test") }
     operatorPhone := "+1996" + suffix[len(suffix)-11:]
     professionalPhone := "+1997" + suffix[len(suffix)-11:]
     customerPhone := "+1998" + suffix[len(suffix)-11:]
