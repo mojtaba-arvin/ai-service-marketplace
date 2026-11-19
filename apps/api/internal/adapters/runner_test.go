@@ -71,13 +71,13 @@ func TestCircuitBreakerOpensAndAllowsSingleProbe(t *testing.T) {
 
 func TestPermanentErrorReleasesHalfOpenProbe(t *testing.T) {
 	b,err:=NewCircuitBreaker(1,time.Millisecond); if err!=nil { t.Fatal(err) }
-	now:=time.Now(); b.failure(now)
+	now:=time.Now(); initial,ok:=b.allow(now); if !ok { t.Fatal("closed breaker rejected initial call") }; b.failure(initial,now)
 	r:=Runner{Policy:testPolicy(),Breaker:b}
 	time.Sleep(2*time.Millisecond)
 	permanent:=errors.New("provider rejected request")
 	_,err=Do(r,context.Background(),"stable-key",func(context.Context,string)(int,error){return 0,permanent})
 	if !errors.Is(err,permanent) { t.Fatalf("got %v",err) }
-	if !b.allow(time.Now()) { t.Fatal("permanent error left the half-open probe locked") }
+	if _,ok:=b.allow(time.Now()); !ok { t.Fatal("permanent error left the half-open probe locked") }
 }
 
 func TestStaleSuccessCannotCloseNewlyOpenedBreaker(t *testing.T) {
