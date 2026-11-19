@@ -55,9 +55,10 @@ func (s *Store) ListPublicCatalog(ctx context.Context, marketCode string) ([]Pub
          AND t.locale=(SELECT default_locale FROM markets WHERE code=$1 AND enabled=true)
         JOIN service_price_menus m ON m.category_id=c.id
         JOIN service_price_versions v ON v.id=m.active_version_id
+        JOIN markets market ON market.code=$1 AND market.enabled=true AND market.currency=v.currency
         WHERE c.enabled=true
         ORDER BY c.slug,m.service_code
-    `)
+    `, strings.ToUpper(strings.TrimSpace(marketCode)))
     if err != nil {
         return nil, err
     }
@@ -292,6 +293,10 @@ func (h *Handler) createScheduledOrder(w http.ResponseWriter, r *http.Request) {
     }
     if json.NewDecoder(r.Body).Decode(&in) != nil {
         writeError(w,http.StatusBadRequest,"invalid JSON")
+        return
+    }
+    if strings.ToUpper(strings.TrimSpace(in.CountryCode)) != h.DefaultMarketCode {
+        writeError(w,http.StatusUnprocessableEntity,"orders are limited to the configured launch market")
         return
     }
     order, created, err := h.Store.CreateScheduledOrder(r.Context(),actor,r.Header.Get("Idempotency-Key"),
@@ -542,6 +547,10 @@ func (h *Handler) professionalQualification(w http.ResponseWriter, r *http.Reque
         in.RegionCode == "" || in.CityCode == "" || in.AreaCode == "" || in.AvailableFrom.IsZero() ||
         in.AvailableUntil.IsZero() || in.Timezone == "" {
         writeError(w,http.StatusBadRequest,"category, service area, availability range, and timezone are required")
+        return
+    }
+    if strings.ToUpper(strings.TrimSpace(in.CountryCode)) != h.DefaultMarketCode {
+        writeError(w,http.StatusUnprocessableEntity,"service areas are limited to the configured launch market")
         return
     }
     if err = h.Store.AddProviderSkill(r.Context(),actor,profile.ID,in.CategoryID); err == nil {
