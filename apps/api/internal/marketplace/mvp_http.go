@@ -24,6 +24,16 @@ type PublicCatalogItem struct {
     Currency string `json:"currency"`
 }
 
+type OperatorProvider struct {
+    ID string `json:"id"`
+    IdentityID string `json:"identity_id"`
+    DisplayName string `json:"display_name"`
+    Active bool `json:"active"`
+    VerifiedAt *time.Time `json:"verified_at,omitempty"`
+    CategoryID *string `json:"category_id,omitempty"`
+    SkillVerifiedAt *time.Time `json:"skill_verified_at,omitempty"`
+}
+
 type OperatorOrder struct {
     ID string `json:"id"`
     CustomerID string `json:"customer_id"`
@@ -146,6 +156,37 @@ func (s *Store) ListOperatorOrders(ctx context.Context, actor Actor, marketCode 
     return orders, nil
 }
 
+func (s *Store) ListOperatorProviders(ctx context.Context, actor Actor) ([]OperatorProvider, error) {
+    if actor.Role != RoleOperator || actor.SubjectID == "" || actor.TenantID == "" {
+        return nil, ErrForbidden
+    }
+    if err := Authorize(actor,Resource{TenantID:actor.TenantID},ActionProviderVerify); err != nil {
+        return nil, err
+    }
+    rows, err := s.DB.Query(ctx, `
+        SELECT p.id,p.identity_id,p.display_name,p.active,p.verified_at,
+            ps.category_id,ps.verified_at
+        FROM provider_profiles p
+        LEFT JOIN provider_skills ps ON ps.provider_id=p.id
+        WHERE p.tenant_id=$1
+        ORDER BY p.created_at DESC,p.id,ps.category_id
+        LIMIT 200
+    `,actor.TenantID)
+    if err != nil { return nil,err }
+    defer rows.Close()
+    providers := make([]OperatorProvider,0)
+    for rows.Next() {
+        var provider OperatorProvider
+        if err=rows.Scan(&provider.ID,&provider.IdentityID,&provider.DisplayName,&provider.Active,
+            &provider.VerifiedAt,&provider.CategoryID,&provider.SkillVerifiedAt);err!=nil {
+            return nil,err
+        }
+        providers=append(providers,provider)
+    }
+    if err=rows.Err();err!=nil { return nil,err }
+    return providers,nil
+}
+
 func (s *Store) TransitionOrderAsActor(ctx context.Context, actor Actor, orderID, target string) (Order, error) {
     tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
     if err != nil {
@@ -260,6 +301,8 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.professionalTransition(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/operator/orders":
         h.operatorOrders(w,r); return true
+    case r.Method == http.MethodGet && path == "/v1/operator/providers":
+        h.operatorProviders(w,r); return true
     case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/operator/orders/") && strings.HasSuffix(path,"/dispatch"):
         h.dispatchOrder(w,r); return true
     case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/operator/providers/") && strings.HasSuffix(path,"/verify"):
@@ -501,6 +544,20 @@ func (h *Handler) operatorOrders(w http.ResponseWriter, r *http.Request) {
         return
     }
     writeJSON(w,http.StatusOK,map[string]any{"orders":orders})
+}
+
+func (h *Handler) operatorProviders(w http.ResponseWriter, r *http.Request) {
+    actor, err := h.actorForRole(r,RoleOperator)
+    if err != nil {
+        writeError(w,http.StatusForbidden,"operator membership is required")
+        return
+    }
+    providers, err := h.Store.ListOperatorProviders(r.Context(),actor)
+    if err != nil {
+        writeError(w,http.StatusInternalServerError,"could not load providers")
+        return
+    }
+    writeJSON(w,http.StatusOK,map[string]any{"providers":providers})
 }
 
 func (h *Handler) dispatchOrder(w http.ResponseWriter, r *http.Request) {
