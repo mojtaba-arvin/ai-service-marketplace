@@ -5,6 +5,7 @@ import (
  "log"
  "net/http"
  "os"
+ "strings"
  "time"
 
  "github.com/jackc/pgx/v5/pgxpool"
@@ -15,6 +16,12 @@ func requiredSecret(name string) []byte {
  value:=os.Getenv(name)
  if len(value)<32 { log.Fatalf("%s must contain at least 32 bytes",name) }
  return []byte(value)
+}
+
+func requiredValue(name string) string {
+ value:=strings.TrimSpace(os.Getenv(name))
+ if value=="" { log.Fatalf("%s is required",name) }
+ return value
 }
 
 func main() {
@@ -29,7 +36,7 @@ func main() {
   "009_ledger_accounts.sql","010_ledger_idempotency_reversal.sql","011_payment_adapter_contract.sql",
   "012_settlement_reconciliation.sql","013_inspection_quotes.sql","014_quote_variations.sql",
   "015_order_schedule.sql","016_cancellation_policy.sql","017_provider_availability.sql",
-  "018_dispatch_offers.sql","019_outbox_delivery.sql","020_professional_verification.sql","021_support_cases.sql",
+  "018_dispatch_offers.sql","019_outbox_delivery.sql","020_professional_verification.sql","021_support_cases.sql","022_identity_memberships.sql",
  }
  for _,name:=range migrations {
   migration,readErr:=os.ReadFile("migrations/"+name);if readErr!=nil{log.Fatal(readErr)}
@@ -41,13 +48,20 @@ func main() {
  if appEnv=="production" {
   delivery,deliveryErr:=marketplace.NewHTTPOTPDelivery(os.Getenv("OTP_DELIVERY_URL"),os.Getenv("OTP_DELIVERY_TOKEN"),&http.Client{Timeout:8*time.Second})
   if deliveryErr!=nil{log.Fatalf("configure OTP delivery: %v",deliveryErr)}
+  tenantID:=requiredValue("DEFAULT_TENANT_ID")
+  marketCode:=strings.ToUpper(requiredValue("DEFAULT_MARKET_CODE"))
+  operatorPhone:=requiredValue("BOOTSTRAP_OPERATOR_PHONE")
+  if _,phoneErr:=marketplace.NormalizeE164Phone(operatorPhone);phoneErr!=nil{log.Fatalf("BOOTSTRAP_OPERATOR_PHONE is invalid: %v",phoneErr)}
   handler=&marketplace.Handler{
    Store:store,OTPPepper:requiredSecret("OTP_PEPPER"),SessionPepper:requiredSecret("SESSION_PEPPER"),
    OTPDelivery:delivery,AccessTTL:15*time.Minute,RefreshTTL:30*24*time.Hour,
+   DefaultTenantID:tenantID,DefaultMarketCode:marketCode,BootstrapOperatorPhone:operatorPhone,
   }
  } else if appEnv==""||appEnv=="development"||appEnv=="test" {
   code:=os.Getenv("TEST_OTP_CODE");if code==""{code="000000"}
-  handler=&marketplace.Handler{Store:store,OTPCode:code,TestMode:true}
+  tenantID:=strings.TrimSpace(os.Getenv("DEFAULT_TENANT_ID"));if tenantID==""{tenantID="market-om"}
+  marketCode:=strings.ToUpper(strings.TrimSpace(os.Getenv("DEFAULT_MARKET_CODE")));if marketCode==""{marketCode="OM"}
+  handler=&marketplace.Handler{Store:store,OTPCode:code,TestMode:true,DefaultTenantID:tenantID,DefaultMarketCode:marketCode,BootstrapOperatorPhone:os.Getenv("BOOTSTRAP_OPERATOR_PHONE")}
  } else {
   log.Fatalf("unsupported APP_ENV %q",appEnv)
  }
