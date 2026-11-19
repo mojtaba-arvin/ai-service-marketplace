@@ -80,8 +80,8 @@ func (s *Store) TransitionOrder(ctx context.Context, id, target string) (Order,e
 	if err!=nil { return Order{},err }
 	defer tx.Rollback(ctx)
 	var current Order
-	err=tx.QueryRow(ctx,`SELECT id,customer_id,amount_minor,currency,status FROM orders WHERE id=$1 FOR UPDATE`,id).
-		Scan(&current.ID,&current.CustomerID,&current.AmountMinor,&current.Currency,&current.Status)
+	err=tx.QueryRow(ctx,`SELECT id,customer_id,amount_minor,currency,status,price_version_id FROM orders WHERE id=$1 FOR UPDATE`,id).
+		Scan(&current.ID,&current.CustomerID,&current.AmountMinor,&current.Currency,&current.Status,&current.PriceVersionID)
 	if err!=nil { return Order{},err }
 	if current.Status==target { if err=tx.Commit(ctx); err!=nil{return Order{},err}; return current,nil }
 	if !CanTransition(current.Status,target) { return Order{},ErrInvalidTransition }
