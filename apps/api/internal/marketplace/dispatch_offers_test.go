@@ -118,7 +118,7 @@ func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
 	if err!=nil { t.Fatal(err) }
 	expiredOffer,err:=newID()
 	if err!=nil { t.Fatal(err) }
-	if _,err=pool.Exec(ctx,`INSERT INTO dispatch_rounds(id,order_id,round_no,fanout_limit,offer_count,expires_at,created_by_identity_id) VALUES($1,$2,1,1,1,now()-interval '1 minute',$3)`,expiredRound,declineOrder.ID,ids[3]); err!=nil { t.Fatal(err) }
+	if _,err=pool.Exec(ctx,`INSERT INTO dispatch_rounds(id,order_id,round_no,fanout_limit,offer_count,expires_at,created_by_identity_id) VALUES($1,$2,2,1,1,now()-interval '1 minute',$3)`,expiredRound,declineOrder.ID,ids[3]); err!=nil { t.Fatal(err) }
 	if _,err=pool.Exec(ctx,`INSERT INTO dispatch_offers(id,round_id,order_id,provider_id,start_at,end_at,timezone,expires_at) VALUES($1,$2,$3,$4,$5,$6,'Asia/Muscat',now()-interval '1 minute')`,expiredOffer,expiredRound,declineOrder.ID,providerB.ID,base,base.Add(30*time.Minute)); err!=nil { t.Fatal(err) }
 	expiredCount,err:=store.ExpireDispatchOffers(ctx,25)
 	if err!=nil || expiredCount!=1 { t.Fatalf("expire due offers: count=%d err=%v",expiredCount,err) }
