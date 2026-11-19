@@ -23,7 +23,7 @@ func main() {
 	if err != nil { log.Fatal(err) }
 	defer pool.Close()
 	if err = pool.Ping(ctx); err != nil { log.Fatal(err) }
-	for _, name := range []string{"001_walking_skeleton.sql", "002_identity.sql", "003_sessions.sql", "004_catalog.sql"} {
+	for _, name := range []string{"001_walking_skeleton.sql", "002_identity.sql", "003_sessions.sql", "004_catalog.sql", "005_pricing.sql"} {
 		migration, readErr := os.ReadFile("migrations/" + name)
 		if readErr != nil { log.Fatal(readErr) }
 		if _, migrateErr := pool.Exec(ctx, string(migration)); migrateErr != nil { log.Fatalf("apply %s: %v", name, migrateErr) }
