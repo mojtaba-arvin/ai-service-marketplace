@@ -13,13 +13,12 @@ permissions:
 
 jobs:
   codeql:
-    name: CodeQL (python)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3
         with:
-          languages: python
+          languages: go, python
       - uses: github/codeql-action/analyze@v3
 
   dependency-review:
