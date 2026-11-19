@@ -133,4 +133,15 @@ func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
 	if err=pool.QueryRow(ctx,`SELECT status FROM dispatch_offers WHERE id=$1`,expiredOffer).Scan(&expiredStatus); err!=nil || expiredStatus!="expired" {
 		t.Fatalf("expired offer state mismatch: %q %v",expiredStatus,err)
 	}
+	for eventType,want:=range map[string]int{
+		"dispatch.offer_created":2,
+		"order.provider_assigned":1,
+		"dispatch.offer_declined":1,
+		"dispatch.offer_expired":1,
+	} {
+		var got int
+		if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE event_type=$1`,eventType).Scan(&got); err!=nil || got!=want {
+			t.Fatalf("outbox event %s count=%d want=%d err=%v",eventType,got,want,err)
+		}
+	}
 }
