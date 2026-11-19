@@ -24,14 +24,21 @@ func TestProductionHTTPOTPAndSessionLifecyclePostgres(t *testing.T){
  dsn:=os.Getenv("TEST_DATABASE_URL");if dsn==""{t.Skip("TEST_DATABASE_URL is not configured")}
  ctx,cancel:=context.WithTimeout(context.Background(),30*time.Second);defer cancel()
  pool,err:=pgxpool.New(ctx,dsn);if err!=nil{t.Fatal(err)};defer pool.Close()
- for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","003_sessions.sql"}{
+ for _,name:=range []string{
+  "001_walking_skeleton.sql","002_identity.sql","003_sessions.sql","004_catalog.sql","005_pricing.sql",
+  "006_provider_eligibility.sql","007_market_config.sql","008_catalog_localization.sql","009_ledger_accounts.sql",
+  "010_ledger_idempotency_reversal.sql","011_payment_adapter_contract.sql","012_settlement_reconciliation.sql",
+  "013_inspection_quotes.sql","014_quote_variations.sql","015_order_schedule.sql","016_cancellation_policy.sql",
+  "017_provider_availability.sql","018_dispatch_offers.sql","019_outbox_delivery.sql","020_professional_verification.sql",
+  "021_support_cases.sql","022_identity_memberships.sql",
+ }{
   raw,e:=os.ReadFile(filepath.Join("..","..","migrations",name));if e!=nil{t.Fatal(e)}
   if _,e=pool.Exec(ctx,string(raw));e!=nil{t.Fatalf("apply %s: %v",name,e)}
  }
  delivery:=&fakeOTPDelivery{}
  pepper:=[]byte("auth-test-pepper-material-at-least-32-bytes")
  sessionPepper:=[]byte("session-test-pepper-material-at-least-32-bytes")
- h:=&Handler{Store:&Store{DB:pool},OTPPepper:pepper,SessionPepper:sessionPepper,OTPDelivery:delivery,AccessTTL:15*time.Minute,RefreshTTL:24*time.Hour}
+ h:=&Handler{Store:&Store{DB:pool},OTPPepper:pepper,SessionPepper:sessionPepper,OTPDelivery:delivery,AccessTTL:15*time.Minute,RefreshTTL:24*time.Hour,DefaultTenantID:"auth-test-tenant",DefaultMarketCode:"OM"}
  phone:=fmt.Sprintf("+1996%011d",time.Now().UnixNano()%100000000000)
  body,_:=json.Marshal(map[string]string{"phone":phone})
  req:=httptest.NewRequest(http.MethodPost,"/v1/auth/otp/request",bytes.NewReader(body))
@@ -50,10 +57,14 @@ func TestProductionHTTPOTPAndSessionLifecyclePostgres(t *testing.T){
  authReq:=httptest.NewRequest(http.MethodGet,"/v1/auth/me",nil);authReq.Header.Set("Authorization","Bearer "+tokens.AccessToken)
  authResp:=httptest.NewRecorder();h.ServeHTTP(authResp,authReq)
  if authResp.Code!=http.StatusOK{t.Fatalf("auth/me status=%d body=%s",authResp.Code,authResp.Body.String())}
- var me map[string]string
+ var me struct {
+  Phone string `json:"phone"`
+  IdentityID string `json:"identity_id"`
+  Roles []Role `json:"roles"`
+ }
  if err=json.Unmarshal(authResp.Body.Bytes(),&me);err!=nil{t.Fatal(err)}
- if me["phone"]!=phone||me["identity_id"]==""{t.Fatalf("wrong principal: %+v",me)}
- order,_,err:=h.Store.CreateOrder(ctx,me["identity_id"],"auth-order-"+challenge.ID,100,"OMR");if err!=nil{t.Fatal(err)}
+ if me.Phone!=phone||me.IdentityID==""{t.Fatalf("wrong principal: %+v",me)}
+ order,_,err:=h.Store.CreateOrder(ctx,me.IdentityID,"auth-order-"+challenge.ID,100,"OMR");if err!=nil{t.Fatal(err)}
  orderReq:=httptest.NewRequest(http.MethodGet,"/v1/orders/"+order.ID,nil);orderReq.Header.Set("Authorization","Bearer "+tokens.AccessToken)
  orderResp:=httptest.NewRecorder();h.ServeHTTP(orderResp,orderReq)
  if orderResp.Code!=http.StatusOK{t.Fatalf("owner order read status=%d body=%s",orderResp.Code,orderResp.Body.String())}
@@ -78,9 +89,9 @@ func TestOTPDeliveryFailureInvalidatesChallengePostgres(t *testing.T){
  dsn:=os.Getenv("TEST_DATABASE_URL");if dsn==""{t.Skip("TEST_DATABASE_URL is not configured")}
  ctx,cancel:=context.WithTimeout(context.Background(),20*time.Second);defer cancel()
  pool,err:=pgxpool.New(ctx,dsn);if err!=nil{t.Fatal(err)};defer pool.Close()
- for _,name:=range []string{"002_identity.sql"}{raw,e:=os.ReadFile(filepath.Join("..","..","migrations",name));if e!=nil{t.Fatal(e)};if _,e=pool.Exec(ctx,string(raw));e!=nil{t.Fatal(e)}}
+ for _,name:=range []string{"002_identity.sql","022_identity_memberships.sql"}{raw,e:=os.ReadFile(filepath.Join("..","..","migrations",name));if e!=nil{t.Fatal(e)};if _,e=pool.Exec(ctx,string(raw));e!=nil{t.Fatal(e)}}
  delivery:=&fakeOTPDelivery{err:errors.New("provider unavailable")}
- h:=&Handler{Store:&Store{DB:pool},OTPPepper:[]byte("auth-test-pepper-material-at-least-32-bytes"),OTPDelivery:delivery}
+ h:=&Handler{Store:&Store{DB:pool},OTPPepper:[]byte("auth-test-pepper-material-at-least-32-bytes"),OTPDelivery:delivery,DefaultTenantID:"auth-failure-tenant"}
  phone:=fmt.Sprintf("+1995%011d",time.Now().UnixNano()%100000000000)
  body,_:=json.Marshal(map[string]string{"phone":phone})
  req:=httptest.NewRequest(http.MethodPost,"/v1/auth/otp/request",bytes.NewReader(body))
