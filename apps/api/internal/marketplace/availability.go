@@ -2,6 +2,7 @@ package marketplace
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -181,6 +182,10 @@ func (s *Store) CreateProviderBooking(ctx context.Context,actor Actor,providerID
 			if pgErr.Code=="23P01" { return ProviderBooking{},ErrProviderBookingConflict }
 			if pgErr.Code=="23505" { return ProviderBooking{},ErrOrderAlreadyBooked }
 		}
+		return ProviderBooking{},err
+	}
+	payload,_:=json.Marshal(map[string]any{"booking_id":booking.ID,"provider_id":providerID,"order_id":orderID,"start_at":startAt,"end_at":endAt})
+	if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('provider_booking',$1,'provider.booking_reserved',$2::jsonb)`,booking.ID,payload); err!=nil {
 		return ProviderBooking{},err
 	}
 	if err=tx.Commit(ctx); err!=nil { return ProviderBooking{},err }
