@@ -367,6 +367,10 @@ func (h *Handler) cancelOrder(w http.ResponseWriter, r *http.Request) {
         writeError(w,http.StatusNotFound,"not found")
         return
     }
+    if strings.TrimSpace(r.Header.Get("Idempotency-Key")) == "" {
+        writeError(w,http.StatusBadRequest,"Idempotency-Key is required")
+        return
+    }
     var in struct { Reason string `json:"reason"` }
     if json.NewDecoder(r.Body).Decode(&in) != nil || strings.TrimSpace(in.Reason) == "" {
         writeError(w,http.StatusBadRequest,"reason is required")
