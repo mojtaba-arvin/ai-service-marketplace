@@ -104,6 +104,17 @@ CREATE OR REPLACE FUNCTION validate_quote_decision_actor() RETURNS trigger LANGU
 DECLARE
     expected_identity text;
 BEGIN
+    DECLARE
+        previous_action text;
+    BEGIN
+    SELECT action INTO previous_action FROM quote_decisions
+        WHERE quote_id=NEW.quote_id ORDER BY created_at DESC,id DESC LIMIT 1;
+    IF NEW.action IN ('approved','rejected') AND previous_action IS NOT NULL THEN
+        RAISE EXCEPTION 'quote already has a customer decision';
+    END IF;
+    IF NEW.action='accepted' AND previous_action IS DISTINCT FROM 'approved' THEN
+        RAISE EXCEPTION 'professional may accept only a customer-approved quote';
+    END IF;
     IF NEW.action IN ('approved','rejected') THEN
         SELECT o.customer_id INTO expected_identity
         FROM inspection_quotes q JOIN orders o ON o.id=q.order_id WHERE q.id=NEW.quote_id;
@@ -118,7 +129,8 @@ BEGIN
         END IF;
     END IF;
     RETURN NEW;
-END $$;
+    END;
+END $;
 DROP TRIGGER IF EXISTS quote_decision_actor_guard ON quote_decisions;
 CREATE TRIGGER quote_decision_actor_guard BEFORE INSERT ON quote_decisions
 FOR EACH ROW EXECUTE FUNCTION validate_quote_decision_actor();
