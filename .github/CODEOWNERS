@@ -1,0 +1,7 @@
+# Replace @OWNER with the repository maintainer/team before enabling required reviews.
+# Until configured, these entries are intentionally non-operative placeholders.
+/.github/ @OWNER
+/AGENTS.md @OWNER
+/feature_list.json @OWNER
+/docs/adr/ @OWNER
+/apps/api/ @OWNER
