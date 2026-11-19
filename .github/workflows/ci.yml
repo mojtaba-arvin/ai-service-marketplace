@@ -59,3 +59,19 @@ jobs:
         run: bash scripts/e2e-walking-skeleton.sh
       - name: Validate Compose configuration
         run: docker compose config --quiet
+      - name: Validate production Compose configuration
+        run: |
+          cat > /tmp/mvp.env <<'EOF'
+          SITE_ADDRESS=market.example.test
+          POSTGRES_DB=marketplace
+          POSTGRES_USER=marketplace
+          POSTGRES_PASSWORD=ci-only-password
+          DATABASE_URL=postgres://marketplace:ci-only-password@postgres:5432/marketplace?sslmode=disable
+          OTP_DELIVERY_URL=https://otp.example.test/send
+          OTP_DELIVERY_TOKEN=ci-only-token
+          OTP_PEPPER=0123456789abcdef0123456789abcdef
+          SESSION_PEPPER=abcdef0123456789abcdef0123456789
+          EOF
+          docker compose --env-file /tmp/mvp.env -f infra/compose.production.yml config --quiet
+      - name: Build production API image
+        run: docker build --file apps/api/Dockerfile --tag ai-service-marketplace-api:ci .
