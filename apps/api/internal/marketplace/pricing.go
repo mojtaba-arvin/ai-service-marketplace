@@ -195,6 +195,7 @@ func (s *Store) CreateOrderFromPrice(ctx context.Context, customerID, idempotenc
 		`, customerID, idempotencyKey).Scan(&existing.ID, &existing.CustomerID, &existing.AmountMinor,
 			&existing.Currency, &existing.Status, &existing.PriceVersionID, &existingMenuID,
 			&existing.ScheduledAt,&existing.CountryCode,&existing.RegionCode,&existing.CityCode,&existing.AreaCode)
+		if errors.Is(err, pgx.ErrNoRows) { return Order{}, false, ErrOrderIdempotencyConflict }
 		if err != nil { return Order{}, false, err }
 		if existingMenuID != menuID || existing.ScheduledAt!=nil || existing.CountryCode!=nil {
 			return Order{}, false, ErrOrderIdempotencyConflict
