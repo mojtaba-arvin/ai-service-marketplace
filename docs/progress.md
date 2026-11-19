@@ -3,34 +3,29 @@
 > Keep this file concise (maximum 60 lines). Update it at the end of each work session.
 
 ## Current phase
-Foundation / Session 0A — repository and agent harness.
+Session 0B complete; Session 0C implementation is the next engineering milestone.
 
 ## Completed
-- Confirmed repository is public and write access is available.
-- Created working branch `foundation/session-0a` and draft PR #1.
-- Added business and technical vision documents derived from the supplied product plan.
-- Recorded ADRs for decision records, modular-monolith boundaries, and the initial stack.
-- Added agent guidance, Copilot/Claude entry points, role profiles, issue forms, PR template, label definitions, and inactive CODEOWNERS placeholder.
-- Added Go API, Next.js web, React admin, Flutter clients, Python AI worker, contracts, and infrastructure placeholders.
-- Added feature-list JSON schema and invariant checker.
-- Added Makefile verification entry points, JSON/shell checks, Docker Compose services, and full-mode health smoke checks.
-- Added CI, CodeQL/dependency review, and conservative implementation-agent guard.
-- Created follow-up issues: #2 repository protections/verification, #3 Session 0B backlog, #4 Session 0C walking skeleton.
+- Established repository foundation, agent guidance, ADRs, module placeholders, verification entry points, and Docker Compose infrastructure.
+- Decomposed all 14 product modules into 44 atomic, dependency-aware feature records with acceptance criteria, ownership, size, nature tags, and QA status.
+- Added a standard-library backlog checker for exact fields, IDs, dependency existence/cycles, S/M sizing, and QA evidence invariants.
+- Created one implementation tracking issue for each of M1–M14 (#5–#18).
+- Inspected PR #1 Actions: CI passed. Security failed because dependency review requires the repository dependency graph and CodeQL was configured for Go/JS before source files existed.
+- Adjusted Security workflow to analyze the currently present Python source and gate dependency review on an explicit repository variable until dependency graph is enabled.
 
 ## Verification
-- GitHub branch and file writes confirmed.
-- Local execution has not been performed in this session.
-- No GitHub Actions workflow run is visible for the PR head yet; CI must be observed before treating the foundation as verified.
+- GitHub confirms PR #1 CI run passed.
+- PR #1 Security failure causes are confirmed from job logs; remediation is included in this branch but awaits a new Actions run.
+- Backlog JSON was written and its dependency graph is structurally validated by inspection; no local Python execution was available in this session.
+- No feature is marked as independently QA-passing.
 
-## Known limitations / blockers
-- `feature_list.json` is intentionally empty; Session 0B must populate it with atomic, dependency-aware features.
-- Agent guard currently rejects all implementation-agent edits to `feature_list.json`; a QA-only status update path remains to be designed.
-- GitHub rulesets, required checks, Actions permissions, Dependabot, secret scanning, and CodeQL settings must be confirmed in repository settings.
-- CODEOWNERS is inactive until real maintainer/team handles are configured.
-- License is intentionally undecided; choose before the first public release.
-- Initial market/jurisdiction remains a product/legal decision; payment, KYC, tax, and labor adapters must stay disabled until validated.
+## Human/repository gates
+- Enable dependency graph, then set repository variable `DEPENDENCY_GRAPH_ENABLED=true` to activate dependency review.
+- Configure rulesets, Actions permissions, Dependabot, secret scanning/push protection, and verified CODEOWNERS in repository settings.
+- Choose a license before the first public release.
+- Confirm launch jurisdiction before enabling payment, KYC, tax, and labor workflows.
 
 ## Next
-1. Observe and fix PR #1 CI findings; do not merge without passing checks.
-2. Session 0B: decompose M1–M14 into small features, dependencies, acceptance criteria, and GitHub issues.
-3. Session 0C: implement and independently verify the end-to-end walking skeleton.
+1. Merge the foundation only after all required checks and repository controls are verified.
+2. Implement the Postgres-backed Session 0C vertical workflow with fake OTP, idempotent order creation, test-only balanced ledger, outbox, and E2E verification.
+3. Deliver M1–M14 features in dependency order; do not mark features passing without independent QA evidence.
