@@ -72,9 +72,15 @@ func (s *Store) SaveMarket(ctx context.Context, actor Actor, config MarketConfig
 		RETURNING version
 	`,config.Code,config.DefaultLocale,config.Currency,config.Timezone,config.PolicyVersion,config.Enabled).Scan(&config.Version)
 	if err!=nil { return MarketConfig{},fmt.Errorf("save market: %w",err) }
-	if _,err=tx.Exec(ctx,`DELETE FROM market_locales WHERE market_code=$1`,config.Code); err!=nil { return MarketConfig{},err }
+	localeList:=make([]string,0,len(locales))
+	for locale:=range locales { localeList=append(localeList,locale) }
+	if _,err=tx.Exec(ctx,`DELETE FROM market_locales WHERE market_code=$1 AND NOT (locale = ANY($2::text[]))`,config.Code,localeList); err!=nil { return MarketConfig{},err }
+	if _,err=tx.Exec(ctx,`UPDATE market_locales SET is_default=false WHERE market_code=$1`,config.Code); err!=nil { return MarketConfig{},err }
 	for locale:=range locales {
-		if _,err=tx.Exec(ctx,`INSERT INTO market_locales(market_code,locale,is_default) VALUES($1,$2,$3)`,config.Code,locale,locale==config.DefaultLocale); err!=nil {
+		if _,err=tx.Exec(ctx,`
+			INSERT INTO market_locales(market_code,locale,is_default) VALUES($1,$2,$3)
+			ON CONFLICT(market_code,locale) DO UPDATE SET is_default=EXCLUDED.is_default
+		`,config.Code,locale,locale==config.DefaultLocale); err!=nil {
 			return MarketConfig{},err
 		}
 	}
