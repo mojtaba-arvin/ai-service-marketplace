@@ -40,6 +40,9 @@ func TestCustomerScheduledOrderAggregatePostgres(t *testing.T) {
 	key:="scheduled-order-"+fmt.Sprint(time.Now().UnixNano())
 	order,created,err:=store.CreateScheduledOrder(ctx,customer,key,menu.ID,scheduled,"om","Muscat","Muscat","Al-Khuwair")
 	if err!=nil || !created { t.Fatalf("create scheduled order: %#v created=%v err=%v",order,created,err) }
+	var simulatedJournalCount int
+	if err=pool.QueryRow(ctx,`SELECT count(*) FROM ledger_journals WHERE id=$1`,order.ID).Scan(&simulatedJournalCount);err!=nil { t.Fatal(err) }
+	if simulatedJournalCount!=0 { t.Fatalf("booking creation must not create a simulated payment journal, got %d",simulatedJournalCount) }
 	if order.CustomerID!=identityID || order.AmountMinor!=4500 || order.Currency!="OMR" ||
 		order.ScheduledAt==nil || !order.ScheduledAt.Equal(scheduled) ||
 		order.CountryCode==nil || *order.CountryCode!="OM" ||
