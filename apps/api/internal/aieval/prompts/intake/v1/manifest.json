@@ -1,0 +1,13 @@
+{
+  "prompt_id": "marketplace.intake.classifier",
+  "version": "1.0.0",
+  "status": "candidate",
+  "output_schema": "apps/api/internal/aiintake/suggestion.schema.json",
+  "dataset": "apps/api/internal/aieval/golden/v1/intake.json",
+  "model_policy": {
+    "temperature": 0,
+    "top_p": 1,
+    "max_output_tokens": 512
+  },
+  "change_policy": "Create a new version for every prompt or output-contract change. Never edit a released version in place. Run the golden evaluation before promotion."
+}
