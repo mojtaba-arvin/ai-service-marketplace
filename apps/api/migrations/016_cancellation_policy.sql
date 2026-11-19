@@ -46,3 +46,37 @@ FOR EACH ROW EXECUTE FUNCTION reject_cancellation_mutation();
 DROP TRIGGER IF EXISTS order_cancellations_immutable ON order_cancellations;
 CREATE TRIGGER order_cancellations_immutable BEFORE UPDATE OR DELETE ON order_cancellations
 FOR EACH ROW EXECUTE FUNCTION reject_cancellation_mutation();
+
+CREATE OR REPLACE FUNCTION validate_order_cancellation() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    current_customer text;
+    current_status text;
+    current_amount bigint;
+    current_currency char(3);
+    current_market char(2);
+BEGIN
+    SELECT customer_id,status,amount_minor,currency,country_code
+    INTO current_customer,current_status,current_amount,current_currency,current_market
+    FROM orders WHERE id=NEW.order_id FOR UPDATE;
+    IF current_customer IS NULL OR current_customer<>NEW.actor_identity_id OR NEW.actor_role<>'customer'
+       OR current_status<>NEW.from_status OR current_amount<>NEW.amount_minor
+       OR current_currency<>NEW.currency OR current_market IS NULL OR current_market<>NEW.market_code THEN
+        RAISE EXCEPTION 'cancellation does not match owning customer and current order snapshot';
+    END IF;
+    RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS order_cancellation_snapshot_guard ON order_cancellations;
+CREATE TRIGGER order_cancellation_snapshot_guard BEFORE INSERT ON order_cancellations
+FOR EACH ROW EXECUTE FUNCTION validate_order_cancellation();
+
+CREATE OR REPLACE FUNCTION require_cancellation_record_for_order_state() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.status='cancelled' AND OLD.status<>'cancelled'
+       AND NOT EXISTS (SELECT 1 FROM order_cancellations c WHERE c.order_id=OLD.id) THEN
+        RAISE EXCEPTION 'order cancellation requires a versioned policy outcome';
+    END IF;
+    RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS orders_cancellation_record_guard ON orders;
+CREATE TRIGGER orders_cancellation_record_guard BEFORE UPDATE OF status ON orders
+FOR EACH ROW EXECUTE FUNCTION require_cancellation_record_for_order_state();
