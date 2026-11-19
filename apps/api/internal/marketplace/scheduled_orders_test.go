@@ -36,7 +36,7 @@ func TestCustomerScheduledOrderAggregatePostgres(t *testing.T) {
 	menu,err:=store.CreatePriceMenu(ctx,category.ID,"scheduled-cleaning")
 	if err!=nil { t.Fatal(err) }
 	if _,err=store.CreatePriceVersion(ctx,menu.ID,4500,"OMR"); err!=nil { t.Fatal(err) }
-	scheduled:=time.Now().UTC().Add(2*time.Hour)
+	scheduled:=time.Now().UTC().Add(2*time.Hour).Truncate(time.Microsecond)
 	key:="scheduled-order-"+fmt.Sprint(time.Now().UnixNano())
 	order,created,err:=store.CreateScheduledOrder(ctx,customer,key,menu.ID,scheduled,"om","Muscat","Muscat","Al-Khuwair")
 	if err!=nil || !created { t.Fatalf("create scheduled order: %#v created=%v err=%v",order,created,err) }
