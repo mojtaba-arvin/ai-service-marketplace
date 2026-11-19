@@ -149,8 +149,10 @@ func (s *Store) PostJournal(ctx context.Context,idempotencyKey,currency,descript
 	currency=strings.ToUpper(strings.TrimSpace(currency))
 	description=strings.TrimSpace(description)
 	if idempotencyKey=="" || len(idempotencyKey)>200 { return LedgerJournal{},ErrLedgerInvalidJournal }
-	if _,_,err:=validateJournal(currency,description,lines); err!=nil { return LedgerJournal{},err }
-	hash:=canonicalJournalHash(currency,description,"",lines)
+	normalizedLines:=append([]JournalLine(nil),lines...)
+	for i:=range normalizedLines { normalizedLines[i].Currency=currency }
+	if _,_,err:=validateJournal(currency,description,normalizedLines); err!=nil { return LedgerJournal{},err }
+	hash:=canonicalJournalHash(currency,description,"",normalizedLines)
 
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{})
 	if err!=nil { return LedgerJournal{},err }
@@ -163,7 +165,7 @@ func (s *Store) PostJournal(ctx context.Context,idempotencyKey,currency,descript
 	}
 
 	checked:=make(map[string]bool,len(lines))
-	for _,line:=range lines {
+	for _,line:=range normalizedLines {
 		if checked[line.AccountCode] { continue }
 		checked[line.AccountCode]=true
 		var enabled bool
