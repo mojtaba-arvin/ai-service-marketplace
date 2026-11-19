@@ -1,6 +1,7 @@
 package marketplace
 
 import (
+ "context"
  "encoding/json"
  "errors"
  "net/http"
@@ -8,7 +9,7 @@ import (
  "time"
 )
 
-type OTPDelivery interface { SendOTP(rctx interface{ Done() <-chan struct{}; Err() error; Deadline()(time.Time,bool); Value(any) any },phone,code,idempotencyKey string) error }
+type OTPDelivery interface { SendOTP(context.Context,phone,code,idempotencyKey string) error }
 
 type Handler struct {
  Store *Store
