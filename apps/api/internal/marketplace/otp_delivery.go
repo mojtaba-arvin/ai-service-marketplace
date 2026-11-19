@@ -27,7 +27,9 @@ func NewHTTPOTPDelivery(endpoint,token string,client *http.Client)(*HTTPOTPDeliv
   return nil,ErrOTPDeliveryConfig
  }
  if client==nil{client=&http.Client{Timeout:8*time.Second}}
- return &HTTPOTPDelivery{endpoint:parsed,token:token,client:client},nil
+ safeClient:=*client
+ safeClient.CheckRedirect=func(_ *http.Request,_ []*http.Request)error{return http.ErrUseLastResponse}
+ return &HTTPOTPDelivery{endpoint:parsed,token:token,client:&safeClient},nil
 }
 
 // SendOTP sends only to a configured HTTPS endpoint and reuses the challenge
