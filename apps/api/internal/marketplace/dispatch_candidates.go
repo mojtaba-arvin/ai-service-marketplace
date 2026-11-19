@@ -50,7 +50,7 @@ func (s *Store) FindDispatchCandidates(ctx context.Context,actor Actor,categoryI
 		JOIN provider_skills ps ON ps.provider_id=p.id AND ps.category_id=$1 AND ps.verified_at IS NOT NULL
 		JOIN provider_service_areas sa ON sa.provider_id=p.id AND sa.active=true
 		JOIN markets m ON m.code=sa.country_code AND m.enabled=true
-		WHERE p.active=true AND p.verified_at IS NOT NULL
+		WHERE p.active=true AND p.verified_at IS NOT NULL AND p.tenant_id=$8
 		  AND sa.country_code=$2 AND sa.region_code=$3 AND sa.city_code=$4 AND sa.area_code=$5
 		  AND (SELECT COALESCE(bool_and(enabled),false) FROM ancestors)
 		  AND EXISTS (
@@ -69,7 +69,7 @@ func (s *Store) FindDispatchCandidates(ctx context.Context,actor Actor,categoryI
 			  AND tstzrange(b.start_at,b.end_at,'[)') && tstzrange($6,$7,'[)')
 		  )
 		ORDER BY p.id
-	`,categoryID,country,region,city,area,startAt,endAt)
+	`,categoryID,country,region,city,area,startAt,endAt,actor.TenantID)
 	if err!=nil { return nil,err }
 	defer rows.Close()
 	candidates:=make([]DispatchCandidate,0)
@@ -84,22 +84,29 @@ func (s *Store) FindDispatchCandidates(ctx context.Context,actor Actor,categoryI
 }
 
 func (s *Store) FindDispatchCandidatesForOrder(ctx context.Context,actor Actor,orderID string,startAt,endAt time.Time) ([]DispatchCandidate,error) {
-	var categoryID,country,region,city,area string
+	if actor.Role==RoleCustomer {
+		if err:=Authorize(actor,Resource{TenantID:actor.TenantID,OwnerID:actor.SubjectID},ActionOrderRead); err!=nil { return nil,err }
+	} else if actor.Role==RoleOperator {
+		if err:=Authorize(actor,Resource{TenantID:actor.TenantID},ActionOrderAssign); err!=nil { return nil,err }
+	} else {
+		return nil,ErrForbidden
+	}
+	var customerID,country,region,city,area string
+	var priceVersionID *string
 	var scheduledAt *time.Time
 	err:=s.DB.QueryRow(ctx,`
-		SELECT o.customer_id,o.price_version_id,o.country_code,o.region_code,o.city_code,o.area_code,o.scheduled_at
-		FROM orders o WHERE o.id=$1
-	`,orderID).Scan(new(string),new(*string),&country,&region,&city,&area,&scheduledAt)
+		SELECT customer_id,price_version_id,country_code,region_code,city_code,area_code,scheduled_at
+		FROM orders WHERE id=$1
+	`,orderID).Scan(&customerID,&priceVersionID,&country,&region,&city,&area,&scheduledAt)
 	if err!=nil {
 		if errors.Is(err,pgx.ErrNoRows) { return nil,ErrOrderNotFound }
 		return nil,err
 	}
-	var customerID string
-	var priceVersionID *string
-	err=s.DB.QueryRow(ctx,`SELECT customer_id,price_version_id FROM orders WHERE id=$1`,orderID).Scan(&customerID,&priceVersionID)
-	if err!=nil { return nil,err }
 	if actor.Role==RoleCustomer && customerID!=actor.SubjectID { return nil,ErrForbidden }
-	if priceVersionID==nil || scheduledAt==nil { return nil,ErrProviderUnavailable }
+	if priceVersionID==nil || scheduledAt==nil || country=="" || region=="" || city=="" || area=="" {
+		return nil,ErrProviderUnavailable
+	}
+	var categoryID string
 	err=s.DB.QueryRow(ctx,`
 		SELECT m.category_id FROM service_price_versions v JOIN service_price_menus m ON m.id=v.menu_id WHERE v.id=$1
 	`,*priceVersionID).Scan(&categoryID)
