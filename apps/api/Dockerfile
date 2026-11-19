@@ -17,7 +17,7 @@ COPY --from=build /out/api /app/api
 COPY --from=build /out/dispatch-worker /app/dispatch-worker
 COPY --from=build /out/outbox-worker /app/outbox-worker
 COPY --from=build /src/migrations /app/migrations
-USER 10001: app
+USER app:app
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
     CMD wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
