@@ -20,6 +20,10 @@ var (
 	ErrOTPRateLimited      = errors.New("OTP issuance rate limit exceeded")
 )
 
+type VerifiedIdentity struct { phone string }
+
+func (v VerifiedIdentity) Phone() string { return v.phone }
+
 const (
 	otpCodeLength       = 6
 	otpPepperMinBytes   = 32
@@ -28,9 +32,7 @@ const (
 
 func GenerateOTPCode() (string, error) {
 	value, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
-	if err != nil {
-		return "", fmt.Errorf("generate OTP: %w", err)
-	}
+	if err != nil { return "", fmt.Errorf("generate OTP: %w", err) }
 	return fmt.Sprintf("%06d", value.Int64()), nil
 }
 
@@ -54,7 +56,6 @@ func (s *Store) CreateOTPChallenge(ctx context.Context, phone, code string, pepp
 	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil { return "", err }
 	defer tx.Rollback(ctx)
-
 	identityID, err := newID()
 	if err != nil { return "", err }
 	var persistedIdentityID string
@@ -70,7 +71,6 @@ func (s *Store) CreateOTPChallenge(ctx context.Context, phone, code string, pepp
 	var recent int
 	if err = tx.QueryRow(ctx, `SELECT count(*) FROM otp_challenges WHERE phone_identity_id=$1 AND created_at > now() - interval '1 hour'`, persistedIdentityID).Scan(&recent); err != nil { return "", err }
 	if recent >= otpMaxIssuancesHour { return "", ErrOTPRateLimited }
-
 	if _, err = tx.Exec(ctx, `
 		UPDATE otp_challenges SET invalidated_at=now()
 		WHERE phone_identity_id=$1 AND consumed_at IS NULL AND invalidated_at IS NULL
@@ -87,11 +87,11 @@ func (s *Store) CreateOTPChallenge(ctx context.Context, phone, code string, pepp
 	return challengeID, nil
 }
 
-func (s *Store) VerifyOTPChallenge(ctx context.Context, challengeID, code string, pepper []byte) (string, error) {
-	if len(pepper) < otpPepperMinBytes { return "", errors.New("OTP pepper must contain at least 32 bytes") }
-	if challengeID == "" || len(code) != otpCodeLength { return "", ErrOTPInvalidChallenge }
+func (s *Store) VerifyOTPChallenge(ctx context.Context, challengeID, code string, pepper []byte) (VerifiedIdentity, error) {
+	if len(pepper) < otpPepperMinBytes { return VerifiedIdentity{}, errors.New("OTP pepper must contain at least 32 bytes") }
+	if challengeID == "" || len(code) != otpCodeLength { return VerifiedIdentity{}, ErrOTPInvalidChallenge }
 	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil { return "", err }
+	if err != nil { return VerifiedIdentity{}, err }
 	defer tx.Rollback(ctx)
 
 	var phone, storedHash []byte
@@ -104,17 +104,17 @@ func (s *Store) VerifyOTPChallenge(ctx context.Context, challengeID, code string
 		FROM otp_challenges c JOIN phone_identities p ON p.id=c.phone_identity_id
 		WHERE c.id=$1 FOR UPDATE OF c
 	`, challengeID).Scan(&phone, &storedHash, &expiresAt, &attempts, &maxAttempts, &consumed, &invalidated)
-	if errors.Is(err, pgx.ErrNoRows) { return "", ErrOTPInvalidChallenge }
-	if err != nil { return "", err }
-	if consumed || invalidated || !time.Now().Before(expiresAt) || attempts >= maxAttempts { return "", ErrOTPInvalidChallenge }
+	if errors.Is(err, pgx.ErrNoRows) { return VerifiedIdentity{}, ErrOTPInvalidChallenge }
+	if err != nil { return VerifiedIdentity{}, err }
+	if consumed || invalidated || !time.Now().Before(expiresAt) || attempts >= maxAttempts { return VerifiedIdentity{}, ErrOTPInvalidChallenge }
 
 	expected := otpDigest(challengeID, code, pepper)
 	if subtle.ConstantTimeCompare(storedHash, expected) != 1 {
-		if _, err = tx.Exec(ctx, `UPDATE otp_challenges SET attempt_count=attempt_count+1 WHERE id=$1`, challengeID); err != nil { return "", err }
-		if err = tx.Commit(ctx); err != nil { return "", err }
-		return "", ErrOTPInvalidCode
+		if _, err = tx.Exec(ctx, `UPDATE otp_challenges SET attempt_count=attempt_count+1 WHERE id=$1`, challengeID); err != nil { return VerifiedIdentity{}, err }
+		if err = tx.Commit(ctx); err != nil { return VerifiedIdentity{}, err }
+		return VerifiedIdentity{}, ErrOTPInvalidCode
 	}
-	if _, err = tx.Exec(ctx, `UPDATE otp_challenges SET attempt_count=attempt_count+1, consumed_at=now() WHERE id=$1`, challengeID); err != nil { return "", err }
-	if err = tx.Commit(ctx); err != nil { return "", err }
-	return string(phone), nil
+	if _, err = tx.Exec(ctx, `UPDATE otp_challenges SET attempt_count=attempt_count+1, consumed_at=now() WHERE id=$1`, challengeID); err != nil { return VerifiedIdentity{}, err }
+	if err = tx.Commit(ctx); err != nil { return VerifiedIdentity{}, err }
+	return VerifiedIdentity{phone: string(phone)}, nil
 }
