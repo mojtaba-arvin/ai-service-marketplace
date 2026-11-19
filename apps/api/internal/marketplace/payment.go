@@ -73,6 +73,7 @@ func NewFakePaymentProvider(mode FakeProviderMode,secret []byte) *FakePaymentPro
 
 func (p *FakePaymentProvider) execute(ctx context.Context,operation string,request PaymentRequest) (ProviderResult,error) {
 	if err:=ctx.Err(); err!=nil { return ProviderResult{},err }
+	request.Currency=strings.ToUpper(strings.TrimSpace(request.Currency))
 	if request.IdempotencyKey=="" || request.AmountMinor<=0 || ValidateAmount(request.AmountMinor,request.Currency)!=nil {
 		return ProviderResult{},ErrLedgerInvalidJournal
 	}
