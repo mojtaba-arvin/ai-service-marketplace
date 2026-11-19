@@ -6,7 +6,6 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
-	"math"
 	"strings"
 	"time"
 
@@ -179,5 +178,3 @@ func (s *Store) CancelOrder(ctx context.Context,actor Actor,orderID,idempotencyK
 	if err=tx.Commit(ctx); err!=nil { return OrderCancellation{},err }
 	return cancellation,nil
 }
-
-var _ = math.MaxInt64
