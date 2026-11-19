@@ -367,15 +367,21 @@ func (h *Handler) cancelOrder(w http.ResponseWriter, r *http.Request) {
         writeError(w,http.StatusNotFound,"not found")
         return
     }
-    order, err := h.Store.TransitionOrderAsActor(r.Context(),actor,parts[2],"cancelled")
+    var in struct { Reason string `json:"reason"` }
+    if json.NewDecoder(r.Body).Decode(&in) != nil || strings.TrimSpace(in.Reason) == "" {
+        writeError(w,http.StatusBadRequest,"reason is required")
+        return
+    }
+    cancellation, err := h.Store.CancelOrder(r.Context(),actor,parts[2],r.Header.Get("Idempotency-Key"),in.Reason)
     if err != nil {
         status := http.StatusConflict
         if errors.Is(err,ErrForbidden) { status=http.StatusForbidden }
         if errors.Is(err,ErrOrderNotFound) { status=http.StatusNotFound }
+        if errors.Is(err,ErrCancellationPolicyUnavailable) { status=http.StatusUnprocessableEntity }
         writeError(w,status,err.Error())
         return
     }
-    writeJSON(w,http.StatusOK,map[string]any{"order":order})
+    writeJSON(w,http.StatusOK,map[string]any{"cancellation":cancellation,"funds_moved":false})
 }
 
 func (h *Handler) registerProfessional(w http.ResponseWriter, r *http.Request) {
