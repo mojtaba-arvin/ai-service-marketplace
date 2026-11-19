@@ -123,7 +123,8 @@ func (s *Store) ReconcileProviderStatement(ctx context.Context, providerCode, st
 	normalized := make([]StatementLine, len(lines))
 	for i, line := range lines {
 		line.ExternalReference = strings.TrimSpace(line.ExternalReference)
-		line.Currency = strings.ToUpper(strings.TrimSpace(line.Currency))\n\t\tline.SettledAt = line.SettledAt.UTC()
+		line.Currency = strings.ToUpper(strings.TrimSpace(line.Currency))
+	\tline.SettledAt = line.SettledAt.UTC()
 		if line.ExternalReference == "" || len(line.ExternalReference) > 200 || seen[line.ExternalReference] ||
 			ValidateAmount(line.AmountMinor, line.Currency) != nil || line.SettledAt.IsZero() {
 			return ReconciliationReport{}, ErrLedgerInvalidJournal
