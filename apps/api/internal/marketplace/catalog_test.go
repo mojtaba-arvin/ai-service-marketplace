@@ -2,7 +2,8 @@ package marketplace
 
 import (
 	"context"
-	"errors"\n\t"fmt"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,7 +25,8 @@ func TestServiceCategoryHierarchyPostgres(t *testing.T) {
 	if _, err = pool.Exec(ctx, string(migration)); err != nil { t.Fatalf("catalog migration: %v", err) }
 	store := &Store{DB: pool}
 
-	rootSlug := fmt.Sprintf("home-services-%d", time.Now().UnixNano())\n\troot, err := store.CreateCategory(ctx, nil, rootSlug, "Home services")
+	rootSlug := fmt.Sprintf("home-services-%d", time.Now().UnixNano())
+	root, err := store.CreateCategory(ctx, nil, rootSlug, "Home services")
 	if err != nil { t.Fatalf("create root: %v", err) }
 	parentID := root.ID
 	repair, err := store.CreateCategory(ctx, &parentID, "plumbing", "Plumbing")
