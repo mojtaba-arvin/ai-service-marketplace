@@ -15,6 +15,17 @@ import (
     "github.com/jackc/pgx/v5/pgxpool"
 )
 
+type captureOTPDelivery struct {
+    phone string
+    code string
+    key string
+}
+
+func (d *captureOTPDelivery) SendOTP(_ context.Context, phone, code, key string) error {
+    d.phone,d.code,d.key=phone,code,key
+    return nil
+}
+
 func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     dsn := os.Getenv("TEST_DATABASE_URL")
     if dsn == "" {
@@ -158,20 +169,13 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     }
 
     pepper := []byte("0123456789abcdef0123456789abcdef")
-    tokens := make(map[string]string)
-    for name, phone := range map[string]string{
-        "operator":operatorPhone,"professional":professionalPhone,
-        "customer":customerPhone,"other":otherCustomerPhone,
-    } {
-        session, issueErr := store.IssueSession(ctx,VerifiedIdentity{phone:phone},pepper,15*time.Minute,24*time.Hour)
-        if issueErr != nil {
-            t.Fatal(issueErr)
-        }
-        tokens[name] = session.AccessToken
-    }
+    delivery := &captureOTPDelivery{}
     handler := &Handler{
-        Store:store,SessionPepper:pepper,DefaultTenantID:tenantID,DefaultMarketCode:marketCode,
+        Store:store,OTPPepper:pepper,SessionPepper:pepper,OTPDelivery:delivery,
+        AccessTTL:15*time.Minute,RefreshTTL:24*time.Hour,
+        DefaultTenantID:tenantID,DefaultMarketCode:marketCode,BootstrapOperatorPhone:operatorPhone,
     }
+    tokens := make(map[string]string)
     call := func(method,path,token,key string,payload any) (*httptest.ResponseRecorder,map[string]any) {
         var body bytes.Buffer
         if payload != nil {
@@ -191,6 +195,36 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
         var decoded map[string]any
         _ = json.Unmarshal(rec.Body.Bytes(),&decoded)
         return rec,decoded
+    }
+
+    otpRequest,otpRequestBody := call(http.MethodPost,"/v1/auth/otp/request","", "",map[string]string{"phone":operatorPhone})
+    if otpRequest.Code != http.StatusAccepted || delivery.code == "" || delivery.key == "" {
+        t.Fatalf("operator OTP request: status=%d body=%s",otpRequest.Code,otpRequest.Body.String())
+    }
+    otpVerify,otpVerifyBody := call(http.MethodPost,"/v1/auth/otp/verify","", "",map[string]string{
+        "challenge_id":otpRequestBody["challenge_id"].(string),"code":delivery.code,
+    })
+    if otpVerify.Code != http.StatusOK {
+        t.Fatalf("operator OTP verification: status=%d body=%s",otpVerify.Code,otpVerify.Body.String())
+    }
+    tokens["operator"] = otpVerifyBody["access_token"].(string)
+    meResponse,meBody := call(http.MethodGet,"/v1/auth/me",tokens["operator"],"",nil)
+    if meResponse.Code != http.StatusOK {
+        t.Fatalf("operator identity endpoint: status=%d body=%s",meResponse.Code,meResponse.Body.String())
+    }
+    roles := meBody["roles"].([]any)
+    hasOperatorRole := false
+    for _, role := range roles {
+        if role == string(RoleOperator) { hasOperatorRole=true }
+    }
+    if !hasOperatorRole { t.Fatalf("bootstrap operator role was not provisioned: %#v",roles) }
+
+    for name, phone := range map[string]string{
+        "professional":professionalPhone,"customer":customerPhone,"other":otherCustomerPhone,
+    } {
+        session, issueErr := store.IssueSession(ctx,VerifiedIdentity{phone:phone},pepper,15*time.Minute,24*time.Hour)
+        if issueErr != nil { t.Fatal(issueErr) }
+        tokens[name] = session.AccessToken
     }
 
     catalogResponse,catalog := call(http.MethodGet,"/v1/catalog","","",nil)
