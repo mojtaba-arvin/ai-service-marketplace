@@ -58,14 +58,15 @@ func TestRunnerBoundsAttemptWithTimeout(t *testing.T) {
 func TestCircuitBreakerOpensAndAllowsSingleProbe(t *testing.T) {
 	b,err:=NewCircuitBreaker(2,20*time.Millisecond); if err!=nil { t.Fatal(err) }
 	now:=time.Now()
-	if !b.allow(now) { t.Fatal("closed breaker rejected call") }
-	b.failure(now)
-	b.failure(now)
-	if b.allow(now) { t.Fatal("open breaker admitted call before cooldown") }
-	if !b.allow(now.Add(21*time.Millisecond)) { t.Fatal("breaker did not admit half-open probe") }
-	if b.allow(now.Add(22*time.Millisecond)) { t.Fatal("breaker admitted concurrent half-open probe") }
-	b.success()
-	if !b.allow(now.Add(23*time.Millisecond)) { t.Fatal("successful probe did not close breaker") }
+	p1,ok:=b.allow(now); if !ok { t.Fatal("closed breaker rejected call") }
+	p2,ok:=b.allow(now); if !ok { t.Fatal("closed breaker rejected concurrent call") }
+	b.failure(p1,now)
+	b.failure(p2,now)
+	if _,ok:=b.allow(now); ok { t.Fatal("open breaker admitted call before cooldown") }
+	probe,ok:=b.allow(now.Add(21*time.Millisecond)); if !ok { t.Fatal("breaker did not admit half-open probe") }
+	if _,ok:=b.allow(now.Add(22*time.Millisecond)); ok { t.Fatal("breaker admitted concurrent half-open probe") }
+	b.success(probe)
+	if _,ok:=b.allow(now.Add(23*time.Millisecond)); !ok { t.Fatal("successful probe did not close breaker") }
 }
 
 func TestPermanentErrorReleasesHalfOpenProbe(t *testing.T) {
@@ -79,13 +80,23 @@ func TestPermanentErrorReleasesHalfOpenProbe(t *testing.T) {
 	if !b.allow(time.Now()) { t.Fatal("permanent error left the half-open probe locked") }
 }
 
+func TestStaleSuccessCannotCloseNewlyOpenedBreaker(t *testing.T) {
+	b,err:=NewCircuitBreaker(1,time.Second); if err!=nil { t.Fatal(err) }
+	now:=time.Now()
+	stale,ok:=b.allow(now); if !ok { t.Fatal("initial call rejected") }
+	current,ok:=b.allow(now); if !ok { t.Fatal("second initial call rejected") }
+	b.failure(current,now)
+	b.success(stale)
+	if _,ok:=b.allow(now); ok { t.Fatal("stale in-flight success closed an open breaker") }
+}
+
 func TestCircuitBreakerConcurrentAdmission(t *testing.T) {
 	b,err:=NewCircuitBreaker(1,time.Second); if err!=nil { t.Fatal(err) }
-	now:=time.Now(); b.failure(now)
+	now:=time.Now(); permit,ok:=b.allow(now); if !ok { t.Fatal("closed breaker rejected call") }; b.failure(permit,now)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	admitted:=0
-	for i:=0;i<32;i++ { wg.Add(1); go func(){ defer wg.Done(); if b.allow(now.Add(2*time.Second)) { mu.Lock(); admitted++; mu.Unlock() } }() }
+	for i:=0;i<32;i++ { wg.Add(1); go func(){ defer wg.Done(); if _,ok:=b.allow(now.Add(2*time.Second)); ok { mu.Lock(); admitted++; mu.Unlock() } }() }
 	wg.Wait()
 	if admitted!=1 { t.Fatalf("half-open admissions=%d, want 1",admitted) }
 }
