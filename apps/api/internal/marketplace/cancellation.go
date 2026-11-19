@@ -172,6 +172,14 @@ func (s *Store) CancelOrder(ctx context.Context,actor Actor,orderID,idempotencyK
 	if _,err=tx.Exec(ctx,`UPDATE orders SET status='cancelled',updated_at=now() WHERE id=$1 AND status=$2`,orderID,status); err!=nil {
 		return OrderCancellation{},err
 	}
+	bookingTag,err:=tx.Exec(ctx,`UPDATE provider_bookings SET status='cancelled',updated_at=now() WHERE order_id=$1 AND status='booked'`,orderID)
+	if err!=nil { return OrderCancellation{},err }
+	if bookingTag.RowsAffected()>0 {
+		bookingPayload,_:=json.Marshal(map[string]any{"order_id":orderID,"cancellation_id":id,"status":"cancelled"})
+		if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('order',$1,'provider.booking_cancelled',$2::jsonb)`,orderID,bookingPayload); err!=nil {
+			return OrderCancellation{},err
+		}
+	}
 	payload,_:=json.Marshal(map[string]any{"order_id":orderID,"from":status,"to":"cancelled","cancellation_id":id})
 	if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('order',$1,'order.cancelled',$2::jsonb)`,orderID,payload); err!=nil {
 		return OrderCancellation{},err
