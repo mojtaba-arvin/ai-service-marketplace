@@ -27,7 +27,11 @@ Foundation (0A), backlog decomposition (0B), and walking skeleton (0C) are imple
 - Choose a project license and confirm launch jurisdiction before enabling regulated payment/KYC/tax/labor workflows.
 
 ## Product backlog
-- All 44 M1–M14 product capabilities remain unimplemented and `passes: false`.
-- Implement one bounded feature per PR, respecting dependency order and acceptance criteria.
+- 44 atomic M1–M14 capabilities are tracked. Product work is proceeding in dependency order; `passes` remains false until independent QA evidence is recorded.
+- Dispatch implementation is now present in three stacked PRs: #39 provider availability/calendar and conflict-safe booking; #40 deterministic candidate eligibility; #41 bounded expiring offers, decline/expiry, and atomic single-winner assignment. PR #41 also includes a graceful standalone expiry worker and transactionally emitted lifecycle outbox events.
+- PR #39 and PR #40 have passing CI and Security workflows on their latest heads. PR #41 passes CI and Security on its latest implementation head, including repository checks, PostgreSQL integration tests, Go race tests, HTTP E2E, Compose validation, and Go/Python CodeQL. Dependency-review remains skipped until the dependency graph is enabled.
+- Dispatch includes a separate graceful expiry worker, immutable offer/round audit records, transactional outbox events, and provider-slot reservation in the acceptance transaction.
+- No independent QA sign-off has been recorded; do not set `passes: true` based solely on implementation PR checks.
+- Next dependency-ordered work: expose dispatch application operations through the authenticated API boundary, then continue downstream order/professional workflows. Do not use the test-only OTP adapter as production authentication.
 - Financial invariants remain mandatory: integer minor units, balanced immutable double-entry journals, idempotency, and compensating reversals.
 - AI suggestions must never authorize identity/safety decisions or set payable prices.
