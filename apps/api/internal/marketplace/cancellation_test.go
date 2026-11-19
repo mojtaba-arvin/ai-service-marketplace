@@ -34,13 +34,14 @@ func TestVersionedCancellationPolicyAndIdempotencyPostgres(t *testing.T) {
 		if _,err=pool.Exec(ctx,`INSERT INTO phone_identities(id,phone_e164) VALUES($1,$2)`,ids[i],phone); err!=nil { t.Fatal(err) }
 	}
 	customer:=Actor{SubjectID:ids[0],TenantID:"market-om",Role:RoleCustomer}
+	policyVersion:="cancel-v1-"+fmt.Sprint(time.Now().UnixNano())
 	otherCustomer:=Actor{SubjectID:ids[1],TenantID:"market-om",Role:RoleCustomer}
 	operator:=Actor{SubjectID:ids[2],TenantID:"platform",Role:RoleOperator}
 	if _,err=store.SaveMarket(ctx,operator,MarketConfig{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"market-v1",Enabled:true,Locales:[]string{"en"}}); err!=nil {
 		t.Fatal(err)
 	}
 	if _,err=store.SaveCancellationPolicy(ctx,operator,CancellationPolicy{
-		MarketCode:"OM",PolicyVersion:"cancel-v1",ActorRole:RoleCustomer,FromStatus:"requested",
+		MarketCode:"OM",PolicyVersion:policyVersion,ActorRole:RoleCustomer,FromStatus:"requested",
 		CutoffMinutes:60,FeeBasisPoints:1000,EffectiveFrom:time.Now().UTC().Add(-time.Hour),
 	}); err!=nil { t.Fatal(err) }
 	if _,err=store.SaveCancellationPolicy(ctx,customer,CancellationPolicy{
@@ -61,7 +62,7 @@ func TestVersionedCancellationPolicyAndIdempotencyPostgres(t *testing.T) {
 	earlyOrder:=createOrder("cancel-early-"+fmt.Sprint(time.Now().UnixNano()),time.Now().UTC().Add(2*time.Hour))
 	cancelled,err:=store.CancelOrder(ctx,customer,earlyOrder.ID,"cancel-key-early","Customer changed plans")
 	if err!=nil { t.Fatalf("cancel before cutoff: %v",err) }
-	if cancelled.FeeMinor!=0 || cancelled.RefundMinor!=4500 || cancelled.PolicyVersion!="cancel-v1" {
+	if cancelled.FeeMinor!=0 || cancelled.RefundMinor!=4500 || cancelled.PolicyVersion!=policyVersion {
 		t.Fatalf("early cancellation outcome: %#v",cancelled)
 	}
 	replay,err:=store.CancelOrder(ctx,customer,earlyOrder.ID,"cancel-key-early","Customer changed plans")
