@@ -142,13 +142,14 @@ func (s *Store) CreateOrderFromPrice(ctx context.Context, customerID, idempotenc
 	var prior Order
 	var priorMenuID string
 	err = tx.QueryRow(ctx, `
-		SELECT o.id,o.customer_id,o.amount_minor,o.currency,o.status,o.price_version_id,v.menu_id
+		SELECT o.id,o.customer_id,o.amount_minor,o.currency,o.status,o.price_version_id,v.menu_id,
+			o.scheduled_at,o.country_code,o.region_code,o.city_code,o.area_code
 		FROM orders o JOIN service_price_versions v ON v.id=o.price_version_id
 		WHERE o.customer_id=$1 AND o.idempotency_key=$2
 	`, customerID, idempotencyKey).Scan(&prior.ID, &prior.CustomerID, &prior.AmountMinor,
-		&prior.Currency, &prior.Status, &prior.PriceVersionID, &priorMenuID)
+		&prior.Currency, &prior.Status, &prior.PriceVersionID, &priorMenuID,&prior.ScheduledAt,&prior.CountryCode,&prior.RegionCode,&prior.CityCode,&prior.AreaCode)
 	if err == nil {
-		if priorMenuID != menuID { return Order{}, false, errors.New("idempotency key reused for a different price menu") }
+		if priorMenuID != menuID || prior.ScheduledAt!=nil || prior.CountryCode!=nil { return Order{}, false, ErrOrderIdempotencyConflict }
 		if err = tx.Commit(ctx); err != nil { return Order{}, false, err }
 		return prior, false, nil
 	}
@@ -185,12 +186,14 @@ func (s *Store) CreateOrderFromPrice(ctx context.Context, customerID, idempotenc
 		var existing Order
 		var existingMenuID string
 		err = tx.QueryRow(ctx, `
-			SELECT o.id,o.customer_id,o.amount_minor,o.currency,o.status,o.price_version_id,v.menu_id
+			SELECT o.id,o.customer_id,o.amount_minor,o.currency,o.status,o.price_version_id,v.menu_id,
+				o.scheduled_at,o.country_code,o.region_code,o.city_code,o.area_code
 			FROM orders o
 			JOIN service_price_versions v ON v.id=o.price_version_id
 			WHERE o.customer_id=$1 AND o.idempotency_key=$2
 		`, customerID, idempotencyKey).Scan(&existing.ID, &existing.CustomerID, &existing.AmountMinor,
-			&existing.Currency, &existing.Status, &existing.PriceVersionID, &existingMenuID)
+			&existing.Currency, &existing.Status, &existing.PriceVersionID, &existingMenuID,
+			&existing.ScheduledAt,&existing.CountryCode,&existing.RegionCode,&existing.CityCode,&existing.AreaCode)
 		if err != nil { return Order{}, false, err }
 		if existingMenuID != menuID {
 			return Order{}, false, errors.New("idempotency key reused for a different price menu")
