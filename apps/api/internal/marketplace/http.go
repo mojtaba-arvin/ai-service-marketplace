@@ -72,13 +72,14 @@ func (h *Handler) requestOTP(w http.ResponseWriter,r *http.Request){
  if h.OTPDelivery==nil||len(h.OTPPepper)<otpPepperMinBytes{writeError(w,http.StatusServiceUnavailable,"OTP delivery is not configured");return}
  var in struct{Phone string `json:"phone"`}
  if json.NewDecoder(r.Body).Decode(&in)!=nil||in.Phone==""{writeError(w,http.StatusBadRequest,"phone is required");return}
+ normalized,normalizeErr:=NormalizeE164Phone(in.Phone);if normalizeErr!=nil{writeError(w,http.StatusBadRequest,"invalid phone number");return}
  code,err:=GenerateOTPCode();if err!=nil{writeError(w,http.StatusInternalServerError,"could not create OTP");return}
- challengeID,err:=h.Store.CreateOTPChallenge(r.Context(),in.Phone,code,h.OTPPepper,5*time.Minute,5)
+ challengeID,err:=h.Store.CreateOTPChallenge(r.Context(),normalized,code,h.OTPPepper,5*time.Minute,5)
  if err!=nil{
   status:=http.StatusBadRequest;if errors.Is(err,ErrOTPRateLimited){status=http.StatusTooManyRequests}
   writeError(w,status,err.Error());return
  }
- if err=h.OTPDelivery.SendOTP(r.Context(),in.Phone,code,"otp:"+challengeID);err!=nil{
+ if err=h.OTPDelivery.SendOTP(r.Context(),normalized,code,"otp:"+challengeID);err!=nil{
   _=h.Store.InvalidateOTPChallenge(r.Context(),challengeID)
   writeError(w,http.StatusBadGateway,"OTP delivery failed");return
  }
