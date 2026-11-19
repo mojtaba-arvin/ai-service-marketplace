@@ -12,13 +12,34 @@ permissions:
   contents: read
 
 jobs:
-  codeql:
+  detect:
     runs-on: ubuntu-latest
+    outputs:
+      languages: ${{ steps.detect.outputs.languages }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: detect
+        name: Detect source languages
+        shell: bash
+        run: |
+          languages='["python"]'
+          if find . -name '*.go' -not -path './.git/*' -print -quit | grep -q .; then
+            languages='["python","go"]'
+          fi
+          echo "languages=$languages" >> "$GITHUB_OUTPUT"
+
+  codeql:
+    needs: detect
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(needs.detect.outputs.languages) }}
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3
         with:
-          languages: go, python
+          languages: ${{ matrix.language }}
       - uses: github/codeql-action/analyze@v3
 
   dependency-review:
