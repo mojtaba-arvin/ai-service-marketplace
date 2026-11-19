@@ -68,10 +68,10 @@ type Provenance struct {
 }
 
 type modelSuggestion struct {
-	CategoryID string `json:"category_id"`
-	Summary string `json:"summary"`
-	RequiredDetails []string `json:"required_details"`
-	Confidence float64 `json:"confidence"`
+	CategoryID *string `json:"category_id"`
+	Summary *string `json:"summary"`
+	RequiredDetails *[]string `json:"required_details"`
+	Confidence *float64 `json:"confidence"`
 }
 
 type Service struct {
@@ -103,6 +103,7 @@ func (s Service) Suggest(ctx context.Context, request Request) (Suggestion, erro
 		Text: strings.TrimSpace(request.Text), AllowedCategories: categories,
 	})
 	if err != nil { return Suggestion{}, fmt.Errorf("generate intake suggestion: %w", err) }
+	if err := modelCtx.Err(); err != nil { return Suggestion{}, err }
 	if len(output.JSON) == 0 || len(output.JSON) > 16*1024 ||
 		strings.TrimSpace(output.Name) == "" || strings.TrimSpace(output.Version) == "" {
 		return Suggestion{}, ErrInvalidSuggestion
@@ -115,14 +116,17 @@ func (s Service) Suggest(ctx context.Context, request Request) (Suggestion, erro
 	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
 		return Suggestion{}, fmt.Errorf("%w: trailing JSON content", ErrInvalidSuggestion)
 	}
-	if _, ok := allowed[candidate.CategoryID]; !ok ||
-		strings.TrimSpace(candidate.Summary) == "" || len(candidate.Summary) > 1000 ||
-		len(candidate.RequiredDetails) > 10 ||
-		math.IsNaN(candidate.Confidence) || math.IsInf(candidate.Confidence, 0) ||
-		candidate.Confidence < 0 || candidate.Confidence > 1 {
+	if candidate.CategoryID == nil || candidate.Summary == nil || candidate.RequiredDetails == nil || candidate.Confidence == nil {
 		return Suggestion{}, ErrInvalidSuggestion
 	}
-	for _, detail := range candidate.RequiredDetails {
+	if _, ok := allowed[*candidate.CategoryID]; !ok ||
+		strings.TrimSpace(*candidate.Summary) == "" || len(*candidate.Summary) > 1000 ||
+		len(*candidate.RequiredDetails) > 10 ||
+		math.IsNaN(*candidate.Confidence) || math.IsInf(*candidate.Confidence, 0) ||
+		*candidate.Confidence < 0 || *candidate.Confidence > 1 {
+		return Suggestion{}, ErrInvalidSuggestion
+	}
+	for _, detail := range *candidate.RequiredDetails {
 		if strings.TrimSpace(detail) == "" || len(detail) > 160 { return Suggestion{}, ErrInvalidSuggestion }
 	}
 
@@ -130,8 +134,8 @@ func (s Service) Suggest(ctx context.Context, request Request) (Suggestion, erro
 	now := time.Now
 	if s.Now != nil { now = s.Now }
 	return Suggestion{
-		CategoryID: candidate.CategoryID, Summary: strings.TrimSpace(candidate.Summary),
-		RequiredDetails: candidate.RequiredDetails, Confidence: candidate.Confidence,
+		CategoryID: *candidate.CategoryID, Summary: strings.TrimSpace(*candidate.Summary),
+		RequiredDetails: *candidate.RequiredDetails, Confidence: *candidate.Confidence,
 		Provenance: Provenance{
 			Model: strings.TrimSpace(output.Name), ModelVersion: strings.TrimSpace(output.Version),
 			InputSHA256: hex.EncodeToString(fingerprint[:]), GeneratedAt: now().UTC(),
