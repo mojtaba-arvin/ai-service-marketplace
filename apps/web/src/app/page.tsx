@@ -150,7 +150,7 @@ export default function HomePage() {
             api<{ providers: Provider[] }>("/operator/providers", accessToken),
           ]);
           if (active) {
-            setOrders(orderData.orders.map((order) => ({ order, created_at: "", updated_at: "" }));
+            setOrders(orderData.orders.map((order) => ({ order, created_at: "", updated_at: "" })));
             setProviders(providerData.providers ?? []);
           }
         }
@@ -323,7 +323,7 @@ export default function HomePage() {
     try {
       await api(`/operator/orders/${orderId}/dispatch`, accessToken, { method: "POST" });
       const result = await api<{ orders: Order[] }>("/operator/orders", accessToken);
-      setOrders(result.orders.map((order) => ({ order, created_at: "", updated_at: "" }));
+      setOrders(result.orders.map((order) => ({ order, created_at: "", updated_at: "" })));
       setNotice("Offers sent to eligible professionals.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not dispatch the order.");
