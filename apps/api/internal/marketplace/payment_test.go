@@ -65,18 +65,19 @@ func TestPaymentOperationAndWebhookPersistencePostgres(t *testing.T) {
 	}
 	unknown,err:=store.RecordPaymentOutcome(ctx,op.ID,"unknown","","timeout")
 	if err!=nil || unknown.Status!="unknown" { t.Fatalf("record unknown outcome: %#v %v",unknown,err) }
-	resolved,err:=store.ResolveUnknownPayment(ctx,op.ID,"succeeded","provider-ref-1","")
+	resolved,err:=store.ResolveUnknownPayment(ctx,op.ID,"succeeded","provider-ref-"+key,"")
 	if err!=nil || resolved.Status!="succeeded" { t.Fatalf("resolve unknown outcome: %#v %v",resolved,err) }
 	if _,err=store.ResolveUnknownPayment(ctx,op.ID,"failed","","late-failure"); !errors.Is(err,ErrPaymentStateConflict) {
 		t.Fatalf("resolved operation cannot transition again: %v",err)
 	}
 
-	payload:=[]byte(`{"event_id":"evt-unique","status":"succeeded"}`)
-	duplicate,err:=store.RecordPaymentWebhook(ctx,"fake","evt-unique",payload)
+	eventID:=fmt.Sprintf("evt-%d",time.Now().UnixNano())
+	payload:=[]byte(fmt.Sprintf(`{"event_id":%q,"status":"succeeded"}`,eventID))
+	duplicate,err:=store.RecordPaymentWebhook(ctx,"fake",eventID,payload)
 	if err!=nil || duplicate { t.Fatalf("first webhook receipt: duplicate=%v err=%v",duplicate,err) }
-	duplicate,err=store.RecordPaymentWebhook(ctx,"fake","evt-unique",payload)
+	duplicate,err=store.RecordPaymentWebhook(ctx,"fake",eventID,payload)
 	if err!=nil || !duplicate { t.Fatalf("duplicate webhook receipt: duplicate=%v err=%v",duplicate,err) }
-	if _,err=store.RecordPaymentWebhook(ctx,"fake","evt-unique",[]byte(`{"event_id":"evt-unique","status":"failed"}`)); !errors.Is(err,ErrPaymentWebhookConflict) {
+	if _,err=store.RecordPaymentWebhook(ctx,"fake",eventID,[]byte(`{"event_id":eventID,"status":"failed"}`)); !errors.Is(err,ErrPaymentWebhookConflict) {
 		t.Fatalf("same event ID with changed payload must fail: %v",err)
 	}
 	if _,err=pool.Exec(ctx,`UPDATE payment_operation_events SET details='tampered' WHERE operation_id=$1`,op.ID); err==nil {
