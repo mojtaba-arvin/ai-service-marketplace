@@ -16,7 +16,7 @@ func TestPostgresWalkingSkeleton(t *testing.T) {
 	ctx,cancel:=context.WithTimeout(context.Background(),20*time.Second); defer cancel()
 	pool,err:=pgxpool.New(ctx,dsn); if err!=nil { t.Fatal(err) }; defer pool.Close()
 	if err=pool.Ping(ctx); err!=nil { t.Fatal(err) }
-	for _, name := range []string{"001_walking_skeleton.sql", "004_catalog.sql", "005_pricing.sql"} {
+	for _, name := range []string{"001_walking_skeleton.sql", "004_catalog.sql", "005_pricing.sql","015_order_schedule.sql"} {
 		migration, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if readErr != nil { t.Fatal(readErr) }
 		if _, err = pool.Exec(ctx, string(migration)); err != nil { t.Fatalf("migration %s: %v", name, err) }
