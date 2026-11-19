@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -163,7 +162,16 @@ func (s *Store) AcceptDispatchOffer(ctx context.Context,actor Actor,offerID stri
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{})
 	if err!=nil { return DispatchAssignment{},err }
 	defer tx.Rollback(ctx)
-	var orderID,providerID,providerIdentity,providerTenant,offerStatus,timezone string
+	var orderID string
+	err=tx.QueryRow(ctx,`SELECT order_id FROM dispatch_offers WHERE id=$1`,offerID).Scan(&orderID)
+	if errors.Is(err,pgx.ErrNoRows) { return DispatchAssignment{},ErrDispatchOfferUnavailable }
+	if err!=nil { return DispatchAssignment{},err }
+	var lockedOrderID string
+	err=tx.QueryRow(ctx,`SELECT id FROM orders WHERE id=$1 FOR UPDATE`,orderID).Scan(&lockedOrderID)
+	if errors.Is(err,pgx.ErrNoRows) { return DispatchAssignment{},ErrOrderNotFound }
+	if err!=nil { return DispatchAssignment{},err }
+
+	var providerID,providerIdentity,providerTenant,offerStatus,timezone string
 	var expiresAt,startAt,endAt,scheduledAt time.Time
 	var orderStatus,country,region,city,area string
 	var priceVersionID *string
@@ -174,7 +182,7 @@ func (s *Store) AcceptDispatchOffer(ctx context.Context,actor Actor,offerID stri
 			o.country_code,o.region_code,o.city_code,o.area_code,o.assigned_provider_id
 		FROM dispatch_offers off JOIN provider_profiles p ON p.id=off.provider_id
 		JOIN orders o ON o.id=off.order_id
-		WHERE off.id=$1 FOR UPDATE OF off,o,p
+		WHERE off.id=$1 FOR UPDATE OF off,p
 	`,offerID).Scan(&orderID,&providerID,&providerIdentity,&providerTenant,&offerStatus,&expiresAt,
 		&startAt,&endAt,&timezone,&orderStatus,&scheduledAt,&priceVersionID,&country,&region,&city,&area,&assignedProviderID)
 	if errors.Is(err,pgx.ErrNoRows) { return DispatchAssignment{},ErrDispatchOfferUnavailable }
@@ -183,9 +191,9 @@ func (s *Store) AcceptDispatchOffer(ctx context.Context,actor Actor,offerID stri
 	if err=Authorize(actor,Resource{TenantID:providerTenant,OwnerID:providerIdentity},ActionDispatchOfferRespond); err!=nil {
 		return DispatchAssignment{},err
 	}
+	if orderStatus!="requested" || assignedProviderID!=nil { return DispatchAssignment{},ErrOrderAlreadyAssigned }
 	if offerStatus!="offered" { return DispatchAssignment{},ErrDispatchOfferUnavailable }
 	if !time.Now().Before(expiresAt) { return DispatchAssignment{},ErrDispatchOfferExpired }
-	if orderStatus!="requested" || assignedProviderID!=nil { return DispatchAssignment{},ErrOrderAlreadyAssigned }
 	if priceVersionID==nil || scheduledAt.Before(startAt) || !scheduledAt.Before(endAt) { return DispatchAssignment{},ErrProviderUnavailable }
 	var categoryID string
 	err=tx.QueryRow(ctx,`
@@ -224,10 +232,12 @@ func (s *Store) AcceptDispatchOffer(ctx context.Context,actor Actor,offerID stri
 		if errors.As(err,&pgErr) && pgErr.Code=="23505" { return DispatchAssignment{},ErrOrderAlreadyAssigned }
 		return DispatchAssignment{},err
 	}
-	if _,err=tx.Exec(ctx,`
+	updated,err:=tx.Exec(ctx,`
 		UPDATE orders SET status='accepted',assigned_provider_id=$2,updated_at=now()
 		WHERE id=$1 AND status='requested' AND assigned_provider_id IS NULL
-	`,orderID,providerID); err!=nil { return DispatchAssignment{},err }
+	`,orderID,providerID)
+	if err!=nil { return DispatchAssignment{},err }
+	if updated.RowsAffected()!=1 { return DispatchAssignment{},ErrOrderAlreadyAssigned }
 	if _,err=tx.Exec(ctx,`
 		UPDATE dispatch_offers SET status='superseded',decided_at=now()
 		WHERE order_id=$1 AND id<>$2 AND status='offered'
@@ -300,5 +310,3 @@ func (s *Store) ExpireDispatchOffers(ctx context.Context,limit int) (int,error) 
 	if err=tx.Commit(ctx); err!=nil { return 0,err }
 	return len(expired),nil
 }
-
-var _ = fmt.Sprintf
