@@ -13,26 +13,18 @@ permissions:
 
 jobs:
   codeql:
-    name: CodeQL (${{ matrix.language }})
+    name: CodeQL (python)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - language: go
-            build-mode: autobuild
-          - language: javascript-typescript
-            build-mode: none
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3
         with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          languages: python
       - uses: github/codeql-action/analyze@v3
 
   dependency-review:
-    if: github.event_name == 'pull_request'
+    # Enable the repository dependency graph first, then set this repository variable.
+    if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
