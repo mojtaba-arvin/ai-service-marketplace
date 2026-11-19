@@ -8,6 +8,12 @@ func validConfigs() []Config { return []Config{
  {MarketID:"DE",Locale:"de-DE",Currency:"EUR",TimeZone:"Europe/Berlin",PolicyVersion:"de-2026-01"},
 } }
 
+func TestNewAcceptsDatabaseSupportedMarketCodes(t *testing.T) {
+ r,err:=New([]Config{{MarketID:"OMAN",Locale:"en-OM",Currency:"OMR",TimeZone:"Asia/Muscat",PolicyVersion:"policy-2026.01"}})
+ if err!=nil {t.Fatal(err)}
+ if _,err=r.Resolve("OMAN","en-OM");err!=nil {t.Fatal(err)}
+}
+
 func TestResolveRequiresExactMarketAndLocale(t *testing.T) {
  r,err:=New(validConfigs());if err!=nil{t.Fatal(err)}
  got,err:=r.Resolve("OM","en-OM");if err!=nil{t.Fatal(err)}
