@@ -144,11 +144,11 @@ func (s *Store) CreateOrderFromPrice(ctx context.Context, customerID, idempotenc
 	var priorMenuID string
 	err = tx.QueryRow(ctx, `
 		SELECT o.id,o.customer_id,o.amount_minor,o.currency,o.status,o.price_version_id,v.menu_id,
-			o.scheduled_at,o.country_code,o.region_code,o.city_code,o.area_code,o.assigned_provider_id
+			o.scheduled_at,o.country_code,o.region_code,o.city_code,o.area_code
 		FROM orders o JOIN service_price_versions v ON v.id=o.price_version_id
 		WHERE o.customer_id=$1 AND o.idempotency_key=$2
 	`, customerID, idempotencyKey).Scan(&prior.ID, &prior.CustomerID, &prior.AmountMinor,
-		&prior.Currency, &prior.Status, &prior.PriceVersionID, &priorMenuID,&prior.ScheduledAt,&prior.CountryCode,&prior.RegionCode,&prior.CityCode,&prior.AreaCode,&prior.AssignedProviderID)
+		&prior.Currency, &prior.Status, &prior.PriceVersionID, &priorMenuID,&prior.ScheduledAt,&prior.CountryCode,&prior.RegionCode,&prior.CityCode,&prior.AreaCode)
 	if err == nil {
 		if priorMenuID != menuID || prior.ScheduledAt!=nil || prior.CountryCode!=nil { return Order{}, false, ErrOrderIdempotencyConflict }
 		if err = tx.Commit(ctx); err != nil { return Order{}, false, err }
@@ -194,7 +194,7 @@ func (s *Store) CreateOrderFromPrice(ctx context.Context, customerID, idempotenc
 			WHERE o.customer_id=$1 AND o.idempotency_key=$2
 		`, customerID, idempotencyKey).Scan(&existing.ID, &existing.CustomerID, &existing.AmountMinor,
 			&existing.Currency, &existing.Status, &existing.PriceVersionID, &existingMenuID,
-			&existing.ScheduledAt,&existing.CountryCode,&existing.RegionCode,&existing.CityCode,&existing.AreaCode,&existing.AssignedProviderID)
+			&existing.ScheduledAt,&existing.CountryCode,&existing.RegionCode,&existing.CityCode,&existing.AreaCode)
 		if errors.Is(err, pgx.ErrNoRows) { return Order{}, false, ErrOrderIdempotencyConflict }
 		if err != nil { return Order{}, false, err }
 		if existingMenuID != menuID || existing.ScheduledAt!=nil || existing.CountryCode!=nil {
