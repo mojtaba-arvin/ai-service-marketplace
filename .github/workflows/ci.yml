@@ -43,7 +43,7 @@ jobs:
           cache-dependency-path: apps/api/go.mod
       - name: Resolve Go module checksums
         working-directory: apps/api
-        run: go mod download
+        run: go mod tidy
       - name: Verify repository
         run: |
           chmod +x scripts/verify.sh
