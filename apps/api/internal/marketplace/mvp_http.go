@@ -24,6 +24,18 @@ type PublicCatalogItem struct {
     Currency string `json:"currency"`
 }
 
+type ProfessionalOrder struct {
+    ID string `json:"id"`
+    AmountMinor int64 `json:"amount_minor"`
+    Currency string `json:"currency"`
+    Status string `json:"status"`
+    ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+    CountryCode *string `json:"country_code,omitempty"`
+    RegionCode *string `json:"region_code,omitempty"`
+    CityCode *string `json:"city_code,omitempty"`
+    AreaCode *string `json:"area_code,omitempty"`
+}
+
 type OperatorProvider struct {
     ID string `json:"id"`
     IdentityID string `json:"identity_id"`
@@ -154,6 +166,35 @@ func (s *Store) ListOperatorOrders(ctx context.Context, actor Actor, marketCode 
         return nil, err
     }
     return orders, nil
+}
+
+func (s *Store) ListProfessionalOrders(ctx context.Context, actor Actor) ([]ProfessionalOrder, error) {
+    if actor.Role != RoleProfessional || actor.SubjectID == "" || actor.TenantID == "" {
+        return nil, ErrForbidden
+    }
+    rows, err := s.DB.Query(ctx, `
+        SELECT o.id,o.amount_minor,o.currency,o.status,o.scheduled_at,
+            o.country_code,o.region_code,o.city_code,o.area_code
+        FROM orders o
+        JOIN provider_profiles p ON p.id=o.assigned_provider_id
+        WHERE p.identity_id=$1 AND p.tenant_id=$2
+          AND o.status IN ('accepted','in_progress')
+        ORDER BY o.scheduled_at,o.created_at
+        LIMIT 100
+    `,actor.SubjectID,actor.TenantID)
+    if err != nil { return nil,err }
+    defer rows.Close()
+    orders:=make([]ProfessionalOrder,0)
+    for rows.Next() {
+        var order ProfessionalOrder
+        if err=rows.Scan(&order.ID,&order.AmountMinor,&order.Currency,&order.Status,&order.ScheduledAt,
+            &order.CountryCode,&order.RegionCode,&order.CityCode,&order.AreaCode);err!=nil {
+            return nil,err
+        }
+        orders=append(orders,order)
+    }
+    if err=rows.Err();err!=nil { return nil,err }
+    return orders,nil
 }
 
 func (s *Store) ListOperatorProviders(ctx context.Context, actor Actor) ([]OperatorProvider, error) {
@@ -289,8 +330,12 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.orderTimeline(w,r); return true
     case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/orders/") && strings.HasSuffix(path,"/cancel"):
         h.cancelOrder(w,r); return true
+    case r.Method == http.MethodGet && path == "/v1/professional/profile":
+        h.professionalProfile(w,r); return true
     case r.Method == http.MethodPost && path == "/v1/professional/profile":
         h.registerProfessional(w,r); return true
+    case r.Method == http.MethodGet && path == "/v1/professional/orders":
+        h.professionalOrders(w,r); return true
     case r.Method == http.MethodPost && path == "/v1/professional/profile/qualification":
         h.professionalQualification(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/professional/offers":
@@ -312,12 +357,20 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func (h *Handler) publicCatalog(w http.ResponseWriter, r *http.Request) {
+    market, err := h.Store.GetMarket(r.Context(),h.DefaultMarketCode)
+    if err != nil {
+        writeError(w,http.StatusServiceUnavailable,"market is unavailable")
+        return
+    }
     items, err := h.Store.ListPublicCatalog(r.Context(),h.DefaultMarketCode)
     if err != nil {
         writeError(w,http.StatusServiceUnavailable,"catalog is unavailable")
         return
     }
-    writeJSON(w,http.StatusOK,map[string]any{"market":h.DefaultMarketCode,"items":items})
+    writeJSON(w,http.StatusOK,map[string]any{
+        "market":market.Code,"currency":market.Currency,"timezone":market.Timezone,
+        "locale":market.DefaultLocale,"items":items,
+    })
 }
 
 func (h *Handler) createScheduledOrder(w http.ResponseWriter, r *http.Request) {
@@ -429,6 +482,34 @@ func (h *Handler) cancelOrder(w http.ResponseWriter, r *http.Request) {
         return
     }
     writeJSON(w,http.StatusOK,map[string]any{"cancellation":cancellation,"funds_moved":false})
+}
+
+func (h *Handler) professionalProfile(w http.ResponseWriter, r *http.Request) {
+    actor, err := h.actorForRole(r,RoleProfessional)
+    if err != nil {
+        writeError(w,http.StatusForbidden,"professional membership is required")
+        return
+    }
+    profile, err := h.Store.GetProviderProfileForActor(r.Context(),actor)
+    if err != nil {
+        writeError(w,http.StatusNotFound,"professional profile not found")
+        return
+    }
+    writeJSON(w,http.StatusOK,map[string]any{"profile":profile})
+}
+
+func (h *Handler) professionalOrders(w http.ResponseWriter, r *http.Request) {
+    actor, err := h.actorForRole(r,RoleProfessional)
+    if err != nil {
+        writeError(w,http.StatusForbidden,"professional membership is required")
+        return
+    }
+    orders, err := h.Store.ListProfessionalOrders(r.Context(),actor)
+    if err != nil {
+        writeError(w,http.StatusInternalServerError,"could not load assigned orders")
+        return
+    }
+    writeJSON(w,http.StatusOK,map[string]any{"orders":orders})
 }
 
 func (h *Handler) registerProfessional(w http.ResponseWriter, r *http.Request) {
