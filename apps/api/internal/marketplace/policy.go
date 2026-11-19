@@ -21,6 +21,7 @@ const (
 	ActionOrderComplete     Action = "order:complete"
 	ActionOrderAssign       Action = "order:assign"
 	ActionQuoteApprove      Action = "quote:approve"
+	ActionQuoteAccept       Action = "quote:accept"
 	ActionProfileUpdate     Action = "profile:update"
 	ActionProviderVerify    Action = "provider:verify"
 	ActionCaseRead          Action = "case:read"
