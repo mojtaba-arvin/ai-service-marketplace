@@ -2,7 +2,7 @@ package marketplace
 
 import (
 	"context"
-	"errors"
+	"errors"\n\t"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,7 +24,7 @@ func TestServiceCategoryHierarchyPostgres(t *testing.T) {
 	if _, err = pool.Exec(ctx, string(migration)); err != nil { t.Fatalf("catalog migration: %v", err) }
 	store := &Store{DB: pool}
 
-	root, err := store.CreateCategory(ctx, nil, "home-services", "Home services")
+	rootSlug := fmt.Sprintf("home-services-%d", time.Now().UnixNano())\n\troot, err := store.CreateCategory(ctx, nil, rootSlug, "Home services")
 	if err != nil { t.Fatalf("create root: %v", err) }
 	parentID := root.ID
 	repair, err := store.CreateCategory(ctx, &parentID, "plumbing", "Plumbing")
@@ -52,7 +52,7 @@ func TestServiceCategoryHierarchyPostgres(t *testing.T) {
 	allowed, err = store.CanAcceptOrders(ctx, leakRepair.ID)
 	if err != nil || !allowed { t.Fatalf("reenabled hierarchy should accept orders: allowed=%v err=%v", allowed, err) }
 
-	duplicate, err := store.CreateCategory(ctx, nil, "home-services", "Duplicate")
+	duplicate, err := store.CreateCategory(ctx, nil, rootSlug, "Duplicate")
 	if err == nil { t.Fatalf("duplicate root slug should fail: %#v", duplicate) }
 	if _, err = store.GetCategory(ctx, "missing-category"); !errors.Is(err, ErrCategoryNotFound) {
 		t.Fatalf("missing category should return typed error: %v", err)
