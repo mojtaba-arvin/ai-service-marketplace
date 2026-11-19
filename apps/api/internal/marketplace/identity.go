@@ -115,8 +115,8 @@ func (s *Store) CreateOTPChallenge(ctx context.Context, phone, code string, pepp
 	}
 	_, err = tx.Exec(ctx, `
 		INSERT INTO otp_challenges(id, phone_identity_id, code_hash, expires_at, max_attempts)
-		VALUES($1, $2, $3, now() + $4::interval, $5)
-	`, challengeID, persistedIdentityID, otpDigest(challengeID, code, pepper), ttl.String(), maxAttempts)
+		VALUES($1, $2, $3, now() + ($4 * interval '1 second'), $5)
+	`, challengeID, persistedIdentityID, otpDigest(challengeID, code, pepper), ttl.Seconds(), maxAttempts)
 	if err != nil {
 		return "", fmt.Errorf("persist OTP challenge: %w", err)
 	}
