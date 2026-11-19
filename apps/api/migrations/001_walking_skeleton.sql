@@ -84,3 +84,26 @@ CREATE TABLE IF NOT EXISTS processed_events (
     processed_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY(consumer_name,event_id)
 );
+
+-- A journal cannot be committed without a balanced set of entries.
+CREATE OR REPLACE FUNCTION enforce_journal_has_entries() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    debit_total bigint;
+    credit_total bigint;
+    entry_count bigint;
+BEGIN
+    SELECT COUNT(*),
+           COALESCE(SUM(amount_minor) FILTER (WHERE side='debit'),0),
+           COALESCE(SUM(amount_minor) FILTER (WHERE side='credit'),0)
+      INTO entry_count, debit_total, credit_total
+      FROM ledger_entries WHERE journal_id=NEW.id;
+    IF entry_count < 2 OR debit_total <> credit_total THEN
+        RAISE EXCEPTION 'journal % is missing balanced entries', NEW.id;
+    END IF;
+    RETURN NULL;
+END $$;
+DROP TRIGGER IF EXISTS ledger_journal_complete_check ON ledger_journals;
+CREATE CONSTRAINT TRIGGER ledger_journal_complete_check
+AFTER INSERT ON ledger_journals
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION enforce_journal_has_entries();
