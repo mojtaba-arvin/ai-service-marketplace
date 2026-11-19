@@ -16,8 +16,11 @@ func TestPostgresWalkingSkeleton(t *testing.T) {
 	ctx,cancel:=context.WithTimeout(context.Background(),20*time.Second); defer cancel()
 	pool,err:=pgxpool.New(ctx,dsn); if err!=nil { t.Fatal(err) }; defer pool.Close()
 	if err=pool.Ping(ctx); err!=nil { t.Fatal(err) }
-	migration,err:=os.ReadFile(filepath.Join("..","..","migrations","001_walking_skeleton.sql")); if err!=nil { t.Fatal(err) }
-	if _,err=pool.Exec(ctx,string(migration)); err!=nil { t.Fatalf("migration: %v",err) }
+	for _, name := range []string{"001_walking_skeleton.sql", "004_catalog.sql", "005_pricing.sql"} {
+		migration, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
+		if readErr != nil { t.Fatal(readErr) }
+		if _, err = pool.Exec(ctx, string(migration)); err != nil { t.Fatalf("migration %s: %v", name, err) }
+	}
 	store:=&Store{DB:pool}
 	key:="integration-"+time.Now().UTC().Format("20060102150405.000000000")
 	first,created,err:=store.CreateOrder(ctx,"integration-customer",key,1250,"OMR")
