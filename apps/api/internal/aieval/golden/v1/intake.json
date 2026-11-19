@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "prompt_id": "marketplace.intake.classifier",
+  "prompt_version": "1.0.0",
+  "min_category_accuracy": 0.95,
+  "min_detail_recall": 0.85,
+  "cases": [
+    {
+      "id": "om-ac-not-cooling",
+      "expected_category": "ac-repair",
+      "required_details": ["Unit model", "Last service date"],
+      "critical": true
+    },
+    {
+      "id": "om-water-leak",
+      "expected_category": "plumbing",
+      "required_details": ["Leak location", "When it started"],
+      "critical": true
+    },
+    {
+      "id": "de-cleaning",
+      "expected_category": "home-cleaning",
+      "required_details": ["Property size"],
+      "critical": false
+    }
+  ]
+}
