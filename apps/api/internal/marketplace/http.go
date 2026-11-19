@@ -9,7 +9,7 @@ import (
  "time"
 )
 
-type OTPDelivery interface { SendOTP(context.Context,phone,code,idempotencyKey string) error }
+type OTPDelivery interface { SendOTP(ctx context.Context,phone,code,idempotencyKey string) error }
 
 type Handler struct {
  Store *Store
