@@ -43,13 +43,13 @@ func TestPostgresWalkingSkeleton(t *testing.T) {
 	if _,err=pool.Exec(ctx,`UPDATE ledger_entries SET amount_minor=1 WHERE journal_id=$1`,first.ID); err==nil { t.Fatal("ledger mutation must be rejected") }
 
 	calls, ownEvents := 0, 0
-	processed,err:=ProcessOutboxBatch(ctx,pool,"integration-test",1000,func(_ context.Context,event OutboxEvent) error {
+	processed,err:=ProcessOutboxBatch(ctx,pool,"integration-test",100,func(_ context.Context,event OutboxEvent) error {
 		calls++
 		if event.AggregateID==first.ID { ownEvents++ }
 		return nil
 	})
 	if err!=nil || processed<2 || calls!=processed || ownEvents!=2 { t.Fatalf("outbox processing: processed=%d calls=%d own_events=%d err=%v",processed,calls,ownEvents,err) }
-	processed,err=ProcessOutboxBatch(ctx,pool,"integration-test",1000,func(context.Context,OutboxEvent) error {
+	processed,err=ProcessOutboxBatch(ctx,pool,"integration-test",100,func(context.Context,OutboxEvent) error {
 		t.Fatal("already processed event was delivered twice")
 		return nil
 	})
