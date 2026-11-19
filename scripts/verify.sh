@@ -30,9 +30,13 @@ while IFS= read -r -d '' file; do
 done < <(find scripts -type f -name '*.sh' -print0)
 
 if [[ "$FULL" -eq 1 ]]; then
-  echo "==> Full verification: checking local service definitions"
+  echo "==> Validating and starting local infrastructure"
   docker compose config --quiet
-  echo "    Docker Compose configuration is valid"
+  docker compose up -d --wait
+  docker compose exec -T postgres pg_isready -U marketplace -d marketplace
+  test "$(docker compose exec -T valkey valkey-cli ping | tr -d '\r')" = "PONG"
+  docker compose exec -T nats wget -q -O - http://127.0.0.1:8222/healthz >/dev/null
+  echo "    PostgreSQL, Valkey, and NATS are healthy"
 fi
 
 echo "==> Verification completed"
