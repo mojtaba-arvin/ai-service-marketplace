@@ -1,10 +1,10 @@
 # Single-host MVP deployment
 
-This deployment profile is intentionally small: one Go API process, one dispatch-expiry worker, PostgreSQL/PostGIS, and Caddy for automatic HTTPS. It does not introduce Kubernetes, Valkey, or NATS into the first runtime.
+This deployment profile is intentionally small: one Go API process, one Next.js web process, one dispatch-expiry worker, PostgreSQL/PostGIS, and Caddy for automatic HTTPS. It does not introduce Kubernetes, Valkey, or NATS into the first runtime.
 
 ## Release boundary
 
-This is a deployment foundation, not a claim that the MVP user journey is complete. The current API still needs the production-safe catalog, booking, dispatch, and role-scoped HTTP workflows tracked in [MVP-API](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/54). Do not expose the test OTP/session endpoints or simulated ledger as production behavior.
+The repository now contains the first customer/professional/operator API and browser workflow. Treat it as an MVP release candidate until the full CI suite, configured OTP delivery, host deployment, and end-to-end acceptance gate have all passed. Do not expose test OTP/session endpoints or treat ledger primitives as evidence of real payment processing.
 
 The API currently applies its versioned SQL migrations during startup. Keep exactly one API replica until migrations are moved to a dedicated one-shot migration job.
 
@@ -77,7 +77,7 @@ Run from the repository root:
 docker compose --env-file .env.production -f infra/compose.production.yml config --quiet
 docker compose --env-file .env.production -f infra/compose.production.yml up -d --build
 docker compose --env-file .env.production -f infra/compose.production.yml ps
-docker compose --env-file .env.production -f infra/compose.production.yml logs --tail=100 api caddy dispatch-worker
+docker compose --env-file .env.production -f infra/compose.production.yml logs --tail=100 api web caddy dispatch-worker
 ```
 
 Caddy obtains and renews certificates automatically after DNS and firewall configuration are correct. Confirm https://SITE_ADDRESS/healthz returns HTTP 200.
@@ -100,8 +100,9 @@ Test backup restoration before treating the host as production-ready. Keep encry
 
 ## Known limitations before public use
 
-- The full customer/professional/operator HTTP workflow and browser UI are not yet implemented.
+- The first browser workflow uses sessionStorage for access/refresh tokens. Before broad public launch, move sessions to Secure, HttpOnly, SameSite cookies and add a reviewed CSRF strategy.
 - The OTP adapter requires a real provider endpoint and token.
+- The initial service catalog and sample professional must be seeded for the configured market before the UI can create a booking.
 - Payment capture, escrow movement, refunds, and settlement are not enabled.
 - The initial profile runs one API replica and does not include managed database failover.
 - A host, DNS name, and secret values must be supplied by the operator; none are stored in the repository.
