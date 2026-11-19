@@ -11,7 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-var ErrInvalidOrderRequest = errors.New("invalid scheduled order request")\n\nfunc validOrderArea(country,region,city,area string) bool {
+var ErrInvalidOrderRequest = errors.New("invalid scheduled order request")
+
+func validOrderArea(country,region,city,area string) bool {
 	if len(country)!=2 || country[0]<'A' || country[0]>'Z' || country[1]<'A' || country[1]>'Z' { return false }
 	return region!="" && city!="" && area!="" && len(region)<=100 && len(city)<=100 && len(area)<=100
 }
