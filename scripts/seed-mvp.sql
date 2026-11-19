@@ -86,17 +86,22 @@ ON CONFLICT(identity_id) DO UPDATE
 SET tenant_id=EXCLUDED.tenant_id,display_name=EXCLUDED.display_name,updated_at=now();
 
 INSERT INTO provider_skills(id,provider_id,category_id)
-VALUES ('mvp-professional-skill','mvp-professional-profile',:'category_id')
+SELECT 'mvp-professional-skill',p.id,:'category_id'
+FROM provider_profiles p JOIN phone_identities i ON i.id=p.identity_id
+WHERE i.phone_e164=:'professional_phone'
 ON CONFLICT(provider_id,category_id) DO NOTHING;
 
 INSERT INTO provider_service_areas(id,provider_id,country_code,region_code,city_code,area_code,active)
-VALUES ('mvp-professional-area','mvp-professional-profile',:'market_code',:'region_code',:'city_code',:'area_code',true)
+SELECT 'mvp-professional-area',p.id,:'market_code',:'region_code',:'city_code',:'area_code',true
+FROM provider_profiles p JOIN phone_identities i ON i.id=p.identity_id
+WHERE i.phone_e164=:'professional_phone'
 ON CONFLICT(provider_id,country_code,region_code,city_code,area_code) DO UPDATE SET active=true;
 
 INSERT INTO provider_availability_windows(id,provider_id,window_type,start_at,end_at,timezone,created_by_identity_id)
-SELECT 'mvp-professional-availability','mvp-professional-profile','available',
-       now()-interval '1 minute',now()+interval '30 days',:'timezone',id
-FROM phone_identities WHERE phone_e164=:'professional_phone'
+SELECT 'mvp-professional-availability',p.id,'available',
+       now()-interval '1 minute',now()+interval '30 days',:'timezone',i.id
+FROM provider_profiles p JOIN phone_identities i ON i.id=p.identity_id
+WHERE i.phone_e164=:'professional_phone'
 ON CONFLICT(id) DO NOTHING;
 
 COMMIT;
