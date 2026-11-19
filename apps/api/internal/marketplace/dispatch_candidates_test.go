@@ -75,12 +75,8 @@ func TestDispatchCandidatesRequireAllEligibilityAndAvailabilityGatesPostgres(t *
 	if _,err=store.FindDispatchCandidatesForOrder(ctx,Actor{SubjectID:ids[2],TenantID:"market-dispatch",Role:RoleCustomer},order.ID,start,end); !errors.Is(err,ErrForbidden) {
 		t.Fatalf("another customer cannot search dispatch candidates for this order: %v",err)
 	}
-	if _,err=store.FindDispatchCandidates(ctx,customer,category.ID,"OM","Muscat","Seeb","Al-Khuwair",start,end); err!=nil {
-		t.Fatal(err)
-	} else {
-		wrongArea,queryErr:=store.FindDispatchCandidates(ctx,customer,category.ID,"OM","Muscat","Seeb","Al-Khuwair",start,end)
-		if queryErr!=nil || len(wrongArea)!=0 { t.Fatalf("wrong area must exclude providers: %#v %v",wrongArea,queryErr) }
-	}
+	wrongArea,queryErr:=store.FindDispatchCandidates(ctx,customer,category.ID,"OM","Muscat","Seeb","Al-Khuwair",start,end)
+	if queryErr!=nil || len(wrongArea)!=0 { t.Fatalf("wrong area must exclude providers: %#v %v",wrongArea,queryErr) }
 	if _,err=store.CreateProviderBooking(ctx,operator,providerA.ID,order.ID,start,end,loc.String()); err!=nil {
 		t.Fatalf("reserve eligible provider: %v",err)
 	}
