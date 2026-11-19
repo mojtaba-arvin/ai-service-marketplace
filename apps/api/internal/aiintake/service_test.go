@@ -38,6 +38,8 @@ func TestSuggestRejectsUnknownOrForbiddenFields(t *testing.T) {
 		`{"category_id":"cleaning","summary":"x","required_details":[],"confidence":0.5,"price_minor":100}`,
 		`{"category_id":"cleaning","summary":"x","required_details":[],"confidence":0.5,"identity_verified":true}`,
 		`{"category_id":"cleaning","summary":"x","required_details":[],"confidence":1.1}`,
+		`{"category_id":"cleaning","summary":"x","confidence":0.5}`,
+		`{"category_id":"cleaning","summary":"x","required_details":[]}`,
 		`{"category_id":"cleaning","summary":"x","required_details":[""],"confidence":0.5}`,
 		`{"category_id":"cleaning","summary":"x","required_details":[],"confidence":0.5} {"extra":true}`,
 	}
