@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"\n\t"sort"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -79,7 +80,8 @@ func (s *Store) SaveMarket(ctx context.Context, actor Actor, config MarketConfig
 	}
 	if err=tx.Commit(ctx); err!=nil { return MarketConfig{},err }
 	config.Locales=make([]string,0,len(locales))
-	for locale:=range locales { config.Locales=append(config.Locales,locale) }\n\tsort.Strings(config.Locales)
+	for locale:=range locales { config.Locales=append(config.Locales,locale) }
+	sort.Strings(config.Locales)
 	return config,nil
 }
 
