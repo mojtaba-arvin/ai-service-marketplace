@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 type Store struct { DB *pgxpool.Pool }
@@ -72,9 +72,8 @@ func (s *Store) CreateOrder(ctx context.Context, customerID, key string, amount 
 		VALUES($1,'customer_funds','debit',$2),($1,'provider_payable','credit',$2)`,journalID,amount)
 	if err!=nil { return Order{},false,fmt.Errorf("post balanced test ledger: %w",err) }
 
-	payload,_:=json.Marshal(map[string]string{"order_id":id,"status":"requested"})
-	_,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload)
-		VALUES('order',$1,'order.created',$2)`,id,payload)
+	payload:=[]byte(`{"order_id":"`+id+`","status":"requested"}`)
+	_,err=outbox.Append(ctx,tx,"order",id,"order.created",payload)
 	if err!=nil { return Order{},false,err }
 	if err=tx.Commit(ctx); err!=nil { return Order{},false,err }
 	return Order{ID:id,CustomerID:customerID,AmountMinor:amount,Currency:currency,Status:"requested"},true,nil
@@ -92,9 +91,8 @@ func (s *Store) TransitionOrder(ctx context.Context, id, target string) (Order,e
 	if !CanTransition(current.Status,target) { return Order{},ErrInvalidTransition }
 	_,err=tx.Exec(ctx,`UPDATE orders SET status=$2,updated_at=now() WHERE id=$1`,id,target)
 	if err!=nil { return Order{},err }
-	payload,_:=json.Marshal(map[string]string{"order_id":id,"from":current.Status,"to":target})
-	_,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload)
-		VALUES('order',$1,'order.state_changed',$2)`,id,payload)
+	payload:=[]byte(`{"order_id":"`+id+`","from":"`+current.Status+`","to":"`+target+`"}`)
+	_,err=outbox.Append(ctx,tx,"order",id,"order.state_changed",payload)
 	if err!=nil { return Order{},err }
 	current.Status=target
 	if err=tx.Commit(ctx); err!=nil { return Order{},err }
