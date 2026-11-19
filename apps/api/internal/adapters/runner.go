@@ -16,8 +16,6 @@ var (
 	ErrCircuitOpen = errors.New("provider circuit breaker is open")
 )
 
-// Policy bounds each provider attempt and the total retry budget. Retries are
-// disabled unless Retryable explicitly classifies an error as safe to retry.
 type Policy struct {
 	Timeout time.Duration
 	MaxAttempts int
@@ -35,17 +33,17 @@ func (p Policy) validate() error {
 }
 
 // Operation receives the same idempotency key on every attempt. Providers
-// must persist/deduplicate that key before performing a non-idempotent effect.
+// must deduplicate that key before performing a non-idempotent effect.
 type Operation[T any] func(context.Context, string) (T, error)
 
-// Runner applies timeout, bounded retry, stable idempotency-key, and optional
-// circuit-breaker controls to one provider operation.
 type Runner struct {
 	Policy Policy
 	Breaker *CircuitBreaker
 }
 
-func (r Runner) Do[T any](ctx context.Context, key string, operation Operation[T]) (T, error) {
+// Do applies bounded attempts and per-attempt timeouts. Retryability is an
+// explicit caller decision; every retry reuses the same idempotency key.
+func Do[T any](r Runner, ctx context.Context, key string, operation Operation[T]) (T, error) {
 	var zero T
 	if err := r.Policy.validate(); err != nil { return zero, err }
 	if strings.TrimSpace(key) == "" { return zero, ErrMissingIdempotencyKey }
@@ -70,18 +68,20 @@ func (r Runner) Do[T any](ctx context.Context, key string, operation Operation[T
 			timer := time.NewTimer(backoff)
 			select {
 			case <-ctx.Done():
-				if !timer.Stop() { <-timer.C }
+				if !timer.Stop() { select { case <-timer.C: default: } }
 				lastErr = ctx.Err()
 				attempt = r.Policy.MaxAttempts
 			case <-timer.C:
 			}
 		}
-		if backoff < r.Policy.MaxBackoff {
+		if backoff > 0 && backoff < r.Policy.MaxBackoff {
 			backoff *= 2
 			if backoff > r.Policy.MaxBackoff { backoff = r.Policy.MaxBackoff }
 		}
 	}
-	if r.Breaker != nil { r.Breaker.failure(time.Now()) }
+	if r.Breaker != nil && r.Policy.Retryable(lastErr) && ctx.Err() == nil {
+		r.Breaker.failure(time.Now())
+	}
 	return zero, lastErr
 }
 
@@ -92,8 +92,8 @@ const (
 	breakerHalfOpen
 )
 
-// CircuitBreaker permits one probe after the cooldown. It is safe for
-// concurrent callers; calls already admitted before opening may finish.
+// CircuitBreaker admits one half-open probe after cooldown. It is safe for
+// concurrent callers; operations admitted before opening may finish.
 type CircuitBreaker struct {
 	mu sync.Mutex
 	threshold int
@@ -101,7 +101,6 @@ type CircuitBreaker struct {
 	failures int
 	state breakerState
 	openedAt time.Time
-	probeInFlight bool
 }
 
 func NewCircuitBreaker(threshold int, cooldown time.Duration) (*CircuitBreaker, error) {
@@ -120,7 +119,6 @@ func (b *CircuitBreaker) allow(now time.Time) bool {
 	case breakerOpen:
 		if now.Sub(b.openedAt) < b.cooldown { return false }
 		b.state = breakerHalfOpen
-		b.probeInFlight = true
 		return true
 	case breakerHalfOpen:
 		return false
@@ -134,7 +132,6 @@ func (b *CircuitBreaker) success() {
 	defer b.mu.Unlock()
 	b.state = breakerClosed
 	b.failures = 0
-	b.probeInFlight = false
 }
 
 func (b *CircuitBreaker) failure(now time.Time) {
@@ -143,7 +140,6 @@ func (b *CircuitBreaker) failure(now time.Time) {
 	if b.state == breakerHalfOpen {
 		b.state = breakerOpen
 		b.openedAt = now
-		b.probeInFlight = false
 		return
 	}
 	b.failures++
