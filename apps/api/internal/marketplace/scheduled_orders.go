@@ -41,7 +41,7 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 	country=strings.ToUpper(strings.TrimSpace(country))
 	region=strings.TrimSpace(region); city=strings.TrimSpace(city); area=strings.TrimSpace(area)
 	now:=time.Now().UTC()
-	scheduledAt=scheduledAt.UTC()
+	scheduledAt=scheduledAt.UTC().Truncate(time.Microsecond)
 	if idempotencyKey=="" || len(idempotencyKey)>200 || menuID=="" ||
 		scheduledAt.Before(now.Add(30*time.Minute)) || scheduledAt.After(now.Add(90*24*time.Hour)) ||
 		!validOrderArea(country,region,city,area) {
