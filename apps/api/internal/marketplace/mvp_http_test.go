@@ -151,15 +151,6 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     if err = store.AddProviderServiceArea(ctx,professional,profile.ID,marketCode,"Test Region","Test City","Test Area"); err != nil {
         t.Fatal(err)
     }
-    if err = store.VerifyProviderProfile(ctx,operator,profile.ID); err != nil {
-        t.Fatal(err)
-    }
-    if err = store.VerifyProviderSkill(ctx,operator,profile.ID,category.ID); err != nil {
-        t.Fatal(err)
-    }
-    if err = store.SetProviderActive(ctx,operator,profile.ID,true); err != nil {
-        t.Fatal(err)
-    }
     now := time.Now().UTC()
     if _, err = store.SetProviderAvailability(ctx,professional,profile.ID,"available",
         now.Add(-time.Hour),now.Add(12*time.Hour),"UTC"); err != nil {
@@ -237,6 +228,15 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
         session, issueErr := store.IssueSession(ctx,VerifiedIdentity{phone:phone},pepper,15*time.Minute,24*time.Hour)
         if issueErr != nil { t.Fatal(issueErr) }
         tokens[name] = session.AccessToken
+    }
+
+    providersResponse,providersBody := call(http.MethodGet,"/v1/operator/providers",tokens["operator"],"",nil)
+    if providersResponse.Code != http.StatusOK || len(providersBody["providers"].([]any))!=1 {
+        t.Fatalf("operator provider queue: status=%d body=%s",providersResponse.Code,providersResponse.Body.String())
+    }
+    verifyResponse,_ := call(http.MethodPost,"/v1/operator/providers/"+profile.ID+"/verify",tokens["operator"],"",map[string]string{"category_id":category.ID})
+    if verifyResponse.Code != http.StatusOK {
+        t.Fatalf("verify provider: status=%d body=%s",verifyResponse.Code,verifyResponse.Body.String())
     }
 
     catalogResponse,catalog := call(http.MethodGet,"/v1/catalog","","",nil)
