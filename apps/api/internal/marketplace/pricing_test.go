@@ -20,7 +20,7 @@ func TestVersionedPriceMenuAndOrderSnapshotPostgres(t *testing.T) {
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil { t.Fatal(err) }
 	defer pool.Close()
-	for _, name := range []string{"001_walking_skeleton.sql", "004_catalog.sql", "005_pricing.sql"} {
+	for _, name := range []string{"001_walking_skeleton.sql", "004_catalog.sql", "005_pricing.sql","015_order_schedule.sql"} {
 		migration, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if readErr != nil { t.Fatal(readErr) }
 		if _, err = pool.Exec(ctx, string(migration)); err != nil { t.Fatalf("apply %s: %v", name, err) }
