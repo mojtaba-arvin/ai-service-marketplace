@@ -58,6 +58,33 @@ function localDateTime(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function localDateTimeInZone(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "00";
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
+}
+
+function zonedDateTimeToISO(value: string, timeZone: string): string {
+  const [datePart, timePart] = value.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  const wallClock = Date.UTC(year, month - 1, day, hour, minute);
+  let instant = wallClock;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+    }).formatToParts(new Date(instant));
+    const part = (type: string) => Number(parts.find((item) => item.type === type)?.value ?? "0");
+    const representedAsUTC = Date.UTC(part("year"), part("month") - 1, part("day"), part("hour"), part("minute"), part("second"));
+    instant = wallClock - (representedAsUTC - instant);
+  }
+  return new Date(instant).toISOString();
+}
+
 function money(amountMinor: number, currency: string): string {
   const formatter = new Intl.NumberFormat(undefined, { style: "currency", currency });
   const digits = formatter.resolvedOptions().maximumFractionDigits;
@@ -98,6 +125,7 @@ export default function HomePage() {
   const [areaCode, setAreaCode] = useState("Al-Khuwair");
   const [availabilityFrom, setAvailabilityFrom] = useState(() => localDateTime(new Date()));
   const [availabilityUntil, setAvailabilityUntil] = useState(() => localDateTime(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)));
+  const [timezoneInitialized, setTimezoneInitialized] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -135,6 +163,13 @@ export default function HomePage() {
         if (!active) return;
         setCatalog(data);
         if (data.items.length > 0 && !selectedMenu) setSelectedMenu(data.items[0].menu_id);
+        if (!timezoneInitialized) {
+          const now = Date.now();
+          setScheduledAt(localDateTimeInZone(new Date(now + 2 * 60 * 60 * 1000),data.timezone));
+          setAvailabilityFrom(localDateTimeInZone(new Date(now),data.timezone));
+          setAvailabilityUntil(localDateTimeInZone(new Date(now + 7 * 24 * 60 * 60 * 1000),data.timezone));
+          setTimezoneInitialized(true);
+        }
         if (activeRole === "customer") {
           const history = await api<{ items: OrderHistoryItem[] }>("/orders?limit=20", accessToken);
           if (active) setOrders(history.items ?? []);
@@ -166,7 +201,7 @@ export default function HomePage() {
     }
     void load();
     return () => { active = false; };
-  }, [accessToken, me, activeRole, selectedMenu]);
+  }, [accessToken, me, activeRole, selectedMenu, timezoneInitialized]);
 
   async function requestCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -223,7 +258,7 @@ export default function HomePage() {
         headers: { "Idempotency-Key": window.crypto.randomUUID() },
         body: JSON.stringify({
           menu_id: selectedItem.menu_id,
-          scheduled_at: new Date(scheduledAt).toISOString(),
+          scheduled_at: zonedDateTimeToISO(scheduledAt,catalog.timezone),
           country_code: catalog.market,
           region_code: regionCode,
           city_code: cityCode,
@@ -285,8 +320,8 @@ export default function HomePage() {
           region_code: regionCode,
           city_code: cityCode,
           area_code: areaCode,
-          available_from: new Date(availabilityFrom).toISOString(),
-          available_until: new Date(availabilityUntil).toISOString(),
+          available_from: zonedDateTimeToISO(availabilityFrom,catalog.timezone),
+          available_until: zonedDateTimeToISO(availabilityUntil,catalog.timezone),
           timezone: catalog.timezone,
         }),
       });
@@ -431,7 +466,7 @@ export default function HomePage() {
                   {catalog.items.map((item) => <option key={item.menu_id} value={item.menu_id}>{item.category_name} · {item.service_code} · {money(item.amount_minor,item.currency)}</option>)}
                 </select>
                 {selectedItem && <div className="price-line"><span>Current listed price</span><strong>{money(selectedItem.amount_minor,selectedItem.currency)}</strong></div>}
-                <label htmlFor="schedule">Preferred date and time</label>
+                <label htmlFor="schedule">Preferred date and time ({catalog.timezone})</label>
                 <input id="schedule" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} required />
                 <div className="field-grid">
                   <div><label htmlFor="region">Region</label><input id="region" value={regionCode} onChange={(event) => setRegionCode(event.target.value)} required /></div>
@@ -502,8 +537,8 @@ export default function HomePage() {
                 <label htmlFor="pro-area">Area</label>
                 <input id="pro-area" value={areaCode} onChange={(event) => setAreaCode(event.target.value)} required />
                 <div className="field-grid">
-                  <div><label htmlFor="available-from">Available from</label><input id="available-from" type="datetime-local" value={availabilityFrom} onChange={(event) => setAvailabilityFrom(event.target.value)} required /></div>
-                  <div><label htmlFor="available-until">Available until</label><input id="available-until" type="datetime-local" value={availabilityUntil} onChange={(event) => setAvailabilityUntil(event.target.value)} required /></div>
+                  <div><label htmlFor="available-from">Available from ({catalog.timezone})</label><input id="available-from" type="datetime-local" value={availabilityFrom} onChange={(event) => setAvailabilityFrom(event.target.value)} required /></div>
+                  <div><label htmlFor="available-until">Available until ({catalog.timezone})</label><input id="available-until" type="datetime-local" value={availabilityUntil} onChange={(event) => setAvailabilityUntil(event.target.value)} required /></div>
                 </div>
                 <button disabled={busy || !selectedItem}>{busy ? "Saving…" : "Submit service area"}</button>
               </form>
