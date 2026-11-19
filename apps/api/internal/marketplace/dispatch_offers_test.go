@@ -133,15 +133,16 @@ func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
 	if err=pool.QueryRow(ctx,`SELECT status FROM dispatch_offers WHERE id=$1`,expiredOffer).Scan(&expiredStatus); err!=nil || expiredStatus!="expired" {
 		t.Fatalf("expired offer state mismatch: %q %v",expiredStatus,err)
 	}
-	for eventType,want:=range map[string]int{
-		"dispatch.offer_created":2,
-		"order.provider_assigned":1,
-		"dispatch.offer_declined":1,
-		"dispatch.offer_expired":1,
-	} {
+	eventScopes:=map[string][]string{
+		"dispatch.offer_created":{offers[0].ID,offers[1].ID},
+		"order.provider_assigned":{order.ID},
+		"dispatch.offer_declined":{declineOffers[0].ID},
+		"dispatch.offer_expired":{expiredOffer},
+	}
+	for eventType,aggregateIDs:=range eventScopes {
 		var got int
-		if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE event_type=$1`,eventType).Scan(&got); err!=nil || got!=want {
-			t.Fatalf("outbox event %s count=%d want=%d err=%v",eventType,got,want,err)
+		if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE event_type=$1 AND aggregate_id=ANY($2::text[])`,eventType,aggregateIDs).Scan(&got); err!=nil || got!=len(aggregateIDs) {
+			t.Fatalf("outbox event %s count=%d want=%d err=%v",eventType,got,len(aggregateIDs),err)
 		}
 	}
 }
