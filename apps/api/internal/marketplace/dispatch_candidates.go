@@ -91,19 +91,19 @@ func (s *Store) FindDispatchCandidatesForOrder(ctx context.Context,actor Actor,o
 	} else {
 		return nil,ErrForbidden
 	}
-	var customerID,country,region,city,area string
+	var customerID,country,region,city,area,status string
 	var priceVersionID *string
 	var scheduledAt *time.Time
 	err:=s.DB.QueryRow(ctx,`
-		SELECT customer_id,price_version_id,country_code,region_code,city_code,area_code,scheduled_at
+		SELECT customer_id,price_version_id,country_code,region_code,city_code,area_code,scheduled_at,status
 		FROM orders WHERE id=$1
-	`,orderID).Scan(&customerID,&priceVersionID,&country,&region,&city,&area,&scheduledAt)
+	`,orderID).Scan(&customerID,&priceVersionID,&country,&region,&city,&area,&scheduledAt,&status)
 	if err!=nil {
 		if errors.Is(err,pgx.ErrNoRows) { return nil,ErrOrderNotFound }
 		return nil,err
 	}
 	if actor.Role==RoleCustomer && customerID!=actor.SubjectID { return nil,ErrForbidden }
-	if priceVersionID==nil || scheduledAt==nil || country=="" || region=="" || city=="" || area=="" {
+	if status!="requested" || priceVersionID==nil || scheduledAt==nil || country=="" || region=="" || city=="" || area=="" {
 		return nil,ErrProviderUnavailable
 	}
 	var categoryID string
@@ -111,7 +111,7 @@ func (s *Store) FindDispatchCandidatesForOrder(ctx context.Context,actor Actor,o
 		SELECT m.category_id FROM service_price_versions v JOIN service_price_menus m ON m.id=v.menu_id WHERE v.id=$1
 	`,*priceVersionID).Scan(&categoryID)
 	if err!=nil { return nil,err }
-	if startAt.IsZero() { startAt=scheduledAt.Add(-time.Hour) }
-	if endAt.IsZero() { endAt=scheduledAt.Add(time.Hour) }
+	if startAt.IsZero() { startAt=scheduledAt.Add(-30*time.Minute) }
+	if endAt.IsZero() { endAt=scheduledAt.Add(30*time.Minute) }
 	return s.FindDispatchCandidates(ctx,actor,categoryID,country,region,city,area,startAt,endAt)
 }
