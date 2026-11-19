@@ -1,0 +1,50 @@
+name: Engineering task
+description: A small, verifiable implementation or documentation task
+title: "[TASK] "
+labels: ["backlog"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal and user/business outcome
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Expected files and owning module
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: API, event, or data contract
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Executable acceptance criteria
+      description: Include success and failure cases.
+    validations:
+      required: true
+  - type: input
+    id: verify
+    attributes:
+      label: Verification command
+      placeholder: make verify
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope / forbidden changes
+  - type: textarea
+    id: depends-on
+    attributes:
+      label: Dependencies
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options: ["S", "M"]
+    validations:
+      required: true
