@@ -99,3 +99,44 @@ FOR EACH ROW EXECUTE FUNCTION reject_price_revision_mutation();
 DROP TRIGGER IF EXISTS order_price_revisions_immutable ON order_price_revisions;
 CREATE TRIGGER order_price_revisions_immutable BEFORE UPDATE OR DELETE ON order_price_revisions
 FOR EACH ROW EXECUTE FUNCTION reject_price_revision_mutation();
+
+CREATE OR REPLACE FUNCTION validate_quote_decision_actor() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    expected_identity text;
+BEGIN
+    IF NEW.action IN ('approved','rejected') THEN
+        SELECT o.customer_id INTO expected_identity
+        FROM inspection_quotes q JOIN orders o ON o.id=q.order_id WHERE q.id=NEW.quote_id;
+        IF expected_identity IS NULL OR expected_identity<>NEW.actor_identity_id OR NEW.actor_role<>'customer' THEN
+            RAISE EXCEPTION 'quote approval/rejection must be made by the owning customer';
+        END IF;
+    ELSE
+        SELECT p.identity_id INTO expected_identity
+        FROM inspection_quotes q JOIN provider_profiles p ON p.id=q.provider_id WHERE q.id=NEW.quote_id;
+        IF expected_identity IS NULL OR expected_identity<>NEW.actor_identity_id OR NEW.actor_role<>'professional' THEN
+            RAISE EXCEPTION 'quote acceptance must be made by its professional';
+        END IF;
+    END IF;
+    RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS quote_decision_actor_guard ON quote_decisions;
+CREATE TRIGGER quote_decision_actor_guard BEFORE INSERT ON quote_decisions
+FOR EACH ROW EXECUTE FUNCTION validate_quote_decision_actor();
+
+CREATE OR REPLACE FUNCTION validate_quote_variation_decision_actor() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    expected_identity text;
+BEGIN
+    SELECT o.customer_id INTO expected_identity
+    FROM quote_variations v
+    JOIN inspection_quotes q ON q.id=v.quote_id
+    JOIN orders o ON o.id=q.order_id
+    WHERE v.id=NEW.variation_id;
+    IF expected_identity IS NULL OR expected_identity<>NEW.actor_identity_id OR NEW.actor_role<>'customer' THEN
+        RAISE EXCEPTION 'price variation decision must be made by the owning customer';
+    END IF;
+    RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS quote_variation_decision_actor_guard ON quote_variation_decisions;
+CREATE TRIGGER quote_variation_decision_actor_guard BEFORE INSERT ON quote_variation_decisions
+FOR EACH ROW EXECUTE FUNCTION validate_quote_variation_decision_actor();
