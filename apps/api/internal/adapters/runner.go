@@ -79,8 +79,8 @@ func Do[T any](r Runner, ctx context.Context, key string, operation Operation[T]
 			if backoff > r.Policy.MaxBackoff { backoff = r.Policy.MaxBackoff }
 		}
 	}
-	if r.Breaker != nil && r.Policy.Retryable(lastErr) && ctx.Err() == nil {
-		r.Breaker.failure(time.Now())
+	if r.Breaker != nil {
+		if ctx.Err() == nil && r.Policy.Retryable(lastErr) { r.Breaker.failure(time.Now()) } else { r.Breaker.success() }
 	}
 	return zero, lastErr
 }
