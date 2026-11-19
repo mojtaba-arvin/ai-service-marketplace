@@ -31,6 +31,7 @@ const (
 	ActionIdentityRead      Action = "identity:read_sensitive"
 	ActionMarketConfigure Action = "market:configure"
 	ActionCatalogManage Action = "catalog:manage"
+	ActionPolicyManage Action = "policy:manage"
 )
 
 var ErrForbidden = errors.New("access denied")
@@ -84,7 +85,7 @@ func Authorize(actor Actor, resource Resource, action Action) error {
 		}
 	case RoleOperator:
 		switch action {
-		case ActionOrderRead, ActionOrderAssign, ActionProviderVerify, ActionCaseRead, ActionMarketConfigure, ActionCatalogManage:
+		case ActionOrderRead, ActionOrderAssign, ActionProviderVerify, ActionCaseRead, ActionMarketConfigure, ActionCatalogManage, ActionPolicyManage:
 			allowed = true
 		}
 	case RoleSupport:
