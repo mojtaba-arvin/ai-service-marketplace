@@ -22,6 +22,11 @@ type Order struct {
 	Currency string `json:"currency"`
 	Status string `json:"status"`
 	PriceVersionID *string `json:"price_version_id,omitempty"`
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+	CountryCode *string `json:"country_code,omitempty"`
+	RegionCode *string `json:"region_code,omitempty"`
+	CityCode *string `json:"city_code,omitempty"`
+	AreaCode *string `json:"area_code,omitempty"`
 }
 
 func newID() (string,error) {
@@ -80,8 +85,8 @@ func (s *Store) TransitionOrder(ctx context.Context, id, target string) (Order,e
 	if err!=nil { return Order{},err }
 	defer tx.Rollback(ctx)
 	var current Order
-	err=tx.QueryRow(ctx,`SELECT id,customer_id,amount_minor,currency,status,price_version_id FROM orders WHERE id=$1 FOR UPDATE`,id).
-		Scan(&current.ID,&current.CustomerID,&current.AmountMinor,&current.Currency,&current.Status,&current.PriceVersionID)
+	err=tx.QueryRow(ctx,`SELECT id,customer_id,amount_minor,currency,status,price_version_id,scheduled_at,country_code,region_code,city_code,area_code FROM orders WHERE id=$1 FOR UPDATE`,id).
+		Scan(&current.ID,&current.CustomerID,&current.AmountMinor,&current.Currency,&current.Status,&current.PriceVersionID,&current.ScheduledAt,&current.CountryCode,&current.RegionCode,&current.CityCode,&current.AreaCode)
 	if err!=nil { return Order{},err }
 	if current.Status==target { if err=tx.Commit(ctx); err!=nil{return Order{},err}; return current,nil }
 	if !CanTransition(current.Status,target) { return Order{},ErrInvalidTransition }
