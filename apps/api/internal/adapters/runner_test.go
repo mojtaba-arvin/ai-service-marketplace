@@ -19,7 +19,7 @@ func TestRunnerRetriesWithStableIdempotencyKey(t *testing.T) {
 	r := Runner{Policy:testPolicy()}
 	calls := 0
 	var keys []string
-	got, err := r.Do(context.Background(), "order-123", func(_ context.Context, key string) (string,error) {
+	got, err := Do(r, context.Background(), "order-123", func(_ context.Context, key string) (string,error) {
 		calls++; keys=append(keys,key)
 		if calls < 3 { return "",errTemporary }
 		return "accepted",nil
@@ -33,17 +33,17 @@ func TestRunnerDoesNotRetryPermanentErrors(t *testing.T) {
 	r:=Runner{Policy:testPolicy()}
 	permanent:=errors.New("invalid credentials")
 	calls:=0
-	_,err:=r.Do(context.Background(),"stable-key",func(context.Context,string)(int,error){calls++;return 0,permanent})
+	_,err:=Do(r,context.Background(),"stable-key",func(context.Context,string)(int,error){calls++;return 0,permanent})
 	if !errors.Is(err,permanent) || calls!=1 { t.Fatalf("err=%v calls=%d",err,calls) }
 }
 
 func TestRunnerRequiresIdempotencyKeyAndValidPolicy(t *testing.T) {
 	r:=Runner{Policy:testPolicy()}
-	if _,err:=r.Do(context.Background()," ",func(context.Context,string)(int,error){return 1,nil}); !errors.Is(err,ErrMissingIdempotencyKey) {
+	if _,err:=Do(r,context.Background()," ",func(context.Context,string)(int,error){return 1,nil}); !errors.Is(err,ErrMissingIdempotencyKey) {
 		t.Fatalf("expected missing key, got %v",err)
 	}
 	r.Policy.MaxAttempts=11
-	if _,err:=r.Do(context.Background(),"key",func(context.Context,string)(int,error){return 1,nil}); !errors.Is(err,ErrInvalidPolicy) {
+	if _,err:=Do(r,context.Background(),"key",func(context.Context,string)(int,error){return 1,nil}); !errors.Is(err,ErrInvalidPolicy) {
 		t.Fatalf("expected invalid policy, got %v",err)
 	}
 }
@@ -51,7 +51,7 @@ func TestRunnerRequiresIdempotencyKeyAndValidPolicy(t *testing.T) {
 func TestRunnerBoundsAttemptWithTimeout(t *testing.T) {
 	p:=testPolicy(); p.Timeout=10*time.Millisecond; p.MaxAttempts=1
 	r:=Runner{Policy:p}
-	_,err:=r.Do(context.Background(),"key",func(ctx context.Context,_ string)(int,error){<-ctx.Done();return 0,ctx.Err()})
+	_,err:=Do(r,context.Background(),"key",func(ctx context.Context,_ string)(int,error){<-ctx.Done();return 0,ctx.Err()})
 	if !errors.Is(err,context.DeadlineExceeded) { t.Fatalf("got %v",err) }
 }
 
