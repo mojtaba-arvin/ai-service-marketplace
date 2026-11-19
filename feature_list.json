@@ -1,1 +1,888 @@
-[]
+[
+  {
+    "id": "IDENT-001",
+    "module": "M1 Identity",
+    "title": "Normalize phone identity",
+    "description": "Implement normalize phone identity within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Normalize and validate E.164 phone identifiers.",
+      "Unique normalized phone constraint prevents duplicate identities."
+    ],
+    "depends_on": [],
+    "size": "M",
+    "nature": [
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "IDENT-002",
+    "module": "M1 Identity",
+    "title": "OTP challenge lifecycle",
+    "description": "Implement otp challenge lifecycle within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Persist hashed, expiring OTP challenges with attempt limits.",
+      "Expired, consumed, and replayed challenges fail."
+    ],
+    "depends_on": [
+      "IDENT-001"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "IDENT-003",
+    "module": "M1 Identity",
+    "title": "Session issuance and revocation",
+    "description": "Implement session issuance and revocation within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Issue and rotate opaque sessions after verified identity.",
+      "Revoked and replayed refresh tokens are rejected."
+    ],
+    "depends_on": [
+      "IDENT-002"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "IDENT-004",
+    "module": "M1 Identity",
+    "title": "Role and permission policy",
+    "description": "Implement role and permission policy within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Enforce customer, professional, operator, and support permissions server-side.",
+      "Cross-role and cross-tenant access tests fail closed."
+    ],
+    "depends_on": [
+      "IDENT-003"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "CAT-001",
+    "module": "M2 Catalog",
+    "title": "Service taxonomy lifecycle",
+    "description": "Implement service taxonomy lifecycle within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Create hierarchical categories with stable identifiers.",
+      "Disabled categories cannot receive new orders."
+    ],
+    "depends_on": [],
+    "size": "M",
+    "nature": [
+      "CRUD"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "CAT-002",
+    "module": "M2 Catalog",
+    "title": "Professional skills and service areas",
+    "description": "Implement professional skills and service areas within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Associate verified skills and geographic service areas.",
+      "Matching returns only active eligible providers."
+    ],
+    "depends_on": [
+      "CAT-001"
+    ],
+    "size": "M",
+    "nature": [
+      "CRUD"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "CAT-003",
+    "module": "M2 Catalog",
+    "title": "Catalog localization and market visibility",
+    "description": "Implement catalog localization and market visibility within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Resolve localized category content by market and locale.",
+      "Unavailable market/category combinations are not listed."
+    ],
+    "depends_on": [
+      "CAT-001"
+    ],
+    "size": "M",
+    "nature": [
+      "CRUD"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "PRICE-001",
+    "module": "M3 Pricing",
+    "title": "Versioned fixed-price menus",
+    "description": "Implement versioned fixed-price menus within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Store integer minor units, ISO currency, and immutable price versions.",
+      "Orders retain the exact price version used."
+    ],
+    "depends_on": [
+      "CAT-001"
+    ],
+    "size": "M",
+    "nature": [
+      "FIN"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "PRICE-002",
+    "module": "M3 Pricing",
+    "title": "Structured inspection quotes",
+    "description": "Implement structured inspection quotes within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Create quote line items, scope, expiry, and evidence references.",
+      "Customer approval is required before quote acceptance."
+    ],
+    "depends_on": [
+      "PRICE-001"
+    ],
+    "size": "M",
+    "nature": [
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "PRICE-003",
+    "module": "M3 Pricing",
+    "title": "Customer-approved price variations",
+    "description": "Implement customer-approved price variations within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Record proposed scope and price changes as immutable revisions.",
+      "No amount change applies without explicit approval."
+    ],
+    "depends_on": [
+      "PRICE-002"
+    ],
+    "size": "M",
+    "nature": [
+      "FIN"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "ORDER-001",
+    "module": "M4 Orders",
+    "title": "Order request aggregate",
+    "description": "Implement order request aggregate within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Create customer-owned orders with schedule and price snapshot.",
+      "Duplicate idempotency keys return the original order."
+    ],
+    "depends_on": [
+      "IDENT-004",
+      "CAT-002",
+      "PRICE-001"
+    ],
+    "size": "M",
+    "nature": [
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "ORDER-002",
+    "module": "M4 Orders",
+    "title": "Guarded order state machine",
+    "description": "Implement guarded order state machine within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Allow only documented state transitions.",
+      "Invalid transitions are rejected and transitions audited."
+    ],
+    "depends_on": [
+      "ORDER-001"
+    ],
+    "size": "M",
+    "nature": [
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "ORDER-003",
+    "module": "M4 Orders",
+    "title": "Cancellation and policy outcomes",
+    "description": "Implement cancellation and policy outcomes within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Apply versioned cancellation policy and actor permissions.",
+      "Repeated cancellation is idempotent."
+    ],
+    "depends_on": [
+      "ORDER-002"
+    ],
+    "size": "M",
+    "nature": [
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "ORDER-004",
+    "module": "M4 Orders",
+    "title": "Order history and timeline",
+    "description": "Implement order history and timeline within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Expose paginated authorized order history.",
+      "Users cannot enumerate other users' orders."
+    ],
+    "depends_on": [
+      "ORDER-002"
+    ],
+    "size": "M",
+    "nature": [
+      "CRUD"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "DISP-001",
+    "module": "M5 Dispatch",
+    "title": "Provider availability calendar",
+    "description": "Implement provider availability calendar within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Persist availability windows with timezone.",
+      "Overlapping bookings are prevented transactionally."
+    ],
+    "depends_on": [
+      "IDENT-004"
+    ],
+    "size": "M",
+    "nature": [
+      "CRUD"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "DISP-002",
+    "module": "M5 Dispatch",
+    "title": "Deterministic candidate eligibility",
+    "description": "Implement deterministic candidate eligibility within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Filter candidates by skill, market, service area, availability.",
+      "Ineligible providers never appear."
+    ],
+    "depends_on": [
+      "CAT-002",
+      "DISP-001",
+      "ORDER-001"
+    ],
+    "size": "M",
+    "nature": [
+      "RT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "DISP-003",
+    "module": "M5 Dispatch",
+    "title": "Offer and acceptance workflow",
+    "description": "Implement offer and acceptance workflow within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Create expiring offers with bounded fanout and atomic acceptance.",
+      "At most one provider wins an order."
+    ],
+    "depends_on": [
+      "DISP-002",
+      "ORDER-002"
+    ],
+    "size": "M",
+    "nature": [
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "FIN-001",
+    "module": "M6 Finance",
+    "title": "Double-entry ledger primitives",
+    "description": "Implement double-entry ledger primitives within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Post balanced journal entries in integer minor units.",
+      "Reject unbalanced, zero-value-invalid, and cross-currency postings."
+    ],
+    "depends_on": [],
+    "size": "M",
+    "nature": [
+      "FIN"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "FIN-002",
+    "module": "M6 Finance",
+    "title": "Ledger idempotency and immutability",
+    "description": "Implement ledger idempotency and immutability within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Enforce unique business idempotency keys.",
+      "Posted entries cannot mutate; corrections use reversals."
+    ],
+    "depends_on": [
+      "FIN-001"
+    ],
+    "size": "M",
+    "nature": [
+      "FIN"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "FIN-003",
+    "module": "M6 Finance",
+    "title": "Payment provider adapter contract",
+    "description": "Implement payment provider adapter contract within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Define authorize, capture, refund, webhook contracts and fake.",
+      "Contract tests cover timeout, duplicate webhook, unknown outcome."
+    ],
+    "depends_on": [
+      "FIN-001"
+    ],
+    "size": "M",
+    "nature": [
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "FIN-004",
+    "module": "M6 Finance",
+    "title": "Settlement reconciliation",
+    "description": "Implement settlement reconciliation within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Reconcile provider statements against ledger postings.",
+      "Differences are reported, never silently auto-adjusted."
+    ],
+    "depends_on": [
+      "FIN-002",
+      "FIN-003"
+    ],
+    "size": "M",
+    "nature": [
+      "FIN"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "TRUST-001",
+    "module": "M7 Trust & safety",
+    "title": "Professional verification case",
+    "description": "Implement professional verification case within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Track verification state, reviewer, evidence pointer, timestamps.",
+      "Unverified professionals cannot accept restricted work."
+    ],
+    "depends_on": [
+      "IDENT-004"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "TRUST-002",
+    "module": "M7 Trust & safety",
+    "title": "Incident and safety report intake",
+    "description": "Implement incident and safety report intake within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Create restricted incident reports linked to orders.",
+      "Evidence access is role-limited and audited."
+    ],
+    "depends_on": [
+      "ORDER-002"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "TRUST-003",
+    "module": "M7 Trust & safety",
+    "title": "Dispute case workflow",
+    "description": "Implement dispute case workflow within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Track evidence, status, decisions, financial remedy references.",
+      "Only authorized humans finalize consequential outcomes."
+    ],
+    "depends_on": [
+      "TRUST-002",
+      "FIN-002"
+    ],
+    "size": "M",
+    "nature": [
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "TRUST-004",
+    "module": "M7 Trust & safety",
+    "title": "Privacy-preserving contact policy",
+    "description": "Implement privacy-preserving contact policy within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Keep contact details private by default.",
+      "Authorization and retention tests cover contact access."
+    ],
+    "depends_on": [
+      "IDENT-004",
+      "ORDER-001"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "MSG-001",
+    "module": "M8 Messaging",
+    "title": "Transactional outbox",
+    "description": "Implement transactional outbox within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Persist domain event in the aggregate transaction.",
+      "Rollback leaves neither state mutation nor event."
+    ],
+    "depends_on": [
+      "ORDER-002"
+    ],
+    "size": "M",
+    "nature": [
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "MSG-002",
+    "module": "M8 Messaging",
+    "title": "Idempotent publisher and consumer",
+    "description": "Implement idempotent publisher and consumer within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Publish pending events with stable event IDs and bounded retries.",
+      "Redelivery does not duplicate side effects."
+    ],
+    "depends_on": [
+      "MSG-001"
+    ],
+    "size": "M",
+    "nature": [
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "MSG-003",
+    "module": "M8 Messaging",
+    "title": "Notification preferences and adapters",
+    "description": "Implement notification preferences and adapters within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Route templated notifications through fakeable adapters.",
+      "Opt-outs, retries, and delivery states are tested."
+    ],
+    "depends_on": [
+      "MSG-002",
+      "IDENT-003"
+    ],
+    "size": "M",
+    "nature": [
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "SUP-001",
+    "module": "M9 Support",
+    "title": "Support case lifecycle",
+    "description": "Implement support case lifecycle within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Create cases with category, priority, ownership, SLA timestamps.",
+      "Unauthorized users cannot view private cases."
+    ],
+    "depends_on": [
+      "ORDER-002"
+    ],
+    "size": "M",
+    "nature": [
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "SUP-002",
+    "module": "M9 Support",
+    "title": "Support action audit trail",
+    "description": "Implement support action audit trail within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Record actor, action, reason, before/after references.",
+      "Audit records are append-only."
+    ],
+    "depends_on": [
+      "SUP-001"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "ADMIN-001",
+    "module": "M10 Admin",
+    "title": "Operator scoped permissions",
+    "description": "Implement operator scoped permissions within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Require explicit permission for each sensitive action.",
+      "Default role grants no privileged access."
+    ],
+    "depends_on": [
+      "IDENT-004"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "ADMIN-002",
+    "module": "M10 Admin",
+    "title": "Market and feature-flag configuration",
+    "description": "Implement market and feature-flag configuration within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Version market settings and gate features by market/category.",
+      "Changes are audited with bounded cache staleness."
+    ],
+    "depends_on": [
+      "ADMIN-001"
+    ],
+    "size": "M",
+    "nature": [
+      "CRUD"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "ADMIN-003",
+    "module": "M10 Admin",
+    "title": "Operational audit search",
+    "description": "Implement operational audit search within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Search audit events with bounded filters and pagination.",
+      "Sensitive payload fields are redacted."
+    ],
+    "depends_on": [
+      "SUP-002",
+      "ADMIN-001"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "GROW-001",
+    "module": "M11 Growth",
+    "title": "Referral attribution",
+    "description": "Implement referral attribution within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Attribute eligible first orders to referral tokens.",
+      "Self-referral and duplicate reward claims are rejected."
+    ],
+    "depends_on": [
+      "IDENT-003"
+    ],
+    "size": "M",
+    "nature": [
+      "CRUD"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "GROW-002",
+    "module": "M11 Growth",
+    "title": "Recurring service plan lifecycle",
+    "description": "Implement recurring service plan lifecycle within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Create, pause, resume, cancel recurring plans.",
+      "Schedule generation is idempotent and consent-based."
+    ],
+    "depends_on": [
+      "ORDER-002",
+      "PRICE-001"
+    ],
+    "size": "M",
+    "nature": [
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "AN-001",
+    "module": "M12 Analytics",
+    "title": "Canonical marketplace event schema",
+    "description": "Implement canonical marketplace event schema within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Define versioned event envelope and naming rules.",
+      "Schema compatibility checks run in CI."
+    ],
+    "depends_on": [
+      "MSG-001"
+    ],
+    "size": "M",
+    "nature": [
+      "DX"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "AN-002",
+    "module": "M12 Analytics",
+    "title": "Funnel and supply metrics",
+    "description": "Implement funnel and supply metrics within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Define numerator, denominator, source, and time window per metric.",
+      "Queries are reproducible and exclude test traffic."
+    ],
+    "depends_on": [
+      "AN-001",
+      "DISP-003"
+    ],
+    "size": "M",
+    "nature": [
+      "DX"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "B2B-001",
+    "module": "M13 B2B",
+    "title": "Organization and membership model",
+    "description": "Implement organization and membership model within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Create organizations and scoped memberships.",
+      "Tenant isolation prevents cross-organization reads/writes."
+    ],
+    "depends_on": [
+      "IDENT-004"
+    ],
+    "size": "M",
+    "nature": [
+      "CRUD"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "B2B-002",
+    "module": "M13 B2B",
+    "title": "Property and location registry",
+    "description": "Implement property and location registry within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Associate service locations and authorized contacts.",
+      "Address visibility follows membership permissions."
+    ],
+    "depends_on": [
+      "B2B-001"
+    ],
+    "size": "M",
+    "nature": [
+      "CRUD"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "B2B-003",
+    "module": "M13 B2B",
+    "title": "Consolidated billing statement",
+    "description": "Implement consolidated billing statement within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Generate immutable statements from eligible ledger transactions.",
+      "Period reruns preserve statement identity and totals."
+    ],
+    "depends_on": [
+      "B2B-002",
+      "FIN-002"
+    ],
+    "size": "M",
+    "nature": [
+      "FIN"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "PLAT-001",
+    "module": "M14 Platform & AI",
+    "title": "Market configuration contract",
+    "description": "Implement market configuration contract within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Define market, locale, currency, timezone, policy version.",
+      "Unknown market configuration fails closed."
+    ],
+    "depends_on": [],
+    "size": "M",
+    "nature": [
+      "DX"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "PLAT-002",
+    "module": "M14 Platform & AI",
+    "title": "External provider adapter framework",
+    "description": "Implement external provider adapter framework within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Define timeout, retry, circuit-breaker, idempotency conventions.",
+      "Fake adapter contract suite runs offline."
+    ],
+    "depends_on": [
+      "PLAT-001"
+    ],
+    "size": "M",
+    "nature": [
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "PLAT-003",
+    "module": "M14 Platform & AI",
+    "title": "AI intake suggestion boundary",
+    "description": "Implement ai intake suggestion boundary within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Return schema-validated suggestions with confidence and provenance.",
+      "AI cannot set payable prices or authorize safety/identity."
+    ],
+    "depends_on": [
+      "PLAT-001",
+      "CAT-001"
+    ],
+    "size": "M",
+    "nature": [
+      "ML-AI"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  },
+  {
+    "id": "PLAT-004",
+    "module": "M14 Platform & AI",
+    "title": "AI evaluation and prompt governance",
+    "description": "Implement ai evaluation and prompt governance within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
+    "acceptance": [
+      "Maintain versioned golden examples and deterministic thresholds.",
+      "Critical evaluation regressions fail CI."
+    ],
+    "depends_on": [
+      "PLAT-003"
+    ],
+    "size": "M",
+    "nature": [
+      "ML-AI"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+  }
+]
