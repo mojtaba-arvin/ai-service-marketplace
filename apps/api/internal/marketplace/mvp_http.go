@@ -45,8 +45,14 @@ func (s *Store) ListPublicCatalog(ctx context.Context, marketCode string) ([]Pub
         return nil, err
     }
     rows, err := s.DB.Query(ctx, `
-        SELECT c.id,c.parent_id,c.slug,c.display_name,m.id,m.service_code,v.amount_minor,v.currency
+        SELECT c.id,c.parent_id,c.slug,COALESCE(t.display_name,c.display_name),
+            m.id,m.service_code,v.amount_minor,v.currency
         FROM service_categories c
+        JOIN market_category_visibility visibility
+          ON visibility.category_id=c.id AND visibility.market_code=$1 AND visibility.visible=true
+        LEFT JOIN category_translations t
+          ON t.category_id=c.id AND t.market_code=$1
+         AND t.locale=(SELECT default_locale FROM markets WHERE code=$1 AND enabled=true)
         JOIN service_price_menus m ON m.category_id=c.id
         JOIN service_price_versions v ON v.id=m.active_version_id
         WHERE c.enabled=true
@@ -243,6 +249,8 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.cancelOrder(w,r); return true
     case r.Method == http.MethodPost && path == "/v1/professional/profile":
         h.registerProfessional(w,r); return true
+    case r.Method == http.MethodPost && path == "/v1/professional/profile/qualification":
+        h.professionalQualification(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/professional/offers":
         h.professionalOffers(w,r); return true
     case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/professional/offers/"):
@@ -507,6 +515,48 @@ func (h *Handler) dispatchOrder(w http.ResponseWriter, r *http.Request) {
         return
     }
     writeJSON(w,http.StatusCreated,map[string]any{"offers":offers})
+}
+
+func (h *Handler) professionalQualification(w http.ResponseWriter, r *http.Request) {
+    actor, err := h.actorForRole(r,RoleProfessional)
+    if err != nil {
+        writeError(w,http.StatusForbidden,"professional membership is required")
+        return
+    }
+    profile, err := h.Store.GetProviderProfileForActor(r.Context(),actor)
+    if err != nil {
+        writeError(w,http.StatusNotFound,"professional profile not found")
+        return
+    }
+    var in struct {
+        CategoryID string `json:"category_id"`
+        CountryCode string `json:"country_code"`
+        RegionCode string `json:"region_code"`
+        CityCode string `json:"city_code"`
+        AreaCode string `json:"area_code"`
+        AvailableFrom time.Time `json:"available_from"`
+        AvailableUntil time.Time `json:"available_until"`
+        Timezone string `json:"timezone"`
+    }
+    if json.NewDecoder(r.Body).Decode(&in) != nil || in.CategoryID == "" || in.CountryCode == "" ||
+        in.RegionCode == "" || in.CityCode == "" || in.AreaCode == "" || in.AvailableFrom.IsZero() ||
+        in.AvailableUntil.IsZero() || in.Timezone == "" {
+        writeError(w,http.StatusBadRequest,"category, service area, availability range, and timezone are required")
+        return
+    }
+    if err = h.Store.AddProviderSkill(r.Context(),actor,profile.ID,in.CategoryID); err == nil {
+        err = h.Store.AddProviderServiceArea(r.Context(),actor,profile.ID,in.CountryCode,in.RegionCode,in.CityCode,in.AreaCode)
+    }
+    var window ProviderAvailabilityWindow
+    if err == nil {
+        window, err = h.Store.SetProviderAvailability(r.Context(),actor,profile.ID,"available",
+            in.AvailableFrom,in.AvailableUntil,in.Timezone)
+    }
+    if err != nil {
+        writeError(w,http.StatusUnprocessableEntity,err.Error())
+        return
+    }
+    writeJSON(w,http.StatusCreated,map[string]any{"profile":profile,"availability":window,"verification_required":true})
 }
 
 func (h *Handler) verifyProvider(w http.ResponseWriter, r *http.Request) {
