@@ -1,0 +1,62 @@
+package marketplace
+
+import (
+	"errors"
+	"testing"
+)
+
+func TestAuthorizeRolePermissions(t *testing.T) {
+	tests := []struct {
+		name     string
+		actor    Actor
+		resource Resource
+		action   Action
+		allowed  bool
+	}{
+		{"customer creates order", Actor{"customer-1", "tenant-a", RoleCustomer}, Resource{TenantID: "tenant-a"}, ActionOrderCreate, true},
+		{"customer reads own order", Actor{"customer-1", "tenant-a", RoleCustomer}, Resource{"tenant-a", "customer-1", "pro-1"}, ActionOrderRead, true},
+		{"customer cannot read another order", Actor{"customer-1", "tenant-a", RoleCustomer}, Resource{"tenant-a", "customer-2", "pro-1"}, ActionOrderRead, false},
+		{"customer cannot accept order", Actor{"customer-1", "tenant-a", RoleCustomer}, Resource{"tenant-a", "customer-1", "pro-1"}, ActionOrderAccept, false},
+		{"professional reads assigned order", Actor{"pro-1", "tenant-a", RoleProfessional}, Resource{"tenant-a", "customer-1", "pro-1"}, ActionOrderRead, true},
+		{"professional cannot read unassigned order", Actor{"pro-1", "tenant-a", RoleProfessional}, Resource{"tenant-a", "customer-1", "pro-2"}, ActionOrderRead, false},
+		{"operator can assign within tenant", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionOrderAssign, true},
+		{"operator cannot post ledger", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionLedgerPost, false},
+		{"support can read support case", Actor{"support-1", "tenant-a", RoleSupport}, Resource{TenantID: "tenant-a"}, ActionSupportCaseRead, true},
+		{"support cannot read unrestricted case", Actor{"support-1", "tenant-a", RoleSupport}, Resource{TenantID: "tenant-a"}, ActionCaseRead, false},
+		{"support cannot read identity documents", Actor{"support-1", "tenant-a", RoleSupport}, Resource{TenantID: "tenant-a"}, ActionIdentityRead, false},
+		{"no human role posts ledger", Actor{"pro-1", "tenant-a", RoleProfessional}, Resource{TenantID: "tenant-a"}, ActionLedgerPost, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := Authorize(test.actor, test.resource, test.action)
+			if test.allowed && err != nil {
+				t.Fatalf("expected access, got %v", err)
+			}
+			if !test.allowed && !errors.Is(err, ErrForbidden) {
+				t.Fatalf("expected deny-by-default, got %v", err)
+			}
+		})
+	}
+}
+
+func TestAuthorizeAlwaysRejectsCrossTenantAndMalformedPrincipals(t *testing.T) {
+	tests := []struct {
+		name  string
+		actor Actor
+		res   Resource
+	}{
+		{"cross tenant operator", Actor{"ops", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-b"}},
+		{"cross tenant support", Actor{"support", "tenant-a", RoleSupport}, Resource{TenantID: "tenant-b"}},
+		{"empty subject", Actor{"", "tenant-a", RoleCustomer}, Resource{TenantID: "tenant-a", OwnerID: "customer"}},
+		{"empty actor tenant", Actor{"customer", "", RoleCustomer}, Resource{TenantID: "tenant-a", OwnerID: "customer"}},
+		{"empty resource tenant", Actor{"customer", "tenant-a", RoleCustomer}, Resource{OwnerID: "customer"}},
+		{"unknown role", Actor{"root", "tenant-a", Role("root")}, Resource{TenantID: "tenant-a"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := Authorize(test.actor, test.res, ActionOrderRead); !errors.Is(err, ErrForbidden) {
+				t.Fatalf("expected deny, got %v", err)
+			}
+		})
+	}
+}
