@@ -11,6 +11,7 @@ import (
 )
 
 var (
+	ErrOrderIdempotencyConflict = errors.New("order idempotency key reused with different request")
 	ErrPriceMenuNotFound = errors.New("price menu not found")
 	ErrPriceUnavailable  = errors.New("price menu has no active version or its category is unavailable")
 )
