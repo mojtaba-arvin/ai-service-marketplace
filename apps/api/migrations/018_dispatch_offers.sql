@@ -28,6 +28,22 @@ CREATE TABLE IF NOT EXISTS dispatch_offers (
     CHECK (end_at>start_at),
     UNIQUE(round_id,provider_id)
 );
+DO $
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='dispatch_offers_decision_timestamp_check') THEN
+        ALTER TABLE dispatch_offers ADD CONSTRAINT dispatch_offers_decision_timestamp_check
+        CHECK ((status='offered' AND decided_at IS NULL) OR (status<>'offered' AND decided_at IS NOT NULL));
+    END IF;
+END $;
+
+CREATE OR REPLACE FUNCTION reject_dispatch_round_mutation() RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN
+    RAISE EXCEPTION 'dispatch rounds are immutable audit records';
+END $;
+DROP TRIGGER IF EXISTS dispatch_rounds_immutable ON dispatch_rounds;
+CREATE TRIGGER dispatch_rounds_immutable BEFORE UPDATE OR DELETE ON dispatch_rounds
+FOR EACH ROW EXECUTE FUNCTION reject_dispatch_round_mutation();
+
 CREATE INDEX IF NOT EXISTS dispatch_offers_pending_idx ON dispatch_offers(order_id,expires_at) WHERE status='offered';
 CREATE INDEX IF NOT EXISTS dispatch_offers_provider_idx ON dispatch_offers(provider_id,status,expires_at);
 
