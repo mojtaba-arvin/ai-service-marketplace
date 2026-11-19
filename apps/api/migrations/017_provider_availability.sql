@@ -51,15 +51,15 @@ CREATE INDEX IF NOT EXISTS provider_availability_lookup_idx
 CREATE INDEX IF NOT EXISTS provider_bookings_order_idx
     ON provider_bookings(order_id,status);
 
-CREATE OR REPLACE FUNCTION reject_provider_availability_mutation() RETURNS trigger LANGUAGE plpgsql AS $
+CREATE OR REPLACE FUNCTION reject_provider_availability_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
     RAISE EXCEPTION 'provider availability windows are immutable';
-END $;
+END $$;
 DROP TRIGGER IF EXISTS provider_availability_immutable ON provider_availability_windows;
 CREATE TRIGGER provider_availability_immutable BEFORE UPDATE OR DELETE ON provider_availability_windows
 FOR EACH ROW EXECUTE FUNCTION reject_provider_availability_mutation();
 
-CREATE OR REPLACE FUNCTION guard_provider_booking_transition() RETURNS trigger LANGUAGE plpgsql AS $
+CREATE OR REPLACE FUNCTION guard_provider_booking_transition() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
     IF TG_OP='DELETE' THEN
         RAISE EXCEPTION 'provider bookings cannot be deleted';
@@ -76,7 +76,7 @@ BEGIN
         RETURN NEW;
     END IF;
     RAISE EXCEPTION 'provider booking may only be released by an order cancellation';
-END $;
+END $$;
 DROP TRIGGER IF EXISTS provider_bookings_immutable ON provider_bookings;
 CREATE TRIGGER provider_bookings_immutable BEFORE UPDATE OR DELETE ON provider_bookings
 FOR EACH ROW EXECUTE FUNCTION guard_provider_booking_transition();
