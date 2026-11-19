@@ -3,6 +3,7 @@ package marketconfig
 
 import (
  "errors"
+	"github.com/jackc/pgx/v5"
  "fmt"
  "regexp"
  "strings"
@@ -12,10 +13,10 @@ import (
 var (
  ErrUnknownMarket = errors.New("unknown market configuration")
  ErrInvalidConfig = errors.New("invalid market configuration")
- marketPattern = regexp.MustCompile(`^[A-Z]{2}$`)
+ marketPattern = regexp.MustCompile(`^[A-Z]{2,8}$`)
  localePattern = regexp.MustCompile(`^[a-z]{2,3}(-[A-Z]{2})?$`)
  currencyPattern = regexp.MustCompile(`^[A-Z]{3}$`)
- policyPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+ policyPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$`)
 )
 
 type Config struct {
@@ -52,5 +53,27 @@ func (r *Registry) Resolve(marketID,locale string)(Config,error) {
  if r==nil||marketID==""||locale==""||strings.TrimSpace(marketID)!=marketID||strings.TrimSpace(locale)!=locale { return Config{},ErrUnknownMarket }
  cfg,ok:=r.entries[key{market:marketID,locale:locale}]
  if !ok { return Config{},fmt.Errorf("%w: %s/%s",ErrUnknownMarket,marketID,locale) }
+ return cfg,nil
+}
+
+type Queryer interface {
+ QueryRow(context.Context,string,...any) pgx.Row
+}
+
+// Load resolves one enabled market/locale pair from the authoritative PostgreSQL
+// configuration. It intentionally does not fall back to the market default locale.
+func Load(ctx context.Context,db Queryer,marketID,locale string)(Config,error){
+ if db==nil||strings.TrimSpace(marketID)!=marketID||strings.TrimSpace(locale)!=locale||marketID==""||locale==""{
+  return Config{},ErrUnknownMarket
+ }
+ var cfg Config
+ err:=db.QueryRow(ctx,`
+  SELECT m.code,ml.locale,m.currency,m.timezone,m.policy_version
+  FROM markets m JOIN market_locales ml ON ml.market_code=m.code
+  WHERE m.code=$1 AND ml.locale=$2 AND m.enabled=true
+ `,marketID,locale).Scan(&cfg.MarketID,&cfg.Locale,&cfg.Currency,&cfg.TimeZone,&cfg.PolicyVersion)
+ if errors.Is(err,pgx.ErrNoRows){return Config{},fmt.Errorf("%w: %s/%s",ErrUnknownMarket,marketID,locale)}
+ if err!=nil{return Config{},fmt.Errorf("load market configuration: %w",err)}
+ if err=validate(cfg);err!=nil{return Config{},err}
  return cfg,nil
 }
