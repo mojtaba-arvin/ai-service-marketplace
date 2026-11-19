@@ -22,11 +22,11 @@ func main() {
 	defer pool.Close()
 	if err=pool.Ping(ctx); err!=nil { log.Fatal(err) }
 
+	store:=&marketplace.Store{DB:pool}
 	ticker:=time.NewTicker(15*time.Second)
 	defer ticker.Stop()
 	log.Print("dispatch expiry worker started; batch=100 interval=15s")
 	for {
-		store:=&marketplace.Store{DB:pool}
 		if _,err=store.ExpireDispatchOffers(ctx,100); err!=nil && ctx.Err()==nil {
 			log.Printf("expire dispatch offers: %v",err)
 		}
