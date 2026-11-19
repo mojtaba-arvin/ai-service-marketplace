@@ -46,3 +46,36 @@ DROP TRIGGER IF EXISTS payment_operation_events_immutable ON payment_operation_e
 CREATE TRIGGER payment_operation_events_immutable
 BEFORE UPDATE OR DELETE ON payment_operation_events
 FOR EACH ROW EXECUTE FUNCTION reject_payment_event_mutation();
+
+CREATE OR REPLACE FUNCTION enforce_payment_operation_transition() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.id IS DISTINCT FROM OLD.id
+       OR NEW.provider_code IS DISTINCT FROM OLD.provider_code
+       OR NEW.operation_type IS DISTINCT FROM OLD.operation_type
+       OR NEW.idempotency_key IS DISTINCT FROM OLD.idempotency_key
+       OR NEW.amount_minor IS DISTINCT FROM OLD.amount_minor
+       OR NEW.currency IS DISTINCT FROM OLD.currency
+       OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+        RAISE EXCEPTION 'payment operation request fields are immutable';
+    END IF;
+    IF OLD.status='pending' AND NEW.status IN ('pending','succeeded','failed','unknown') THEN
+        RETURN NEW;
+    END IF;
+    IF OLD.status='unknown' AND NEW.status IN ('succeeded','failed') THEN
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'invalid payment operation status transition';
+END $$;
+DROP TRIGGER IF EXISTS payment_operation_state_guard ON payment_operations;
+CREATE TRIGGER payment_operation_state_guard
+BEFORE UPDATE ON payment_operations
+FOR EACH ROW EXECUTE FUNCTION enforce_payment_operation_transition();
+
+CREATE OR REPLACE FUNCTION reject_payment_webhook_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'payment webhook receipts are append-only';
+END $$;
+DROP TRIGGER IF EXISTS payment_webhook_receipts_immutable ON payment_webhook_receipts;
+CREATE TRIGGER payment_webhook_receipts_immutable
+BEFORE UPDATE OR DELETE ON payment_webhook_receipts
+FOR EACH ROW EXECUTE FUNCTION reject_payment_webhook_mutation();
