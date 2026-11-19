@@ -79,7 +79,7 @@ func Authorize(actor Actor, resource Resource, action Action) error {
 		switch action {
 		case ActionOrderRead, ActionOrderAccept, ActionOrderStart, ActionOrderComplete:
 			allowed = resource.AssignedProfessionalID != "" && resource.AssignedProfessionalID == actor.SubjectID
-		case ActionProfileUpdate:
+		case ActionProfileUpdate, ActionQuoteAccept:
 			allowed = resource.OwnerID != "" && resource.OwnerID == actor.SubjectID
 		}
 	case RoleOperator:
