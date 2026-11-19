@@ -26,7 +26,8 @@ func main() {
 	defer ticker.Stop()
 	log.Print("dispatch expiry worker started; batch=100 interval=15s")
 	for {
-		if _,err=marketplace.ExpireDispatchOffers(ctx,pool,100); err!=nil && ctx.Err()==nil {
+		store:=&marketplace.Store{DB:pool}
+		if _,err=store.ExpireDispatchOffers(ctx,100); err!=nil && ctx.Err()==nil {
 			log.Printf("expire dispatch offers: %v",err)
 		}
 		select {
