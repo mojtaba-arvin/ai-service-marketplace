@@ -133,4 +133,16 @@ func TestInspectionQuoteRequiresCustomerApprovalPostgres(t *testing.T) {
 	if _,err=pool.Exec(ctx,`UPDATE order_price_revisions SET new_amount_minor=1 WHERE order_id=$1`,order.ID); err==nil {
 		t.Fatal("order price revisions must be immutable")
 	}
+	if _,err=pool.Exec(ctx,`
+		INSERT INTO quote_decisions(id,quote_id,actor_identity_id,actor_role,action)
+		VALUES('forged-quote-decision',$1,'not-the-customer','customer','approved')
+	`,quote.ID); err==nil {
+		t.Fatal("database must reject quote decisions from non-owners")
+	}
+	if _,err=pool.Exec(ctx,`
+		INSERT INTO quote_variation_decisions(id,variation_id,actor_identity_id,actor_role,action)
+		VALUES('forged-variation-decision',$1,'not-the-customer','customer','approved')
+	`,variation.ID); err==nil {
+		t.Fatal("database must reject variation decisions from non-owners")
+	}
 }
