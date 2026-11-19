@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func validOrderArea(country,region,city,area string) bool {
+var ErrInvalidOrderRequest = errors.New("invalid scheduled order request")\n\nfunc validOrderArea(country,region,city,area string) bool {
 	if len(country)!=2 || country[0]<'A' || country[0]>'Z' || country[1]<'A' || country[1]>'Z' { return false }
 	return region!="" && city!="" && area!="" && len(region)<=100 && len(city)<=100 && len(area)<=100
 }
@@ -43,7 +43,7 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 	if idempotencyKey=="" || len(idempotencyKey)>200 || menuID=="" ||
 		scheduledAt.Before(now.Add(30*time.Minute)) || scheduledAt.After(now.Add(90*24*time.Hour)) ||
 		!validOrderArea(country,region,city,area) {
-		return Order{},false,ErrInvalidCategory
+		return Order{},false,ErrInvalidOrderRequest
 	}
 
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{})
