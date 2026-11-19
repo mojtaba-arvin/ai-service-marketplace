@@ -4,6 +4,7 @@ This package turns an untrusted model response into a constrained intake suggest
 
 ## Trust boundaries
 
+- A redactor is mandatory and runs before model invocation; redaction failure is fail-closed. The model and input fingerprint receive only redacted text.
 - The catalog interface supplies the only eligible category IDs; model output outside that allowlist is rejected.
 - Model JSON is decoded strictly: unknown fields, trailing JSON, malformed values, invalid confidence, and excessive lengths are rejected.
 - The output schema contains no payable amount, payment, identity-verification, safety-approval, or reputation-decision fields. Unknown fields are forbidden.
