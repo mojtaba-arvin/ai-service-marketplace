@@ -83,7 +83,8 @@ func (p *FakePaymentProvider) execute(ctx context.Context,operation string,reque
 	if result,ok:=p.results[key]; ok { return result,nil }
 	p.calls++
 	if p.Mode==FakeProviderTimeoutBefore { return ProviderResult{},context.DeadlineExceeded }
-	result:=ProviderResult{Status:"succeeded",ExternalReference:"fake_"+hex.EncodeToString(sha256.New().Sum([]byte(key)))}
+	digest:=sha256.Sum256([]byte(key))
+	result:=ProviderResult{Status:"succeeded",ExternalReference:"fake_"+hex.EncodeToString(digest[:12])}
 	if p.Mode==FakeProviderDecline {
 		result=ProviderResult{Status:"failed",FailureCode:"fake_declined"}
 	}
@@ -217,7 +218,9 @@ func (s *Store) RecordPaymentOutcome(ctx context.Context,operationID,status,exte
 		return PaymentOperation{},ErrPaymentStateConflict
 	}
 	if err!=nil { return PaymentOperation{},err }
-	if _,err=tx.Exec(ctx,`INSERT INTO payment_operation_events(id,operation_id,event_type,from_status,to_status,details) VALUES($1,$2,'provider_outcome','pending',$3,$4)`,mustID(),operationID,status,failureCode); err!=nil {
+	eventID,idErr:=newID()
+	if idErr!=nil { return PaymentOperation{},idErr }
+	if _,err=tx.Exec(ctx,`INSERT INTO payment_operation_events(id,operation_id,event_type,from_status,to_status,details) VALUES($1,$2,'provider_outcome','pending',$3,$4)`,eventID,operationID,status,failureCode); err!=nil {
 		return PaymentOperation{},err
 	}
 	if err=tx.Commit(ctx); err!=nil { return PaymentOperation{},err }
@@ -238,7 +241,9 @@ func (s *Store) ResolveUnknownPayment(ctx context.Context,operationID,status,ext
 	`,operationID,status,externalReference,failureCode))
 	if errors.Is(err,pgx.ErrNoRows) { return PaymentOperation{},ErrPaymentStateConflict }
 	if err!=nil { return PaymentOperation{},err }
-	if _,err=tx.Exec(ctx,`INSERT INTO payment_operation_events(id,operation_id,event_type,from_status,to_status,details) VALUES($1,$2,'reconciled','unknown',$3,$4)`,mustID(),operationID,status,failureCode); err!=nil {
+	eventID,idErr:=newID()
+	if idErr!=nil { return PaymentOperation{},idErr }
+	if _,err=tx.Exec(ctx,`INSERT INTO payment_operation_events(id,operation_id,event_type,from_status,to_status,details) VALUES($1,$2,'reconciled','unknown',$3,$4)`,eventID,operationID,status,failureCode); err!=nil {
 		return PaymentOperation{},err
 	}
 	if err=tx.Commit(ctx); err!=nil { return PaymentOperation{},err }
@@ -266,8 +271,3 @@ func (s *Store) RecordPaymentWebhook(ctx context.Context,providerCode,eventID st
 	return true,nil
 }
 
-func mustID() string {
-	id,err:=newID()
-	if err!=nil { panic(fmt.Sprintf("generate audit event ID: %v",err)) }
-	return id
-}
