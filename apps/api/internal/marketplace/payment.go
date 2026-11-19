@@ -146,8 +146,11 @@ type PaymentOperation struct {
 
 func scanPaymentOperation(row pgx.Row) (PaymentOperation,error) {
 	var op PaymentOperation
+	var externalReference,failureCode *string
 	err:=row.Scan(&op.ID,&op.ProviderCode,&op.OperationType,&op.IdempotencyKey,&op.AmountMinor,
-		&op.Currency,&op.Status,&op.ExternalReference,&op.FailureCode,&op.CreatedAt,&op.UpdatedAt)
+		&op.Currency,&op.Status,&externalReference,&failureCode,&op.CreatedAt,&op.UpdatedAt)
+	if externalReference!=nil { op.ExternalReference=*externalReference }
+	if failureCode!=nil { op.FailureCode=*failureCode }
 	return op,err
 }
 
