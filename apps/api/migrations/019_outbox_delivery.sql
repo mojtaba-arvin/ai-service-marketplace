@@ -13,6 +13,3 @@ CREATE INDEX IF NOT EXISTS outbox_claim_idx
 CREATE INDEX IF NOT EXISTS outbox_lease_idx
     ON outbox_events(locked_until)
     WHERE published_at IS NULL AND locked_by IS NOT NULL;
-
-ALTER TABLE processed_events
-    ADD CONSTRAINT processed_events_event_id_consumer_unique UNIQUE(consumer_name,event_id);
