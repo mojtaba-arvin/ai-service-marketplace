@@ -49,7 +49,12 @@ func Do[T any](r Runner, ctx context.Context, key string, operation Operation[T]
 	if strings.TrimSpace(key) == "" { return zero, ErrMissingIdempotencyKey }
 	if operation == nil { return zero, errors.New("adapter operation is required") }
 	if err := ctx.Err(); err != nil { return zero, err }
-	if r.Breaker != nil && !r.Breaker.allow(time.Now()) { return zero, ErrCircuitOpen }
+	var permit breakerPermit
+	if r.Breaker != nil {
+		var allowed bool
+		permit, allowed = r.Breaker.allow(time.Now())
+		if !allowed { return zero, ErrCircuitOpen }
+	}
 
 	var lastErr error
 	backoff := r.Policy.InitialBackoff
@@ -58,7 +63,7 @@ func Do[T any](r Runner, ctx context.Context, key string, operation Operation[T]
 		value, err := operation(attemptCtx, key)
 		cancel()
 		if err == nil {
-			if r.Breaker != nil { r.Breaker.success() }
+			if r.Breaker != nil { r.Breaker.success(permit) }
 			return value, nil
 		}
 		lastErr = err
@@ -80,7 +85,7 @@ func Do[T any](r Runner, ctx context.Context, key string, operation Operation[T]
 		}
 	}
 	if r.Breaker != nil {
-		if ctx.Err() == nil && r.Policy.Retryable(lastErr) { r.Breaker.failure(time.Now()) } else { r.Breaker.success() }
+		if ctx.Err() == nil && r.Policy.Retryable(lastErr) { r.Breaker.failure(permit, time.Now()) } else { r.Breaker.success() }
 	}
 	return zero, lastErr
 }
@@ -94,6 +99,8 @@ const (
 
 // CircuitBreaker admits one half-open probe after cooldown. It is safe for
 // concurrent callers; operations admitted before opening may finish.
+type breakerPermit struct { generation uint64; halfOpen bool }
+
 type CircuitBreaker struct {
 	mu sync.Mutex
 	threshold int
@@ -101,6 +108,7 @@ type CircuitBreaker struct {
 	failures int
 	state breakerState
 	openedAt time.Time
+	generation uint64
 }
 
 func NewCircuitBreaker(threshold int, cooldown time.Duration) (*CircuitBreaker, error) {
@@ -110,41 +118,52 @@ func NewCircuitBreaker(threshold int, cooldown time.Duration) (*CircuitBreaker, 
 	return &CircuitBreaker{threshold: threshold, cooldown: cooldown}, nil
 }
 
-func (b *CircuitBreaker) allow(now time.Time) bool {
+func (b *CircuitBreaker) allow(now time.Time) (breakerPermit, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	switch b.state {
 	case breakerClosed:
-		return true
+		return breakerPermit{generation:b.generation}, true
 	case breakerOpen:
-		if now.Sub(b.openedAt) < b.cooldown { return false }
+		if now.Sub(b.openedAt) < b.cooldown { return breakerPermit{}, false }
 		b.state = breakerHalfOpen
-		return true
+		b.generation++
+		return breakerPermit{generation:b.generation,halfOpen:true}, true
 	case breakerHalfOpen:
-		return false
+		return breakerPermit{}, false
 	default:
-		return false
+		return breakerPermit{}, false
 	}
 }
 
-func (b *CircuitBreaker) success() {
+func (b *CircuitBreaker) success(permit breakerPermit) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.state = breakerClosed
+	if permit.generation != b.generation { return }
+	if permit.halfOpen {
+		if b.state != breakerHalfOpen { return }
+		b.state = breakerClosed
+		b.generation++
+	} else if b.state != breakerClosed { return }
 	b.failures = 0
 }
 
-func (b *CircuitBreaker) failure(now time.Time) {
+func (b *CircuitBreaker) failure(permit breakerPermit, now time.Time) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if b.state == breakerHalfOpen {
+	if permit.generation != b.generation { return }
+	if permit.halfOpen {
+		if b.state != breakerHalfOpen { return }
 		b.state = breakerOpen
 		b.openedAt = now
+		b.generation++
 		return
 	}
+	if b.state != breakerClosed { return }
 	b.failures++
 	if b.failures >= b.threshold {
 		b.state = breakerOpen
 		b.openedAt = now
+		b.generation++
 	}
 }
