@@ -62,7 +62,7 @@ func scanOrderHistoryItem(row pgx.Row) (OrderHistoryItem,error) {
 	var item OrderHistoryItem
 	err:=row.Scan(&item.Order.ID,&item.Order.CustomerID,&item.Order.AmountMinor,&item.Order.Currency,
 		&item.Order.Status,&item.Order.PriceVersionID,&item.Order.ScheduledAt,&item.Order.CountryCode,
-		&item.Order.RegionCode,&item.Order.CityCode,&item.Order.AreaCode,&item.Order.AssignedProviderID,&item.CreatedAt,&item.UpdatedAt)
+		&item.Order.RegionCode,&item.Order.CityCode,&item.Order.AreaCode,&item.CreatedAt,&item.UpdatedAt)
 	return item,err
 }
 
@@ -77,7 +77,7 @@ func (s *Store) ListOrderHistory(ctx context.Context,actor Actor,limit int,curso
 	var rows pgx.Rows
 	if cursor==nil {
 		rows,err=tx.Query(ctx,`
-			SELECT id,customer_id,amount_minor,currency,status,price_version_id,scheduled_at,country_code,region_code,city_code,area_code,assigned_provider_id,created_at,updated_at
+			SELECT id,customer_id,amount_minor,currency,status,price_version_id,scheduled_at,country_code,region_code,city_code,area_code,created_at,updated_at
 			FROM orders WHERE customer_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2
 		`,actor.SubjectID,limit+1)
 	} else {
