@@ -28,11 +28,11 @@ func TestOutboxLeasesAndConsumerIdempotencyPostgres(t *testing.T){
  if err!=nil{t.Fatal(err)}
  if err=tx.Commit(ctx);err!=nil{t.Fatal(err)}
  repo:=&outbox.Repository{DB:pool}
- claimed,err:=repo.Claim(ctx,"marketplace-test-worker-a",10,30*time.Second);if err!=nil{t.Fatal(err)}
+ claimed,err:=repo.Claim(ctx,"marketplace-test-worker-a",500,30*time.Second);if err!=nil{t.Fatal(err)}
  var event *outbox.Event
  for i:=range claimed{if claimed[i].ID==eventID{event=&claimed[i];break}}
  if event==nil{t.Fatalf("event %d was not claimed",eventID)}
- other,err:=repo.Claim(ctx,"marketplace-test-worker-b",10,30*time.Second);if err!=nil{t.Fatal(err)}
+ other,err:=repo.Claim(ctx,"marketplace-test-worker-b",500,30*time.Second);if err!=nil{t.Fatal(err)}
  for _,candidate:=range other{if candidate.ID==eventID{t.Fatal("two workers claimed the same leased event")}}
  if err=repo.MarkPublished(ctx,"marketplace-test-worker-a",eventID);err!=nil{t.Fatal(err)}
  if err=repo.MarkPublished(ctx,"marketplace-test-worker-b",eventID);err!=outbox.ErrLeaseLost{t.Fatalf("stale worker acknowledgement: %v",err)}
