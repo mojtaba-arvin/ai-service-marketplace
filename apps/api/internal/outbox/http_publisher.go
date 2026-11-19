@@ -9,6 +9,7 @@ import (
  "io"
  "net/http"
  "net/url"
+ "strconv"
  "strings"
  "time"
 )
@@ -30,7 +31,7 @@ func NewHTTPPublisher(endpoint,token string,client *http.Client)(*HTTPPublisher,
 }
 
 func (p *HTTPPublisher) Publish(ctx context.Context,event Event,idempotencyKey string)error{
- if p==nil||p.endpoint==nil||p.client==nil||p.token==""||event.ID<=0||idempotencyKey==""||!json.Valid(event.Payload){return ErrPublisherConfig}
+ if p==nil||p.endpoint==nil||p.client==nil||p.token==""||event.ID<=0||idempotencyKey!=strconv.FormatInt(event.ID,10)||!json.Valid(event.Payload){return ErrPublisherConfig}
  body,err:=json.Marshal(struct{
   ID int64 `json:"id"`
   AggregateType string `json:"aggregate_type"`
