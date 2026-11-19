@@ -19,6 +19,7 @@ func TestAuthorizeRolePermissions(t *testing.T) {
 		{"customer cannot accept order", Actor{"customer-1", "tenant-a", RoleCustomer}, Resource{"tenant-a", "customer-1", "pro-1"}, ActionOrderAccept, false},
 		{"professional reads assigned order", Actor{"pro-1", "tenant-a", RoleProfessional}, Resource{"tenant-a", "customer-1", "pro-1"}, ActionOrderRead, true},
 		{"professional accepts own quote", Actor{"pro-1", "tenant-a", RoleProfessional}, Resource{TenantID:"tenant-a",OwnerID:"pro-1"}, ActionQuoteAccept, true},
+		{"professional responds to own dispatch offer", Actor{"pro-1", "tenant-a", RoleProfessional}, Resource{TenantID:"tenant-a",OwnerID:"pro-1"}, ActionDispatchOfferRespond, true},
 		{"professional cannot read unassigned order", Actor{"pro-1", "tenant-a", RoleProfessional}, Resource{"tenant-a", "customer-1", "pro-2"}, ActionOrderRead, false},
 		{"operator can assign within tenant", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionOrderAssign, true},
 		{"operator can configure market", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionMarketConfigure, true},
