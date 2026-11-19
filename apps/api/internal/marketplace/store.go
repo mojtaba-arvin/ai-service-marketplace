@@ -21,6 +21,7 @@ type Order struct {
 	AmountMinor int64 `json:"amount_minor"`
 	Currency string `json:"currency"`
 	Status string `json:"status"`
+	PriceVersionID *string `json:"price_version_id,omitempty"`
 }
 
 func newID() (string,error) {
