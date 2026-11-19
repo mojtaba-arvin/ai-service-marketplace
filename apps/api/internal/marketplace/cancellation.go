@@ -14,6 +14,7 @@ import (
 
 var (
 	ErrCancellationPolicyUnavailable = errors.New("no effective cancellation policy for order market and state")
+	ErrOrderNotFound = errors.New("order not found")
 	ErrCancellationIdempotencyConflict = errors.New("cancellation idempotency key reused with different request")
 )
 
