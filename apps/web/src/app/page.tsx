@@ -69,6 +69,12 @@ function friendlyDate(value?: string): string {
   return new Date(value).toLocaleString();
 }
 
+function preferredRole(roles: Role[]): Role {
+  if (roles.includes("operator")) return "operator";
+  if (roles.includes("professional")) return "professional";
+  return "customer";
+}
+
 export default function HomePage() {
   const [phone, setPhone] = useState("");
   const [challengeId, setChallengeId] = useState("");
@@ -110,7 +116,7 @@ export default function HomePage() {
     void api<Me>("/auth/me", savedAccess)
       .then((identity) => {
         setMe(identity);
-        setActiveRole(identity.roles.includes("customer") ? "customer" : identity.roles[0] ?? "customer");
+        setActiveRole(preferredRole(identity.roles));
       })
       .catch(() => {
         window.sessionStorage.removeItem("marketplace_access_token");
@@ -257,6 +263,9 @@ export default function HomePage() {
       });
       setProfile(result.profile);
       setQualificationComplete(false);
+      const identity = await api<Me>("/auth/me",accessToken);
+      setMe(identity);
+      setActiveRole("professional");
       setNotice("Professional profile created. Add your service area and availability next.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not create professional profile.");
@@ -449,6 +458,16 @@ export default function HomePage() {
             </div>
           </section>
         </div>
+        {!me.roles.includes("professional") && (
+          <section className="panel section-top">
+            <div className="panel-heading"><div><p className="eyebrow">PROFESSIONAL NETWORK</p><h2>Offer services on the marketplace</h2></div></div>
+            <form onSubmit={registerProfessional} className="form-stack">
+              <label htmlFor="customer-professional-name">Professional display name</label>
+              <input id="customer-professional-name" value={profileName} onChange={(event) => setProfileName(event.target.value)} required />
+              <button disabled={busy || !profileName.trim()}>{busy ? "Creating…" : "Create professional profile"}</button>
+            </form>
+          </section>
+        )}
       )}
 
       {activeRole === "professional" && (
