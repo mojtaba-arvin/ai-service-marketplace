@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -86,6 +85,21 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 	enabled,err:=categoryAvailableForOrder(ctx,tx,categoryID)
 	if err!=nil { return Order{},false,err }
 	if !enabled { return Order{},false,ErrPriceUnavailable }
+
+	var marketCurrency string
+	err=tx.QueryRow(ctx,`SELECT currency FROM markets WHERE code=$1 AND enabled=true`,country).Scan(&marketCurrency)
+	if errors.Is(err,pgx.ErrNoRows) { return Order{},false,ErrMarketUnavailable }
+	if err!=nil { return Order{},false,err }
+	if marketCurrency!=version.Currency { return Order{},false,ErrPriceUnavailable }
+	var marketVisible bool
+	err=tx.QueryRow(ctx,`
+		SELECT EXISTS(
+			SELECT 1 FROM market_category_visibility
+			WHERE market_code=$1 AND category_id=$2 AND visible=true
+		)
+	`,country,categoryID).Scan(&marketVisible)
+	if err!=nil { return Order{},false,err }
+	if !marketVisible { return Order{},false,ErrPriceUnavailable }
 
 	id,err:=newID()
 	if err!=nil { return Order{},false,err }
