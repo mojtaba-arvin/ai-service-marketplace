@@ -57,7 +57,7 @@ func TestOTPChallengeLifecyclePostgres(t *testing.T) {
 
 	expired, err := store.CreateOTPChallenge(ctx, phone, code, pepper, time.Minute, 3)
 	if err != nil { t.Fatalf("create expiring challenge: %v", err) }
-	if _, err = pool.Exec(ctx, `UPDATE otp_challenges SET expires_at=now()-interval '1 second' WHERE id=$1`, expired); err != nil { t.Fatal(err) }
+	if _, err = pool.Exec(ctx, `UPDATE otp_challenges SET created_at=now()-interval '2 minutes', expires_at=now()-interval '1 second' WHERE id=$1`, expired); err != nil { t.Fatal(err) }
 	if _, err = store.VerifyOTPChallenge(ctx, expired, code, pepper); !errors.Is(err, ErrOTPInvalidChallenge) { t.Fatalf("expired challenge must fail: %v", err) }
 
 	replaced, err := store.CreateOTPChallenge(ctx, phone, code, pepper, 5*time.Minute, 3)
