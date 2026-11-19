@@ -1,7 +1,7 @@
 .PHONY: verify verify-full
 
 verify:
-	./scripts/verify.sh
+	bash ./scripts/verify.sh
 
 verify-full:
-	./scripts/verify.sh --full
+	bash ./scripts/verify.sh --full
