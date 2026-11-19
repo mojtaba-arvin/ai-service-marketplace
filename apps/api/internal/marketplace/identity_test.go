@@ -2,7 +2,7 @@ package marketplace
 
 import (
 	"context"
-	"errors"
+	"errors"\n\t"encoding/hex"\n\t"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,7 +68,7 @@ func TestOTPChallengeLifecyclePostgres(t *testing.T) {
 	if err = pool.QueryRow(ctx, `SELECT encode(code_hash, 'hex') FROM otp_challenges WHERE id=$1`, id).Scan(&stored); err != nil {
 		t.Fatal(err)
 	}
-	if stored == "" || stored == code {
+	if stored == "" || stored != hex.EncodeToString(otpDigest(id, code, pepper)) {
 		t.Fatal("OTP must be stored only as a keyed digest")
 	}
 	if _, err = store.VerifyOTPChallenge(ctx, id, "999999", pepper); !errors.Is(err, ErrOTPInvalidCode) {
