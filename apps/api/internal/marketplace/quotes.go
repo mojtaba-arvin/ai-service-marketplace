@@ -279,7 +279,7 @@ func (s *Store) AcceptQuote(ctx context.Context,actor Actor,quoteID string) (Quo
 	err=tx.QueryRow(ctx,`
 		SELECT p.identity_id,p.tenant_id,q.expires_at,q.order_id,q.total_minor,o.customer_id,o.amount_minor
 		FROM inspection_quotes q
-		JOIN provider_profiles p ON p.id=q.provider_id
+		JOIN provider_profiles p ON p.id=q.provider_id AND p.active=true AND p.verified_at IS NOT NULL
 		JOIN orders o ON o.id=q.order_id
 		WHERE q.id=$1 FOR UPDATE OF q,o
 	`,quoteID).Scan(&providerIdentityID,&providerTenant,&expiresAt,&orderID,&quoteTotal,&customerID,&currentAmount)
