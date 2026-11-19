@@ -20,7 +20,7 @@ func TestInspectionQuoteRequiresCustomerApprovalPostgres(t *testing.T) {
 	pool,err:=pgxpool.New(ctx,dsn)
 	if err!=nil { t.Fatal(err) }
 	defer pool.Close()
-	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","006_provider_eligibility.sql","013_inspection_quotes.sql"} {
+	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","006_provider_eligibility.sql","013_inspection_quotes.sql","014_quote_variations.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
 		if _,err=pool.Exec(ctx,string(migration)); err!=nil { t.Fatalf("apply %s: %v",name,err) }
@@ -81,6 +81,26 @@ func TestInspectionQuoteRequiresCustomerApprovalPostgres(t *testing.T) {
 	if err!=nil || approved.Action!="approved" { t.Fatalf("customer approval: %#v %v",approved,err) }
 	accepted,err:=store.AcceptQuote(ctx,professional,quote.ID)
 	if err!=nil || accepted.Action!="accepted" { t.Fatalf("provider acceptance after approval: %#v %v",accepted,err) }
+	var orderAmount int64
+	if err=pool.QueryRow(ctx,`SELECT amount_minor FROM orders WHERE id=$1`,order.ID).Scan(&orderAmount); err!=nil { t.Fatal(err) }
+	if orderAmount!=2700 { t.Fatalf("approved quote should set payable order amount: %d",orderAmount) }
+
+	variation,err:=store.ProposeQuoteVariation(ctx,professional,quote.ID,"Add circuit protection",500,time.Now().UTC().Add(time.Hour))
+	if err!=nil || variation.ProposedTotalMinor!=3200 { t.Fatalf("propose variation: %#v %v",variation,err) }
+	if err=pool.QueryRow(ctx,`SELECT amount_minor FROM orders WHERE id=$1`,order.ID).Scan(&orderAmount); err!=nil { t.Fatal(err) }
+	if orderAmount!=2700 { t.Fatalf("proposed variation must not change payable amount before approval: %d",orderAmount) }
+	if _,err=store.ApproveQuoteVariation(ctx,wrongCustomer,variation.ID); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("non-owner cannot approve price variation: %v",err)
+	}
+	if _,err=store.ApproveQuoteVariation(ctx,customer,variation.ID); err!=nil { t.Fatalf("customer approves variation: %v",err) }
+	if err=pool.QueryRow(ctx,`SELECT amount_minor FROM orders WHERE id=$1`,order.ID).Scan(&orderAmount); err!=nil { t.Fatal(err) }
+	if orderAmount!=3200 { t.Fatalf("approved variation should update payable amount: %d",orderAmount) }
+
+	variation2,err:=store.ProposeQuoteVariation(ctx,professional,quote.ID,"Remove premium accessory",-200,time.Now().UTC().Add(time.Hour))
+	if err!=nil || variation2.ProposedTotalMinor!=3000 { t.Fatalf("propose negative variation: %#v %v",variation2,err) }
+	if _,err=store.RejectQuoteVariation(ctx,customer,variation2.ID,"Customer declined change"); err!=nil { t.Fatalf("reject variation: %v",err) }
+	if err=pool.QueryRow(ctx,`SELECT amount_minor FROM orders WHERE id=$1`,order.ID).Scan(&orderAmount); err!=nil { t.Fatal(err) }
+	if orderAmount!=3200 { t.Fatalf("rejected variation must not change payable amount: %d",orderAmount) }
 	if _,err=store.RejectQuote(ctx,customer,quote.ID,"changed mind"); !errors.Is(err,ErrQuoteStateConflict) {
 		t.Fatalf("accepted quote cannot be rejected or rewritten: %v",err)
 	}
@@ -100,5 +120,17 @@ func TestInspectionQuoteRequiresCustomerApprovalPostgres(t *testing.T) {
 	}
 	if _,err=pool.Exec(ctx,`UPDATE quote_decisions SET reason='tampered' WHERE quote_id=$1`,quote.ID); err==nil {
 		t.Fatal("quote decisions must be immutable")
+	}
+	if _,err=pool.Exec(ctx,`UPDATE orders SET amount_minor=1 WHERE id=$1`,order.ID); err==nil {
+		t.Fatal("order payable amount must change only through approved price revisions")
+	}
+	if _,err=pool.Exec(ctx,`UPDATE quote_variations SET proposed_total_minor=1 WHERE id=$1`,variation.ID); err==nil {
+		t.Fatal("quote variations must be immutable")
+	}
+	if _,err=pool.Exec(ctx,`UPDATE quote_variation_decisions SET reason='tampered' WHERE variation_id=$1`,variation.ID); err==nil {
+		t.Fatal("variation decisions must be immutable")
+	}
+	if _,err=pool.Exec(ctx,`UPDATE order_price_revisions SET new_amount_minor=1 WHERE order_id=$1`,order.ID); err==nil {
+		t.Fatal("order price revisions must be immutable")
 	}
 }
