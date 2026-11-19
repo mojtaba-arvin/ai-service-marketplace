@@ -85,7 +85,7 @@ func Do[T any](r Runner, ctx context.Context, key string, operation Operation[T]
 		}
 	}
 	if r.Breaker != nil {
-		if ctx.Err() == nil && r.Policy.Retryable(lastErr) { r.Breaker.failure(permit, time.Now()) } else { r.Breaker.success() }
+		if ctx.Err() == nil && r.Policy.Retryable(lastErr) { r.Breaker.failure(permit, time.Now()) } else { r.Breaker.success(permit) }
 	}
 	return zero, lastErr
 }
