@@ -67,6 +67,12 @@ func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
 	expires:=time.Now().UTC().Add(5*time.Minute)
 	offers,err:=store.CreateDispatchOffers(ctx,operator,order.ID,[]string{providerA.ID,providerB.ID},2,expires)
 	if err!=nil || len(offers)!=2 { t.Fatalf("create two bounded offers: %#v %v",offers,err) }
+	if _,err=pool.Exec(ctx,`UPDATE dispatch_rounds SET round_no=round_no+1 WHERE id=$1`,offers[0].RoundID); err==nil {
+		t.Fatal("dispatch rounds must be immutable audit records")
+	}
+	if _,err=pool.Exec(ctx,`UPDATE dispatch_offers SET provider_id=$2 WHERE id=$1`,offers[0].ID,providerB.ID); err==nil {
+		t.Fatal("dispatch offer recipient must be immutable")
+	}
 	if _,err=store.CreateDispatchOffers(ctx,operator,order.ID,[]string{providerA.ID},1,expires); !errors.Is(err,ErrDispatchRoundActive) {
 		t.Fatalf("active offer round must prevent duplicate fan-out: %v",err)
 	}
