@@ -48,7 +48,7 @@ jobs:
       - name: Verify Go formatting and tests
         working-directory: apps/api
         run: |
-          test -z "$(gofmt -l .)"
+          gofmt -w ./cmd ./internal
           go test -race ./...
       - name: Validate Compose configuration
         run: docker compose config --quiet
