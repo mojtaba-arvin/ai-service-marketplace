@@ -1,0 +1,97 @@
+package marketplace
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+func TestVersionedCancellationPolicyAndIdempotencyPostgres(t *testing.T) {
+	dsn:=os.Getenv("TEST_DATABASE_URL")
+	if dsn=="" { t.Skip("TEST_DATABASE_URL is not configured") }
+	ctx,cancel:=context.WithTimeout(context.Background(),30*time.Second)
+	defer cancel()
+	pool,err:=pgxpool.New(ctx,dsn)
+	if err!=nil { t.Fatal(err) }
+	defer pool.Close()
+	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","007_market_config.sql","015_order_schedule.sql","016_cancellation_policy.sql"} {
+		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
+		if readErr!=nil { t.Fatal(readErr) }
+		if _,err=pool.Exec(ctx,string(migration)); err!=nil { t.Fatalf("apply %s: %v",name,err) }
+	}
+	store:=&Store{DB:pool}
+	ids:=make([]string,3)
+	for i:=range ids {
+		ids[i],err=newID()
+		if err!=nil { t.Fatal(err) }
+		phone:=fmt.Sprintf("+1993%011d",(time.Now().UnixNano()+int64(i))%100_000_000_000)
+		if _,err=pool.Exec(ctx,`INSERT INTO phone_identities(id,phone_e164) VALUES($1,$2)`,ids[i],phone); err!=nil { t.Fatal(err) }
+	}
+	customer:=Actor{SubjectID:ids[0],TenantID:"market-om",Role:RoleCustomer}
+	otherCustomer:=Actor{SubjectID:ids[1],TenantID:"market-om",Role:RoleCustomer}
+	operator:=Actor{SubjectID:ids[2],TenantID:"platform",Role:RoleOperator}
+	if _,err=store.SaveMarket(ctx,operator,MarketConfig{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"market-v1",Enabled:true,Locales:[]string{"en"}}); err!=nil {
+		t.Fatal(err)
+	}
+	if _,err=store.SaveCancellationPolicy(ctx,operator,CancellationPolicy{
+		MarketCode:"OM",PolicyVersion:"cancel-v1",ActorRole:RoleCustomer,FromStatus:"requested",
+		CutoffMinutes:60,FeeBasisPoints:1000,EffectiveFrom:time.Now().UTC().Add(-time.Hour),
+	}); err!=nil { t.Fatal(err) }
+	if _,err=store.SaveCancellationPolicy(ctx,customer,CancellationPolicy{
+		MarketCode:"OM",PolicyVersion:"cancel-v2",ActorRole:RoleCustomer,FromStatus:"requested",
+		CutoffMinutes:30,FeeBasisPoints:0,EffectiveFrom:time.Now().UTC(),
+	}); !errors.Is(err,ErrForbidden) { t.Fatalf("customer cannot publish policy: %v",err) }
+
+	category,err:=store.CreateCategory(ctx,nil,fmt.Sprintf("cancel-%d",time.Now().UnixNano()),"Cancellation")
+	if err!=nil { t.Fatal(err) }
+	menu,err:=store.CreatePriceMenu(ctx,category.ID,"cancellation-service")
+	if err!=nil { t.Fatal(err) }
+	if _,err=store.CreatePriceVersion(ctx,menu.ID,4500,"OMR"); err!=nil { t.Fatal(err) }
+	createOrder:=func(key string,scheduled time.Time) Order {
+		order,created,createErr:=store.CreateScheduledOrder(ctx,customer,key,menu.ID,scheduled,"OM","Muscat","Muscat","Al-Khuwair")
+		if createErr!=nil || !created { t.Fatalf("create order: %#v created=%v err=%v",order,created,createErr) }
+		return order
+	}
+	earlyOrder:=createOrder("cancel-early-"+fmt.Sprint(time.Now().UnixNano()),time.Now().UTC().Add(2*time.Hour))
+	cancelled,err:=store.CancelOrder(ctx,customer,earlyOrder.ID,"cancel-key-early","Customer changed plans")
+	if err!=nil { t.Fatalf("cancel before cutoff: %v",err) }
+	if cancelled.FeeMinor!=0 || cancelled.RefundMinor!=4500 || cancelled.PolicyVersion!="cancel-v1" {
+		t.Fatalf("early cancellation outcome: %#v",cancelled)
+	}
+	replay,err:=store.CancelOrder(ctx,customer,earlyOrder.ID,"cancel-key-early","Customer changed plans")
+	if err!=nil || replay.ID!=cancelled.ID { t.Fatalf("same-key cancellation replay: %#v %v",replay,err) }
+	if _,err=store.CancelOrder(ctx,customer,earlyOrder.ID,"cancel-key-early","different reason"); !errors.Is(err,ErrCancellationIdempotencyConflict) {
+		t.Fatalf("changed cancellation payload must fail: %v",err)
+	}
+	replay,err=store.CancelOrder(ctx,customer,earlyOrder.ID,"new-cancel-key","another retry")
+	if err!=nil || replay.ID!=cancelled.ID { t.Fatalf("repeated cancellation with new key must be idempotent: %#v %v",replay,err) }
+	if _,err=store.CancelOrder(ctx,otherCustomer,earlyOrder.ID,"other-user-key","unauthorized"); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("another customer cannot cancel order: %v",err)
+	}
+	var status string
+	if err=pool.QueryRow(ctx,`SELECT status FROM orders WHERE id=$1`,earlyOrder.ID).Scan(&status); err!=nil || status!="cancelled" {
+		t.Fatalf("cancelled order state: %s %v",status,err)
+	}
+
+	lateOrder:=createOrder("cancel-late-"+fmt.Sprint(time.Now().UnixNano()),time.Now().UTC().Add(45*time.Minute))
+	late,err:=store.CancelOrder(ctx,customer,lateOrder.ID,"cancel-key-late","Late cancellation")
+	if err!=nil { t.Fatalf("cancel inside cutoff: %v",err) }
+	if late.FeeMinor!=450 || late.RefundMinor!=4050 { t.Fatalf("late cancellation fee: %#v",late) }
+
+	blockedOrder:=createOrder("cancel-bypass-"+fmt.Sprint(time.Now().UnixNano()),time.Now().UTC().Add(2*time.Hour))
+	if _,err=store.TransitionOrder(ctx,blockedOrder.ID,"cancelled"); err==nil {
+		t.Fatal("direct state transition must not bypass versioned cancellation policy")
+	}
+	if _,err=pool.Exec(ctx,`UPDATE order_cancellations SET fee_minor=1 WHERE order_id=$1`,earlyOrder.ID); err==nil {
+		t.Fatal("cancellation outcomes must be immutable")
+	}
+	if _,err=pool.Exec(ctx,`UPDATE cancellation_policies SET fee_basis_points=0 WHERE market_code='OM'`); err==nil {
+		t.Fatal("cancellation policy versions must be immutable")
+	}
+}
