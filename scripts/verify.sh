@@ -24,6 +24,11 @@ done < <(find . -type f -name '*.json' -not -path './.git/*' -print0)
 echo "==> Checking feature-list invariants"
 python3 scripts/check_feature_list.py
 
+if [[ -f apps/api/go.mod ]]; then
+  echo "==> Running Go tests"
+  (cd apps/api && go test ./...)
+fi
+
 echo "==> Checking shell syntax"
 while IFS= read -r -d '' file; do
   bash -n "$file"
