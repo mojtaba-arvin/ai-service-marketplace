@@ -45,9 +45,11 @@ func main() {
    Store:store,OTPPepper:requiredSecret("OTP_PEPPER"),SessionPepper:requiredSecret("SESSION_PEPPER"),
    OTPDelivery:delivery,AccessTTL:15*time.Minute,RefreshTTL:30*24*time.Hour,
   }
- } else {
+ } else if appEnv==""||appEnv=="development"||appEnv=="test" {
   code:=os.Getenv("TEST_OTP_CODE");if code==""{code="000000"}
   handler=&marketplace.Handler{Store:store,OTPCode:code,TestMode:true}
+ } else {
+  log.Fatalf("unsupported APP_ENV %q",appEnv)
  }
  addr:=os.Getenv("HTTP_ADDR");if addr==""{addr=":8080"}
  server:=&http.Server{Addr:addr,Handler:handler,ReadHeaderTimeout:5*time.Second,ReadTimeout:10*time.Second,WriteTimeout:10*time.Second,IdleTimeout:60*time.Second}
