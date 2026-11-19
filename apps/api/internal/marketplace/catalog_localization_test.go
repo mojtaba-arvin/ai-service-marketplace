@@ -63,8 +63,9 @@ func TestMarketLocalizedCatalogVisibilityPostgres(t *testing.T) {
 	}
 	if err=store.SetCategoryVisibility(ctx,operator,"OM",root.ID,true); err!=nil { t.Fatal(err) }
 	if err=store.SetCategoryEnabled(ctx,root.ID,false); err!=nil { t.Fatal(err) }
-	if _,err=store.ListLocalizedCategories(ctx,"OM","en",nil); err!=nil || len(listed)>1 {
-		t.Fatalf("disabled category must not be listed: %#v %v",listed,err)
+	disabledList,err:=store.ListLocalizedCategories(ctx,"OM","en",nil)
+	if err!=nil || len(disabledList)!=0 {
+		t.Fatalf("disabled category must not be listed: %#v %v",disabledList,err)
 	}
 	if err=store.SetCategoryVisibility(ctx,operator,"ZZ",root.ID,true); !errors.Is(err,ErrMarketUnavailable) {
 		t.Fatalf("unknown market must fail closed: %v",err)
