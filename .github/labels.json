@@ -1,0 +1,14 @@
+[
+  {"name":"backlog","color":"ededed","description":"Not yet ready for implementation"},
+  {"name":"needs-spec","color":"d4c5f9","description":"Requires specification and acceptance criteria"},
+  {"name":"spec-ready","color":"c2e0c6","description":"Specification and acceptance tests are ready"},
+  {"name":"ready","color":"0e8a16","description":"Ready for an implementation agent"},
+  {"name":"in-progress","color":"fbca04","description":"Work is in progress"},
+  {"name":"in-review","color":"1d76db","description":"Pull request is under review"},
+  {"name":"blocked","color":"b60205","description":"Blocked by a dependency or decision"},
+  {"name":"needs-human","color":"e99695","description":"Requires maintainer decision or action"},
+  {"name":"sec","color":"b60205","description":"Security-sensitive work"},
+  {"name":"size:S","color":"c2e0c6","description":"Small task"},
+  {"name":"size:M","color":"fbca04","description":"Medium task"},
+  {"name":"size:L","color":"d93f0b","description":"Large task; split before agent implementation"}
+]
