@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -103,4 +104,13 @@ func (s *Store) TransitionOrder(ctx context.Context, id, target string) (Order,e
 func (s *Store) Health(ctx context.Context) error {
 	ctx,cancel:=context.WithTimeout(ctx,2*time.Second); defer cancel()
 	return s.DB.Ping(ctx)
+}
+
+func (s *Store) GetOrderForCustomer(ctx context.Context,orderID,identityID string)(Order,error){
+ if strings.TrimSpace(orderID)==""||strings.TrimSpace(identityID)==""{return Order{},ErrOrderNotFound}
+ var result Order
+ err:=s.DB.QueryRow(ctx,`SELECT id,customer_id,amount_minor,currency,status,price_version_id,scheduled_at,country_code,region_code,city_code,area_code FROM orders WHERE id=$1 AND customer_id=$2`,orderID,identityID).
+  Scan(&result.ID,&result.CustomerID,&result.AmountMinor,&result.Currency,&result.Status,&result.PriceVersionID,&result.ScheduledAt,&result.CountryCode,&result.RegionCode,&result.CityCode,&result.AreaCode)
+ if errors.Is(err,pgx.ErrNoRows){return Order{},ErrOrderNotFound}
+ return result,err
 }
