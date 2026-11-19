@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -117,4 +118,12 @@ func (s *Store) VerifyOTPChallenge(ctx context.Context, challengeID, code string
 	if _, err = tx.Exec(ctx, `UPDATE otp_challenges SET attempt_count=attempt_count+1, consumed_at=now() WHERE id=$1`, challengeID); err != nil { return VerifiedIdentity{}, err }
 	if err = tx.Commit(ctx); err != nil { return VerifiedIdentity{}, err }
 	return VerifiedIdentity{phone: string(phone)}, nil
+}
+
+func (s *Store) InvalidateOTPChallenge(ctx context.Context,challengeID string) error {
+ if strings.TrimSpace(challengeID)=="" { return ErrOTPInvalidChallenge }
+ tag,err:=s.DB.Exec(ctx,`UPDATE otp_challenges SET invalidated_at=COALESCE(invalidated_at,now()) WHERE id=$1 AND consumed_at IS NULL`,challengeID)
+ if err!=nil{return err}
+ if tag.RowsAffected()!=1{return ErrOTPInvalidChallenge}
+ return nil
 }

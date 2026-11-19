@@ -30,6 +30,7 @@ type SessionTokens struct {
 
 type SessionPrincipal struct {
 	SessionID string
+	IdentityID string
 	Phone     string
 }
 
@@ -87,10 +88,10 @@ func (s *Store) AuthenticateAccessToken(ctx context.Context, token string, peppe
 	if len(pepper) < sessionPepperMinBytes || token == "" { return SessionPrincipal{}, ErrSessionInvalid }
 	var principal SessionPrincipal
 	err := s.DB.QueryRow(ctx, `
-		SELECT s.id, p.phone_e164
+		SELECT s.id, p.id, p.phone_e164
 		FROM auth_sessions s JOIN phone_identities p ON p.id=s.phone_identity_id
 		WHERE s.access_token_hash=$1 AND s.revoked_at IS NULL AND s.access_expires_at > now()
-	`, sessionDigest(token, pepper)).Scan(&principal.SessionID, &principal.Phone)
+	`, sessionDigest(token, pepper)).Scan(&principal.SessionID, &principal.IdentityID, &principal.Phone)
 	if errors.Is(err, pgx.ErrNoRows) { return SessionPrincipal{}, ErrSessionInvalid }
 	if err != nil { return SessionPrincipal{}, err }
 	return principal, nil
