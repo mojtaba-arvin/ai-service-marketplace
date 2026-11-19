@@ -151,8 +151,8 @@ func (s *Store) PostJournal(ctx context.Context,idempotencyKey,currency,descript
 	if idempotencyKey=="" || len(idempotencyKey)>200 { return LedgerJournal{},ErrLedgerInvalidJournal }
 	normalizedLines:=append([]JournalLine(nil),lines...)
 	for i:=range normalizedLines {
-	\tif strings.ToUpper(strings.TrimSpace(normalizedLines[i].Currency))!=currency { return LedgerJournal{},ErrLedgerInvalidJournal }
-	\tnormalizedLines[i].Currency=currency
+		if strings.ToUpper(strings.TrimSpace(normalizedLines[i].Currency))!=currency { return LedgerJournal{},ErrLedgerInvalidJournal }
+		normalizedLines[i].Currency=currency
 	}
 	if _,_,err:=validateJournal(currency,description,normalizedLines); err!=nil { return LedgerJournal{},err }
 	hash:=canonicalJournalHash(currency,description,"",normalizedLines)
