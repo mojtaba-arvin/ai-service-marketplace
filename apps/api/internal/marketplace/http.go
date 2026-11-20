@@ -28,6 +28,7 @@ type Handler struct {
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
  w.Header().Set("Content-Type","application/json")
+ if strings.HasPrefix(r.URL.Path,"/v1/auth/") { w.Header().Set("Cache-Control","no-store") }
  if !h.enforceCookieCSRF(w,r) { return }
  if h.serveMVP(w,r) { return }
  switch {
