@@ -22,11 +22,20 @@ jobs:
         name: Detect source languages
         shell: bash
         run: |
-          languages='["python"]'
-          if find . -name '*.go' -not -path './.git/*' -print -quit | grep -q .; then
-            languages='["python","go"]'
+          languages=()
+          if find . -name '*.py' -not -path './.git/*' -print -quit | grep -q .; then
+            languages+=('"python"')
           fi
-          echo "languages=$languages" >> "$GITHUB_OUTPUT"
+          if find . -name '*.go' -not -path './.git/*' -print -quit | grep -q .; then
+            languages+=('"go"')
+          fi
+          if find . \\( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \\) -not -path './.git/*' -print -quit | grep -q .; then
+            languages+=('"javascript-typescript"')
+          fi
+          if [ "${#languages[@]}" -eq 0 ]; then
+            languages+=('"python"')
+          fi
+          printf 'languages=[%s]\\n' "$(IFS=,; echo "${languages[*]}")" >> "$GITHUB_OUTPUT"
 
   codeql:
     needs: detect
