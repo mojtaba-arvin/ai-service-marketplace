@@ -58,16 +58,19 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -v region_code=Muscat -v city_code=Muscat -v area_code=Al-Khuwair \
   -f "$ROOT/scripts/seed-mvp.sql"
 
+echo "==> Building loopback-only E2E API and OTP capture binary"
+(cd "$API_DIR" && go build -o "$TMP_DIR/e2e-server" ./cmd/e2e-server)
+
 echo "==> Starting loopback-only E2E API and OTP capture"
 (
   cd "$API_DIR"
-  APP_ENV=e2e E2E_ENABLE=1 \
+  exec env APP_ENV=e2e E2E_ENABLE=1 \
     DATABASE_URL="$DATABASE_URL" \
     OTP_PEPPER="e2e-only-otp-pepper-0123456789abcdef" \
     SESSION_PEPPER="e2e-only-session-pepper-0123456789abcdef" \
     DEFAULT_TENANT_ID=tenant-e2e DEFAULT_MARKET_CODE=ZZ \
     BOOTSTRAP_OPERATOR_PHONE=+15550000003 \
-    go run ./cmd/e2e-server
+    "$TMP_DIR/e2e-server"
 ) >"$TMP_DIR/api.log" 2>&1 &
 API_PID=$!
 
@@ -90,7 +93,7 @@ echo "==> Installing pinned Playwright and building the production Next.js app"
 
 (
   cd "$WEB_DIR"
-  HOSTNAME=127.0.0.1 PORT=3000 node .next/standalone/server.js
+  exec env HOSTNAME=127.0.0.1 PORT=3000 node .next/standalone/server.js
 ) >"$TMP_DIR/web.log" 2>&1 &
 WEB_PID=$!
 
