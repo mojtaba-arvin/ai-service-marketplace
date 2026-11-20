@@ -20,7 +20,7 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	pool,err:=pgxpool.New(ctx,dsn)
 	if err!=nil { t.Fatal(err) }
 	defer pool.Close()
-	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","015_order_schedule.sql"} {
+	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","007_market_config.sql","008_catalog_localization.sql","015_order_schedule.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
 		if _,err=pool.Exec(ctx,string(migration)); err!=nil { t.Fatalf("apply %s: %v",name,err) }
@@ -35,8 +35,11 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	}
 	customer:=Actor{SubjectID:ids[0],TenantID:"market-history",Role:RoleCustomer}
 	other:=Actor{SubjectID:ids[1],TenantID:"market-history",Role:RoleCustomer}
+	if _,err=pool.Exec(ctx,`INSERT INTO markets(code,default_locale,currency,timezone,policy_version,enabled) VALUES('OM','en','OMR','Asia/Muscat','history-v1',true) ON CONFLICT(code) DO UPDATE SET enabled=true`);err!=nil { t.Fatal(err) }
+	if _,err=pool.Exec(ctx,`INSERT INTO market_locales(market_code,locale,is_default) VALUES('OM','en',true) ON CONFLICT(market_code,locale) DO NOTHING`);err!=nil { t.Fatal(err) }
 	category,err:=store.CreateCategory(ctx,nil,fmt.Sprintf("history-%d",time.Now().UnixNano()),"History")
 	if err!=nil { t.Fatal(err) }
+	if _,err=pool.Exec(ctx,`INSERT INTO market_category_visibility(market_code,category_id,visible) VALUES('OM',$1,true)`,category.ID);err!=nil { t.Fatal(err) }
 	menu,err:=store.CreatePriceMenu(ctx,category.ID,"history-service")
 	if err!=nil { t.Fatal(err) }
 	if _,err=store.CreatePriceVersion(ctx,menu.ID,2100,"OMR"); err!=nil { t.Fatal(err) }

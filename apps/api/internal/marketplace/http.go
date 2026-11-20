@@ -20,10 +20,14 @@ type Handler struct {
  OTPDelivery OTPDelivery
  AccessTTL time.Duration
  RefreshTTL time.Duration
+ DefaultTenantID string
+ DefaultMarketCode string
+ BootstrapOperatorPhone string
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
  w.Header().Set("Content-Type","application/json")
+ if h.serveMVP(w,r) { return }
  switch {
  case r.Method==http.MethodGet&&r.URL.Path=="/healthz":
   if err:=h.Store.Health(r.Context());err!=nil{writeError(w,http.StatusServiceUnavailable,"database unavailable");return}
@@ -79,6 +83,27 @@ func (h *Handler) requestOTP(w http.ResponseWriter,r *http.Request){
   status:=http.StatusBadRequest;if errors.Is(err,ErrOTPRateLimited){status=http.StatusTooManyRequests}
   writeError(w,status,err.Error());return
  }
+ if h.DefaultTenantID=="" {
+  _=h.Store.InvalidateOTPChallenge(r.Context(),challengeID)
+  writeError(w,http.StatusServiceUnavailable,"default tenant is not configured");return
+ }
+ if err=h.Store.EnsureMembershipForPhone(r.Context(),normalized,h.DefaultTenantID,RoleCustomer);err!=nil {
+  _=h.Store.InvalidateOTPChallenge(r.Context(),challengeID)
+  writeError(w,http.StatusInternalServerError,"could not initialize customer membership");return
+ }
+ if h.BootstrapOperatorPhone!="" {
+  bootstrapPhone,normalizeErr:=NormalizeE164Phone(h.BootstrapOperatorPhone)
+  if normalizeErr!=nil {
+   _=h.Store.InvalidateOTPChallenge(r.Context(),challengeID)
+   writeError(w,http.StatusServiceUnavailable,"bootstrap operator phone is invalid");return
+  }
+  if normalized==bootstrapPhone {
+   if err=h.Store.EnsureMembershipForPhone(r.Context(),normalized,h.DefaultTenantID,RoleOperator);err!=nil {
+    _=h.Store.InvalidateOTPChallenge(r.Context(),challengeID)
+    writeError(w,http.StatusInternalServerError,"could not initialize operator membership");return
+   }
+  }
+ }
  if err=h.OTPDelivery.SendOTP(r.Context(),normalized,code,"otp:"+challengeID);err!=nil{
   _=h.Store.InvalidateOTPChallenge(r.Context(),challengeID)
   writeError(w,http.StatusBadGateway,"OTP delivery failed");return
@@ -118,7 +143,12 @@ func (h *Handler) revokeSession(w http.ResponseWriter,r *http.Request){
 
 func (h *Handler) authMe(w http.ResponseWriter,r *http.Request){
  principal,err:=h.principal(r);if err!=nil{writeError(w,http.StatusUnauthorized,"unauthorized");return}
- writeJSON(w,http.StatusOK,map[string]string{"session_id":principal.SessionID,"identity_id":principal.IdentityID,"phone":principal.Phone})
+ roles:=[]Role{RoleCustomer}
+ if !h.TestMode {
+  roles,err=h.Store.ListIdentityRoles(r.Context(),principal.IdentityID,h.DefaultTenantID)
+  if err!=nil{writeError(w,http.StatusInternalServerError,"could not load memberships");return}
+ }
+ writeJSON(w,http.StatusOK,map[string]any{"session_id":principal.SessionID,"identity_id":principal.IdentityID,"phone":principal.Phone,"roles":roles})
 }
 
 func (h *Handler) getOrder(w http.ResponseWriter,r *http.Request){

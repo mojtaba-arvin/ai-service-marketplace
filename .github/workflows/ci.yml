@@ -71,6 +71,9 @@ jobs:
           OTP_DELIVERY_TOKEN=ci-only-token
           OTP_PEPPER=0123456789abcdef0123456789abcdef
           SESSION_PEPPER=abcdef0123456789abcdef0123456789
+          DEFAULT_TENANT_ID=market-om
+          DEFAULT_MARKET_CODE=OM
+          BOOTSTRAP_OPERATOR_PHONE=+96890000000
           EOF
           docker compose --env-file /tmp/mvp.env -f infra/compose.production.yml config --quiet
       - name: Build production API image

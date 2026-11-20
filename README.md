@@ -4,14 +4,38 @@ An open-source, multi-market home-services marketplace connecting customers with
 
 ## Project status
 
-The repository is in **Foundation / Session 0A**. This phase establishes architecture decisions, agent instructions, documentation conventions, and a verifiable development harness. Product capabilities are not yet implemented.
+The repository has moved beyond the initial foundation stage. The Go/PostgreSQL backend baseline is integrated into `main`, and the MVP release is being assembled around one complete customer-to-professional workflow.
+
+The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/53). The release is not considered ready for public use until the production API, browser experience, deployment, and end-to-end acceptance criteria are complete.
+
+### Integrated backend capabilities
+
+- Tenant-scoped identity and session primitives.
+- Market configuration and market-visible service catalog.
+- Versioned service pricing and scheduled customer orders.
+- Provider profiles, verification, service areas, and availability.
+- Deterministic dispatch candidates, expiring offers, and atomic provider acceptance.
+- Order history and lifecycle events.
+- Double-entry ledger primitives and payment-provider contracts (no real payment capture or funds movement).
+- Transactional outbox and background workers.
+- Support and AI intake foundations.
+
+### MVP delivery status
+
+- Backend integration baseline: merged.
+- Single-host container and HTTPS deployment foundation: merged.
+- Production-safe customer/professional/operator API workflow: in progress.
+- Responsive browser experience: planned in [#55](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/55).
+- Host provisioning and deployed acceptance: tracked in [#56](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/56) and [#57](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/57).
+
+See the [deployment guide](infra/DEPLOYMENT.md) for the current container topology, configuration requirements, seed procedure, and known limitations. It is a deployment foundation, not a claim that the complete MVP is already live.
 
 ## Architecture at a glance
 
 - **Core API:** Go, with explicit modular-monolith boundaries.
 - **Customer web:** Next.js + TypeScript (SEO-first).
-- **Operations console:** React + Vite + TypeScript.
-- **Mobile clients:** Flutter (customer and professional applications).
+- **Operations console:** React + Vite + TypeScript (planned beyond the first MVP web surface).
+- **Mobile clients:** Flutter (customer and professional applications; post-MVP).
 - **AI workloads:** isolated Python workers behind an internal AI gateway.
 - **Data:** PostgreSQL + PostGIS; pgvector only for use cases that justify vector retrieval.
 - **Async and realtime infrastructure:** transactional outbox, NATS JetStream, and Valkey where caching or ephemeral coordination is justified.
@@ -21,7 +45,7 @@ See [the business vision](docs/vision/business-plan.md), [technical plan](docs/v
 
 ## Development
 
-Requirements and commands will be documented as the toolchain is introduced. The intended entry points are:
+Requirements and commands:
 
 ```sh
 make verify
@@ -42,4 +66,4 @@ No production credentials belong in this repository. Start from `.env.example`.
 
 ## License
 
-The repository license is not yet selected. See the open decision in the project backlog before reusing this software.
+MIT. See [LICENSE](LICENSE).

@@ -20,7 +20,7 @@ func TestCustomerScheduledOrderAggregatePostgres(t *testing.T) {
 	pool,err:=pgxpool.New(ctx,dsn)
 	if err!=nil { t.Fatal(err) }
 	defer pool.Close()
-	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","015_order_schedule.sql"} {
+	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","007_market_config.sql","008_catalog_localization.sql","015_order_schedule.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
 		if _,err=pool.Exec(ctx,string(migration)); err!=nil { t.Fatalf("apply %s: %v",name,err) }
@@ -33,6 +33,9 @@ func TestCustomerScheduledOrderAggregatePostgres(t *testing.T) {
 	customer:=Actor{SubjectID:identityID,TenantID:"market-om",Role:RoleCustomer}
 	category,err:=store.CreateCategory(ctx,nil,fmt.Sprintf("cleaning-%d",time.Now().UnixNano()),"Cleaning")
 	if err!=nil { t.Fatal(err) }
+	if _,err=pool.Exec(ctx,`INSERT INTO markets(code,default_locale,currency,timezone,policy_version,enabled) VALUES('OM','en','OMR','Asia/Muscat','mvp-1',true) ON CONFLICT(code) DO UPDATE SET enabled=true`);err!=nil { t.Fatal(err) }
+	if _,err=pool.Exec(ctx,`INSERT INTO market_locales(market_code,locale,is_default) VALUES('OM','en',true) ON CONFLICT(market_code,locale) DO NOTHING`);err!=nil { t.Fatal(err) }
+	if _,err=pool.Exec(ctx,`INSERT INTO market_category_visibility(market_code,category_id,visible) VALUES('OM',$1,true)`,category.ID);err!=nil { t.Fatal(err) }
 	menu,err:=store.CreatePriceMenu(ctx,category.ID,"scheduled-cleaning")
 	if err!=nil { t.Fatal(err) }
 	if _,err=store.CreatePriceVersion(ctx,menu.ID,4500,"OMR"); err!=nil { t.Fatal(err) }
@@ -40,6 +43,9 @@ func TestCustomerScheduledOrderAggregatePostgres(t *testing.T) {
 	key:="scheduled-order-"+fmt.Sprint(time.Now().UnixNano())
 	order,created,err:=store.CreateScheduledOrder(ctx,customer,key,menu.ID,scheduled,"om","Muscat","Muscat","Al-Khuwair")
 	if err!=nil || !created { t.Fatalf("create scheduled order: %#v created=%v err=%v",order,created,err) }
+	var simulatedJournalCount int
+	if err=pool.QueryRow(ctx,`SELECT count(*) FROM ledger_journals WHERE id=$1`,order.ID).Scan(&simulatedJournalCount);err!=nil { t.Fatal(err) }
+	if simulatedJournalCount!=0 { t.Fatalf("booking creation must not create a simulated payment journal, got %d",simulatedJournalCount) }
 	if order.CustomerID!=identityID || order.AmountMinor!=4500 || order.Currency!="OMR" ||
 		order.ScheduledAt==nil || !order.ScheduledAt.Equal(scheduled) ||
 		order.CountryCode==nil || *order.CountryCode!="OM" ||
@@ -64,6 +70,14 @@ func TestCustomerScheduledOrderAggregatePostgres(t *testing.T) {
 	if _,_,err=store.CreateScheduledOrder(ctx,customer,"too-soon",menu.ID,time.Now().UTC().Add(5*time.Minute),"OM","Muscat","Muscat","Al-Khuwair"); !errors.Is(err,ErrInvalidOrderRequest) {
 		t.Fatalf("schedule inside minimum lead time must fail: %v",err)
 	}
+	if _,_,err=store.CreateScheduledOrder(ctx,customer,"wrong-market",menu.ID,scheduled,"US","California","San Francisco","Downtown"); !errors.Is(err,ErrMarketUnavailable) {
+		t.Fatalf("orders outside the enabled launch market must fail: %v",err)
+	}
+	if _,err=pool.Exec(ctx,`UPDATE market_category_visibility SET visible=false WHERE market_code='OM' AND category_id=$1`,category.ID);err!=nil { t.Fatal(err) }
+	if _,_,err=store.CreateScheduledOrder(ctx,customer,"hidden-category",menu.ID,scheduled,"OM","Muscat","Muscat","Al-Khuwair"); !errors.Is(err,ErrPriceUnavailable) {
+		t.Fatalf("hidden market category must reject new orders: %v",err)
+	}
+	if _,err=pool.Exec(ctx,`UPDATE market_category_visibility SET visible=true WHERE market_code='OM' AND category_id=$1`,category.ID);err!=nil { t.Fatal(err) }
 	if err=store.SetCategoryEnabled(ctx,category.ID,false); err!=nil { t.Fatal(err) }
 	replay,created,err=store.CreateScheduledOrder(ctx,customer,key,menu.ID,scheduled,"OM","Muscat","Muscat","Al-Khuwair")
 	if err!=nil || created || replay.ID!=order.ID { t.Fatalf("idempotent replay must survive catalog disable: %#v %v",replay,err) }

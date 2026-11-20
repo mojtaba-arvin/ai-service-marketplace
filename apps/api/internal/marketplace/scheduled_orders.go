@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -87,6 +86,21 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 	if err!=nil { return Order{},false,err }
 	if !enabled { return Order{},false,ErrPriceUnavailable }
 
+	var marketCurrency string
+	err=tx.QueryRow(ctx,`SELECT currency FROM markets WHERE code=$1 AND enabled=true`,country).Scan(&marketCurrency)
+	if errors.Is(err,pgx.ErrNoRows) { return Order{},false,ErrMarketUnavailable }
+	if err!=nil { return Order{},false,err }
+	if marketCurrency!=version.Currency { return Order{},false,ErrPriceUnavailable }
+	var marketVisible bool
+	err=tx.QueryRow(ctx,`
+		SELECT EXISTS(
+			SELECT 1 FROM market_category_visibility
+			WHERE market_code=$1 AND category_id=$2 AND visible=true
+		)
+	`,country,categoryID).Scan(&marketVisible)
+	if err!=nil { return Order{},false,err }
+	if !marketVisible { return Order{},false,ErrPriceUnavailable }
+
 	id,err:=newID()
 	if err!=nil { return Order{},false,err }
 	var createdID string
@@ -119,16 +133,8 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 	}
 	if err!=nil { return Order{},false,err }
 
-	_,err=tx.Exec(ctx,`
-		INSERT INTO ledger_journals(id,idempotency_key,currency,description)
-		VALUES($1,$2,$3,'walking-skeleton simulated order hold')
-	`,id,"order:"+id,version.Currency)
-	if err!=nil { return Order{},false,fmt.Errorf("create test ledger journal: %w",err) }
-	_,err=tx.Exec(ctx,`
-		INSERT INTO ledger_entries(journal_id,account_code,side,amount_minor)
-		VALUES($1,'customer_funds','debit',$2),($1,'provider_payable','credit',$2)
-	`,id,version.AmountMinor)
-	if err!=nil { return Order{},false,fmt.Errorf("post balanced test ledger: %w",err) }
+	// Booking creation does not represent a payment authorization or funds hold.
+	// Financial postings are created only by an explicit payment workflow.
 	payload,_:=json.Marshal(map[string]any{
 		"order_id":id,"status":"requested","price_version_id":version.ID,
 		"scheduled_at":scheduledAt,"country_code":country,"region_code":region,"city_code":city,"area_code":area,
