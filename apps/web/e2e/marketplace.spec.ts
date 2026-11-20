@@ -17,7 +17,13 @@ async function capturedOTP(request: APIRequestContext, phone: string): Promise<s
 async function signIn(page: Page, request: APIRequestContext, phone: string): Promise<void> {
   await page.goto("/");
   await page.getByLabel("Phone number").fill(phone);
+  const otpRequestPromise = page.waitForResponse((response) =>
+    response.url().endsWith("/v1/auth/otp/request"),
+  );
   await page.getByRole("button", { name: "Send verification code" }).click();
+  const otpRequest = await otpRequestPromise;
+  const otpRequestBody = await otpRequest.text();
+  expect(otpRequest.status(), `OTP request response: ${otpRequestBody}`).toBe(202);
   const code = await capturedOTP(request, phone);
   await page.getByLabel("Verification code").fill(code);
   const verificationResponsePromise = page.waitForResponse((response) =>
