@@ -108,7 +108,7 @@ test("customer booking → operator verification/dispatch → professional accep
 
   // Force access-token expiry. The web client must rotate the refresh cookie
   // and recover the authenticated page without a new OTP challenge.
-  await page.waitForTimeout(5_000);
+  await page.waitForTimeout(61_000);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Good service starts with trust." })).toBeVisible();
 
