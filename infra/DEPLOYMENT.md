@@ -111,8 +111,9 @@ Test backup restoration before treating the host as production-ready. Keep encry
 
 ## Known limitations before public use
 
-- Browser sessions use Secure, HttpOnly access/refresh cookies, a same-origin CSRF token, and Origin validation for cookie-authenticated mutations. Browser-level CSRF/session tests through Caddy are still required before release.
-- Browser-level customer booking → professional offer acceptance → customer status visibility E2E is still a release blocker.
+- Browser sessions use Secure, HttpOnly access/refresh cookies, a same-origin CSRF token, and Origin validation for cookie-authenticated mutations. The browser E2E in open PR #67 passed through local Caddy HTTPS, including CSRF, refresh, access expiry, and sign-out checks; the PR still requires review/merge.
+- The customer booking → operator verification/dispatch → professional acceptance → customer status browser journey passed CI in PR #67. A public deployed smoke test is still required.
+- CI backup/restore rehearsal against the disposable PostgreSQL service passed in open PR #69; production backup storage and restore must still be rehearsed on the actual host.
 - Independent release QA against a clean deployed environment remains required.
 - The OTP adapter requires a real provider endpoint and token.
 - The initial service catalog and sample professional must be seeded for the configured market before the UI can create a booking.
