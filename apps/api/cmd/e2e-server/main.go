@@ -65,6 +65,36 @@ func loopbackAddress(name, fallback string) string {
 	return value
 }
 
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusRecorder) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *statusRecorder) Write(body []byte) (int, error) {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	return w.ResponseWriter.Write(body)
+}
+
+func logRequests(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		started := time.Now()
+		recorder := &statusRecorder{ResponseWriter: w}
+		next.ServeHTTP(recorder, r)
+		status := recorder.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+		log.Printf("HTTP %s %s status=%d duration=%s", r.Method, r.URL.Path, status, time.Since(started).Round(time.Millisecond))
+	})
+}
+
 func main() {
 	if os.Getenv("APP_ENV") != "e2e" || os.Getenv("E2E_ENABLE") != "1" {
 		log.Fatal("the E2E server requires APP_ENV=e2e and E2E_ENABLE=1")
@@ -123,7 +153,7 @@ func main() {
 
 	apiServer := &http.Server{
 		Addr:              loopbackAddress("E2E_API_ADDR", "127.0.0.1:8080"),
-		Handler:           handler,
+		Handler:           logRequests(handler),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
