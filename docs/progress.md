@@ -4,7 +4,7 @@
 
 ## Current phase
 
-MVP release candidate assembly for one configured market. The integrated Go/PostgreSQL backend is on `main`; the production-safe API vertical slice has merged. The browser MVP is under final CI repair and review. Deployment assets exist, but no live host deployment or independent release QA is claimed.
+The API and first responsive browser MVP are integrated into `main` for one configured market. Production image builds and CI/CodeQL passed. The project is not yet deployed to a live host, browser-level E2E acceptance is not complete, and independent release QA is not claimed.
 
 ## Completed foundation
 
@@ -20,7 +20,7 @@ MVP release candidate assembly for one configured market. The integrated Go/Post
 ## Current MVP delivery
 
 - API: merged to `main` via PR #61. CI and CodeQL passed on the PR head; dependency-review was skipped because the repository dependency graph is not enabled.
-- Web: PR #62 remains open. Customer-workspace JSX build failure was fixed; Next.js upgraded to 15.5.29 (November 2026 security release) and React/React DOM to 19.1.10. New CI is running against the updated head.
+- Web: merged via PR #62 (merge commit `58678ae2b3c03b066e574e40afc1f2c79afaa80c`). Production web image build passed with Next.js 15.5.29 and React/React DOM 19.1.10.
 - Web security boundary: sessionStorage token storage is temporary. Move to Secure, HttpOnly, SameSite cookies and add reviewed CSRF protection before broad public launch.
 - Deployment: production Compose, non-root API/worker image, Caddy HTTPS ingress, and deployment/backup/restore instructions are merged. Actual host, DNS, OTP provider credentials, peppers, smoke test, and backup/restore validation remain external deployment work in #56.
 - Release QA: independent end-to-end and negative-path validation remains open in #57. No public release or independent QA sign-off is claimed.
@@ -28,8 +28,8 @@ MVP release candidate assembly for one configured market. The integrated Go/Post
 ## Verification evidence
 
 - PR #61: Go formatting/tests, repository verification, PostgreSQL integration, HTTP E2E, Compose validation, production API image build, CodeQL Go/Python passed. Dependency-review skipped pending dependency-graph enablement.
-- Earlier PR #62 heads exposed a malformed customer JSX grouping and strict TypeScript nullability errors (currency fraction metadata and market timezone); both were corrected. The current head uses Next.js 15.5.29 and React/React DOM 19.1.10. The latest CI and expanded CodeQL run must pass before merge.
-- PR #62 dependency-review remains skipped pending dependency-graph enablement.
+- PR #62: corrected customer JSX grouping and strict TypeScript nullability errors (currency fraction metadata and market timezone); production web image build passed on Next.js 15.5.29. CI, CodeQL Go, Python, and JavaScript/TypeScript passed. Dependency-review skipped pending dependency-graph enablement.
+- Security language detection now scans Go, Python, and JavaScript/TypeScript.
 - No local checkout/test execution or real-host deployment was available in this session.
 
 ## Owner decisions and repository settings
@@ -43,13 +43,11 @@ MVP release candidate assembly for one configured market. The integrated Go/Post
 
 ## Remaining release work
 
-1. Get PR #62's updated CI and CodeQL checks green; review and merge the browser MVP.
-2. Retarget/maintain the web PR on `main` (API PR #61 has been merged; its temporary base branch was auto-deleted).
-3. Complete cookie-based session handling and CSRF review before broad public exposure.
-4. Provision the actual host, DNS, OTP delivery provider, and production secrets through #56.
-5. Execute the full customer booking → eligible professional offer → single acceptance → order timeline workflow.
-6. Run independent authorization, idempotency, expiry, concurrency, failure, backup/restore, and deployed smoke tests through #57.
-7. Continue independent QA for module trackers #5–#10 and #18; keep `passes: false` until evidence is recorded.
+1. Add browser-level E2E covering customer booking → eligible professional offer → single acceptance → customer-visible order timeline; track in #55.
+2. Replace temporary sessionStorage tokens with Secure, HttpOnly, SameSite cookies and add reviewed CSRF protection before broad public exposure.
+3. Provision the actual host, DNS, OTP delivery provider, and production secrets through #56.
+4. Run independent authorization, idempotency, expiry, concurrency, failure, backup/restore, and deployed smoke tests through #57.
+5. Continue independent QA for module trackers #5–#10 and #18; keep `passes: false` until evidence is recorded.
 
 ## Deferred product backlog
 
