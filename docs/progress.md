@@ -35,9 +35,9 @@ MVP release candidate assembly for one configured market. The integrated Go/Post
 ## Owner decisions and repository settings
 
 - Enable the repository dependency graph and set `DEPENDENCY_GRAPH_ENABLED=true`.
-- Confirm main-branch ruleset / required checks and Actions permissions.
+- An active `protect main` ruleset blocks deletion and non-fast-forward updates; required PR/CI/Security checks and Actions permissions still need configuration.
 - Enable Dependabot alerts/security updates and secret scanning/push protection where available.
-- Replace placeholder CODEOWNERS with verified maintainer/team handles.
+- `.github/CODEOWNERS` now assigns the verified repository owner `@mojtaba-arvin`; mandatory code-owner approval is not enabled.
 - MIT license is present in the repository.
 - Confirm launch jurisdiction before enabling regulated payment, KYC, tax, or labor-related workflows.
 
