@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -50,6 +51,14 @@ func run(ctx context.Context) error {
 	}
 	defer pool.Close()
 
+	return runWithPool(ctx, pool, migrationFiles, "migrations")
+}
+
+// runWithPool is shared by the production command and integration tests. Keeping
+// the pool, ordered file list, and migration directory injectable lets CI prove
+// legacy bootstrap, rollback/retry, and concurrent invocations against isolated
+// PostgreSQL schemas without changing production configuration.
+func runWithPool(ctx context.Context, pool *pgxpool.Pool, files []string, migrationDir string) error {
 	if err := pool.Ping(ctx); err != nil {
 		return fmt.Errorf("connect to database: %w", err)
 	}
@@ -80,7 +89,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("create schema_migrations: %w", err)
 	}
 
-	for _, name := range migrationFiles {
+	for _, name := range files {
 		var applied bool
 		if err := conn.QueryRow(ctx,
 			"SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)", name,
@@ -91,7 +100,7 @@ func run(ctx context.Context) error {
 			continue
 		}
 
-		sql, err := os.ReadFile("migrations/" + name)
+		sql, err := os.ReadFile(filepath.Join(migrationDir, name))
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", name, err)
 		}
@@ -116,7 +125,7 @@ func run(ctx context.Context) error {
 		log.Printf("applied migration %s", name)
 	}
 
-	log.Printf("database migrations complete (%d files)", len(migrationFiles))
+	log.Printf("database migrations complete (%d files)", len(files))
 	return nil
 }
 
