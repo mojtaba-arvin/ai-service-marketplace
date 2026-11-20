@@ -4,9 +4,9 @@ An open-source, multi-market home-services marketplace connecting customers with
 
 ## Project status
 
-The repository has moved beyond the initial foundation stage. The Go/PostgreSQL backend and the first customer-to-professional browser MVP are integrated into `main`. The remaining release gates are browser E2E, production hardening, real-host deployment, and independent acceptance QA.
+The Go/PostgreSQL backend and the first customer-to-professional browser MVP are integrated into `main`. The browser session now uses HttpOnly cookies with CSRF protection. The repository is an MVP release candidate, not a public production service: browser journey E2E, external host/OTP provisioning, deployed smoke tests, and independent release QA remain open.
 
-The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/53). The release is not considered ready for public use until the production API, browser experience, deployment, and end-to-end acceptance criteria are complete.
+The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/53). Do not treat the release as ready for public use until the deployment and end-to-end acceptance criteria are complete.
 
 ### Integrated backend capabilities
 
@@ -25,10 +25,13 @@ The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba
 - Backend integration baseline: merged.
 - Single-host container and HTTPS deployment foundation: merged.
 - Production-safe customer/professional/operator API workflow: merged via PR #61.
-- Responsive customer/professional/operations browser experience: merged via PR #62; production build and Go/Python/JavaScript-TypeScript CodeQL passed. Browser-level E2E acceptance and cookie-based session hardening remain.
-- Host provisioning and deployed acceptance: tracked in [#56](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/56) and [#57](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/57).
+- Responsive customer/professional/operations browser experience: merged via PR #62.
+- Browser session hardening: merged via PR #64 (HttpOnly access/refresh cookies, same-origin CSRF token, Origin validation for cookie-authenticated mutations, and no browser token persistence).
+- CI and CodeQL on PR #64: passed, including Go tests, walking-skeleton HTTP E2E, production Compose validation, API/Web image builds, and all three CodeQL language jobs. Dependency Review remains skipped until the repository Dependency Graph is enabled.
+- Browser-level E2E of customer booking → professional offer acceptance → customer status visibility: still open.
+- Host provisioning, public smoke/backup-restore validation, and independent release QA: tracked in [#56](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/56) and [#57](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/57).
 
-See the [deployment guide](infra/DEPLOYMENT.md) for the current container topology, configuration requirements, seed procedure, and known limitations. It is a deployment foundation, not a claim that the complete MVP is already live.
+See the [deployment guide](infra/DEPLOYMENT.md) for the container topology, configuration requirements, seed procedure, and known limitations. It is a deployment foundation, not a claim that the complete MVP is live.
 
 ## Architecture at a glance
 
