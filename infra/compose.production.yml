@@ -44,6 +44,24 @@ services:
       start_period: 30s
     networks: [private]
 
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    image: ai-service-marketplace-web:release
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks: [private]
+
   dispatch-worker:
     image: ai-service-marketplace-api:release
     entrypoint: ["/app/dispatch-worker"]
@@ -72,6 +90,8 @@ services:
       - caddy_config:/config
     depends_on:
       api:
+        condition: service_healthy
+      web:
         condition: service_healthy
     networks: [private]
 

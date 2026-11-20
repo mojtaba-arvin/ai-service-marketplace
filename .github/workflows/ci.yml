@@ -78,3 +78,5 @@ jobs:
           docker compose --env-file /tmp/mvp.env -f infra/compose.production.yml config --quiet
       - name: Build production API image
         run: docker build --file apps/api/Dockerfile --tag ai-service-marketplace-api:ci .
+      - name: Build production web image
+        run: docker build --file apps/web/Dockerfile --tag ai-service-marketplace-web:ci .

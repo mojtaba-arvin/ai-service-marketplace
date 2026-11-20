@@ -25,7 +25,7 @@ The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba
 - Backend integration baseline: merged.
 - Single-host container and HTTPS deployment foundation: merged.
 - Production-safe customer/professional/operator API workflow: in progress.
-- Responsive browser experience: planned in [#55](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/55).
+- Responsive customer/professional/operations browser experience: implemented in the MVP release candidate; CI and integration acceptance pending.
 - Host provisioning and deployed acceptance: tracked in [#56](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/56) and [#57](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/57).
 
 See the [deployment guide](infra/DEPLOYMENT.md) for the current container topology, configuration requirements, seed procedure, and known limitations. It is a deployment foundation, not a claim that the complete MVP is already live.
@@ -33,8 +33,8 @@ See the [deployment guide](infra/DEPLOYMENT.md) for the current container topolo
 ## Architecture at a glance
 
 - **Core API:** Go, with explicit modular-monolith boundaries.
-- **Customer web:** Next.js + TypeScript (SEO-first).
-- **Operations console:** React + Vite + TypeScript (planned beyond the first MVP web surface).
+- **MVP browser application:** Next.js + TypeScript, with customer, professional, and operator workspaces.
+- **Dedicated operations console:** React + Vite + TypeScript (post-MVP).
 - **Mobile clients:** Flutter (customer and professional applications; post-MVP).
 - **AI workloads:** isolated Python workers behind an internal AI gateway.
 - **Data:** PostgreSQL + PostGIS; pgvector only for use cases that justify vector retrieval.

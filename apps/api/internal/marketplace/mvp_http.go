@@ -495,7 +495,19 @@ func (h *Handler) professionalProfile(w http.ResponseWriter, r *http.Request) {
         writeError(w,http.StatusNotFound,"professional profile not found")
         return
     }
-    writeJSON(w,http.StatusOK,map[string]any{"profile":profile})
+    var qualified bool
+    err = h.Store.DB.QueryRow(r.Context(),`
+        SELECT
+            EXISTS(SELECT 1 FROM provider_skills WHERE provider_id=$1) AND
+            EXISTS(SELECT 1 FROM provider_service_areas WHERE provider_id=$1 AND active=true) AND
+            EXISTS(SELECT 1 FROM provider_availability_windows
+                   WHERE provider_id=$1 AND window_type='available' AND end_at>now())
+    `,profile.ID).Scan(&qualified)
+    if err != nil {
+        writeError(w,http.StatusInternalServerError,"could not load professional qualification")
+        return
+    }
+    writeJSON(w,http.StatusOK,map[string]any{"profile":profile,"qualification_complete":qualified})
 }
 
 func (h *Handler) professionalOrders(w http.ResponseWriter, r *http.Request) {
