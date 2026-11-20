@@ -28,7 +28,7 @@ MVP release candidate assembly for one configured market. The integrated Go/Post
 ## Verification evidence
 
 - PR #61: Go formatting/tests, repository verification, PostgreSQL integration, HTTP E2E, Compose validation, production API image build, CodeQL Go/Python passed. Dependency-review skipped pending dependency-graph enablement.
-- PR #62 previous head failed only at the production web image build due to malformed JSX in `apps/web/src/app/page.tsx`. The JSX was corrected and dependencies were upgraded; the new workflow run must pass before merge.
+- Earlier PR #62 heads exposed a malformed customer JSX grouping and strict TypeScript nullability errors (currency fraction metadata and market timezone); both were corrected. The current head uses Next.js 15.5.29 and React/React DOM 19.1.10. The latest CI and expanded CodeQL run must pass before merge.
 - PR #62 dependency-review remains skipped pending dependency-graph enablement.
 - No local checkout/test execution or real-host deployment was available in this session.
 
