@@ -60,3 +60,6 @@ echo "Walking skeleton E2E passed: migrations (initial + idempotent replay) -> O
 
 echo "==> Starting browser-level production-mode E2E through same-origin HTTPS ingress"
 bash "$ROOT/scripts/e2e-browser.sh"
+
+echo "==> Verifying PostgreSQL backup and restore against a clean database"
+bash "$ROOT/scripts/e2e-backup-restore.sh"
