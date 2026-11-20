@@ -4,11 +4,11 @@ This deployment profile is intentionally small: one Go API process, one Next.js 
 
 ## Release boundary
 
-The repository now contains the first customer/professional/operator API and browser workflow. Treat it as an MVP release candidate until the full CI suite, configured OTP delivery, host deployment, and end-to-end acceptance gate have all passed. Do not expose test OTP/session endpoints or treat ledger primitives as evidence of real payment processing.
+The repository contains the first customer/professional/operator API and browser workflow. Treat it as an MVP release candidate until the full CI suite, configured OTP delivery, host deployment, browser journey E2E, and independent end-to-end acceptance gate have all passed. Do not expose test OTP/session endpoints or treat ledger primitives as evidence of real payment processing.
 
-The API currently applies its versioned SQL migrations during startup. Keep exactly one API replica until migrations are moved to a dedicated one-shot migration job.
+The API currently applies its versioned SQL migrations during startup. Keep exactly one API replica until migrations are moved to a dedicated one-shot migration job. This is an operational scaling constraint, not merely a deployment preference.
 
-The web application and API must remain on the same public origin. Caddy routes `/v1/*` to the Go API and all other paths to Next.js. Browser sessions use Secure, HttpOnly access/refresh cookies and a same-origin CSRF token; do not split the web and API across unrelated origins without revisiting cookie and CSRF policy.
+The web application and API must remain on the same public origin. Caddy routes `/v1/*` to the Go API and all other paths to Next.js. Browser sessions use Secure, HttpOnly access/refresh cookies and a separate same-origin CSRF token. Cookie-authenticated unsafe requests require the CSRF header and reject a supplied cross-origin Origin. Do not split the web and API across unrelated origins without revisiting cookie and CSRF policy. Non-browser API clients may continue using the Bearer session transport.
 
 ## Host prerequisites
 
@@ -39,7 +39,7 @@ DEFAULT_MARKET_CODE=OM
 BOOTSTRAP_OPERATOR_PHONE=+96890000000
 ```
 
-Use URL encoding for reserved characters in the PostgreSQL password embedded in DATABASE_URL. Generate peppers on the host, for example with openssl rand -hex 32. Never commit .env.production.
+Use URL encoding for reserved characters in the PostgreSQL password embedded in DATABASE_URL. Generate peppers on the host, for example with `openssl rand -hex 32`. Never commit .env.production.
 
 ## Seed the initial single-market catalog and professional
 
@@ -67,7 +67,6 @@ docker compose --env-file .env.production -f infra/compose.production.yml exec -
 ```
 
 The sample price is 2.500 OMR in the currency's minor-unit representation. Change the amount, locale, timezone, area, and sample professional phone before using the seed for a different market. The professional remains inactive and unverified until the operator verifies the profile and skill through the operator API.
-
 
 The OTP delivery adapter sends an HTTPS POST with a bearer token and an idempotency key. Verify the provider request/response contract before enabling sign-in. Missing or invalid delivery configuration must fail startup rather than silently falling back to test authentication.
 
@@ -102,11 +101,12 @@ Test backup restoration before treating the host as production-ready. Keep encry
 
 ## Known limitations before public use
 
-- Cookie-based browser sessions are implemented in PR #64; verify the merged build and browser-level CSRF/session tests before release.
+- Browser cookie sessions and CSRF checks are implemented and merged in PR #64; CI and CodeQL passed on that PR. The current automated HTTP tests do not replace a real browser session/CSRF test through the reverse proxy.
 - Browser-level customer booking → professional offer acceptance → customer status visibility E2E is still a release blocker.
 - Independent release QA against a clean deployed environment remains required.
-- The OTP adapter requires a real provider endpoint and token.
+- The OTP adapter requires a real provider endpoint and token; test OTP is not a production identity-delivery path.
 - The initial service catalog and sample professional must be seeded for the configured market before the UI can create a booking.
 - Payment capture, escrow movement, refunds, and settlement are not enabled.
 - The initial profile runs one API replica and does not include managed database failover.
 - A host, DNS name, and secret values must be supplied by the operator; none are stored in the repository.
+- Backup/restore commands are documented but have not been exercised against a production host.
