@@ -63,6 +63,17 @@ echo "==> Validating default and optional outbox production Compose profiles"
 docker compose --env-file "$TMP_DIR/compose.env" -f "$ROOT/infra/compose.production.yml" config --quiet
 docker compose --profile outbox --env-file "$TMP_DIR/compose.env" -f "$ROOT/infra/compose.production.yml" config --quiet
 
+echo "==> Verifying transactional outbox events from the browser journey"
+order_events="$(psql "$DATABASE_URL" --no-psqlrc --tuples-only --no-align --set=ON_ERROR_STOP=1 \
+  --command="SELECT COUNT(*) FROM outbox_events WHERE event_type='order.created'")"
+dispatch_events="$(psql "$DATABASE_URL" --no-psqlrc --tuples-only --no-align --set=ON_ERROR_STOP=1 \
+  --command="SELECT COUNT(*) FROM outbox_events WHERE event_type='dispatch.offer_created'")"
+unpublished_events="$(psql "$DATABASE_URL" --no-psqlrc --tuples-only --no-align --set=ON_ERROR_STOP=1 \
+  --command="SELECT COUNT(*) FROM outbox_events WHERE published_at IS NULL AND dead_lettered_at IS NULL")"
+[[ "$order_events" -ge 1 ]] || { echo "order.created outbox event was not persisted" >&2; exit 1; }
+[[ "$dispatch_events" -ge 1 ]] || { echo "dispatch.offer_created outbox event was not persisted" >&2; exit 1; }
+[[ "$unpublished_events" -ge 2 ]] || { echo "expected unconsumed outbox events with the optional publisher disabled" >&2; exit 1; }
+
 echo "==> Creating an isolated restore database"
 createdb --maintenance-db="$MAINTENANCE_DATABASE_URL" "$RESTORE_DB"
 RESTORE_CREATED=1
