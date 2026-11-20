@@ -91,6 +91,23 @@ services:
         condition: service_healthy
     networks: [private]
 
+  outbox-worker:
+    profiles: ["outbox"]
+    image: ai-service-marketplace-api:release
+    entrypoint: ["/app/outbox-worker"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      OUTBOX_WORKER_ID: ${OUTBOX_WORKER_ID:-marketplace-outbox-1}
+      OUTBOX_PUBLISH_URL: ${OUTBOX_PUBLISH_URL:-}
+      OUTBOX_PUBLISH_TOKEN: ${OUTBOX_PUBLISH_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks: [private]
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
