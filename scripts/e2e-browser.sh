@@ -83,11 +83,14 @@ echo "==> Installing pinned Playwright and building the production Next.js app"
   npm install --no-save --no-package-lock @playwright/test@1.64.1
   npx playwright install --with-deps chromium
   NEXT_TELEMETRY_DISABLED=1 npm run build
-) 
+  mkdir -p .next/standalone/.next
+  cp -R .next/static .next/standalone/.next/static
+  if [[ -d public ]]; then cp -R public .next/standalone/public; fi
+)
 
 (
   cd "$WEB_DIR"
-  npm run start -- --hostname 127.0.0.1 --port 3000
+  HOSTNAME=127.0.0.1 PORT=3000 node .next/standalone/server.js
 ) >"$TMP_DIR/web.log" 2>&1 &
 WEB_PID=$!
 
