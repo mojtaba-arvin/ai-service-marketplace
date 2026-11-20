@@ -10,6 +10,7 @@ export HTTP_ADDR=":$PORT"
 : "${DATABASE_URL:?DATABASE_URL must point to the disposable test PostgreSQL database}"
 
 cd "$API_DIR"
+go run ./cmd/migrate
 go run ./cmd/api >/tmp/marketplace-api-e2e.log 2>&1 &
 server_pid=$!
 cleanup() {
