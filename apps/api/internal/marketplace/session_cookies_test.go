@@ -48,8 +48,11 @@ func TestCookieSessionRequiresCSRFAndSameOrigin(t *testing.T) {
 	if got := request("https://attacker.example","csrf-value"); got.Code != http.StatusForbidden {
 		t.Fatalf("cross-origin mutation: got %d",got.Code)
 	}
-	if got := request("http://example.com","csrf-value"); got.Code != http.StatusForbidden {
+	if got := request("http://wrong.example","csrf-value"); got.Code != http.StatusForbidden {
 		t.Fatalf("wrong-origin mutation: got %d",got.Code)
+	}
+	if got := request("http://example.com","csrf-value"); got.Code != http.StatusNotImplemented {
+		t.Fatalf("same-origin request should pass CSRF and reach revoke handler: got %d",got.Code)
 	}
 }
 
