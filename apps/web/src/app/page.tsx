@@ -467,7 +467,7 @@ export default function HomePage() {
                   {catalog.items.map((item) => <option key={item.menu_id} value={item.menu_id}>{item.category_name} · {item.service_code} · {money(item.amount_minor,item.currency)}</option>)}
                 </select>
                 {selectedItem && <div className="price-line"><span>Current listed price</span><strong>{money(selectedItem.amount_minor,selectedItem.currency)}</strong></div>}
-                <label htmlFor="schedule">Preferred date and time ({catalog.timezone})</label>
+                <label htmlFor="schedule">Preferred date and time ({catalog?.timezone ?? "market timezone"})</label>
                 <input id="schedule" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} required />
                 <div className="field-grid">
                   <div><label htmlFor="region">Region</label><input id="region" value={regionCode} onChange={(event) => setRegionCode(event.target.value)} required /></div>
@@ -539,8 +539,8 @@ export default function HomePage() {
                 <label htmlFor="pro-area">Area</label>
                 <input id="pro-area" value={areaCode} onChange={(event) => setAreaCode(event.target.value)} required />
                 <div className="field-grid">
-                  <div><label htmlFor="available-from">Available from ({catalog.timezone})</label><input id="available-from" type="datetime-local" value={availabilityFrom} onChange={(event) => setAvailabilityFrom(event.target.value)} required /></div>
-                  <div><label htmlFor="available-until">Available until ({catalog.timezone})</label><input id="available-until" type="datetime-local" value={availabilityUntil} onChange={(event) => setAvailabilityUntil(event.target.value)} required /></div>
+                  <div><label htmlFor="available-from">Available from ({catalog?.timezone ?? "market timezone"})</label><input id="available-from" type="datetime-local" value={availabilityFrom} onChange={(event) => setAvailabilityFrom(event.target.value)} required /></div>
+                  <div><label htmlFor="available-until">Available until ({catalog?.timezone ?? "market timezone"})</label><input id="available-until" type="datetime-local" value={availabilityUntil} onChange={(event) => setAvailabilityUntil(event.target.value)} required /></div>
                 </div>
                 <button disabled={busy || !selectedItem}>{busy ? "Saving…" : "Submit service area"}</button>
               </form>
