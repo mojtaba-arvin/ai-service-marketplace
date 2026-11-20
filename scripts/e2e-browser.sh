@@ -8,12 +8,14 @@ TMP_DIR="$(mktemp -d)"
 API_PID=""
 WEB_PID=""
 CADDY_NAME="marketplace-e2e-caddy"
+CADDY_LOG_PID=""
 
 : "${DATABASE_URL:?DATABASE_URL must point to the disposable E2E PostgreSQL database}"
 
 cleanup() {
   set +e
   docker rm -f "$CADDY_NAME" >/dev/null 2>&1
+  [[ -z "$CADDY_LOG_PID" ]] || kill "$CADDY_LOG_PID" 2>/dev/null
   [[ -z "$WEB_PID" ]] || kill "$WEB_PID" 2>/dev/null
   [[ -z "$API_PID" ]] || kill "$API_PID" 2>/dev/null
   [[ -z "$WEB_PID" ]] || wait "$WEB_PID" 2>/dev/null
@@ -31,10 +33,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-command -v psql >/dev/null || {
-  echo "psql is required for the disposable browser E2E seed" >&2
-  exit 1
-}
+if ! command -v psql >/dev/null; then
+  sudo apt-get update -qq
+  sudo apt-get install -y postgresql-client
+fi
 command -v docker >/dev/null
 command -v npm >/dev/null
 command -v go >/dev/null
