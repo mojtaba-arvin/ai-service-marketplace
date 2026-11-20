@@ -20,7 +20,7 @@ MVP release candidate assembly for one configured market. The integrated Go/Post
 ## Current MVP delivery
 
 - API: merged to `main` via PR #61. CI and CodeQL passed on the PR head; dependency-review was skipped because the repository dependency graph is not enabled.
-- Web: PR #62 remains open. Customer-workspace JSX build failure was fixed; Next.js upgraded to 15.5.28 and React/React DOM to 19.1.10. New CI is running against the updated head.
+- Web: PR #62 remains open. Customer-workspace JSX build failure was fixed; Next.js upgraded to 15.5.29 (November 2026 security release) and React/React DOM to 19.1.10. New CI is running against the updated head.
 - Web security boundary: sessionStorage token storage is temporary. Move to Secure, HttpOnly, SameSite cookies and add reviewed CSRF protection before broad public launch.
 - Deployment: production Compose, non-root API/worker image, Caddy HTTPS ingress, and deployment/backup/restore instructions are merged. Actual host, DNS, OTP provider credentials, peppers, smoke test, and backup/restore validation remain external deployment work in #56.
 - Release QA: independent end-to-end and negative-path validation remains open in #57. No public release or independent QA sign-off is claimed.
