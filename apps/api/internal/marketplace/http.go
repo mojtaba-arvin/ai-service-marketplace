@@ -23,10 +23,12 @@ type Handler struct {
  DefaultTenantID string
  DefaultMarketCode string
  BootstrapOperatorPhone string
+ CookieSecure bool
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
  w.Header().Set("Content-Type","application/json")
+ if !h.enforceCookieCSRF(w,r) { return }
  if h.serveMVP(w,r) { return }
  switch {
  case r.Method==http.MethodGet&&r.URL.Path=="/healthz":
@@ -64,8 +66,9 @@ func (h *Handler) verifyTestOTP(w http.ResponseWriter,r *http.Request){
 
 func (h *Handler) principal(r *http.Request)(SessionPrincipal,error){
  header:=r.Header.Get("Authorization")
- if !strings.HasPrefix(header,"Bearer ")||strings.TrimSpace(strings.TrimPrefix(header,"Bearer "))==""{return SessionPrincipal{},ErrSessionInvalid}
  token:=strings.TrimSpace(strings.TrimPrefix(header,"Bearer "))
+ if token=="" { token=cookieValue(r,accessCookieName) }
+ if token=="" { return SessionPrincipal{},ErrSessionInvalid }
  if h.TestMode&&token=="test-session"{return SessionPrincipal{SessionID:"test-session",IdentityID:"test-customer",Phone:"+10000000000"},nil}
  if len(h.SessionPepper)<sessionPepperMinBytes{return SessionPrincipal{},ErrSessionInvalid}
  return h.Store.AuthenticateAccessToken(r.Context(),token,h.SessionPepper)
@@ -120,16 +123,31 @@ func (h *Handler) verifyOTP(w http.ResponseWriter,r *http.Request){
  accessTTL,refreshTTL:=h.sessionTTLs()
  tokens,err:=h.Store.IssueSession(r.Context(),verified,h.SessionPepper,accessTTL,refreshTTL)
  if err!=nil{writeError(w,http.StatusInternalServerError,"could not issue session");return}
+ if r.Header.Get("X-Session-Transport")=="cookie" {
+  if err=h.setSessionCookies(w,tokens);err!=nil{writeError(w,http.StatusInternalServerError,"could not establish session cookies");return}
+  writeJSON(w,http.StatusOK,map[string]any{"session_id":tokens.SessionID,"access_expires_at":tokens.AccessExpiresAt,"refresh_expires_at":tokens.RefreshExpiresAt})
+  return
+ }
  writeJSON(w,http.StatusOK,tokens)
 }
 
 func (h *Handler) refreshSession(w http.ResponseWriter,r *http.Request){
  if h.TestMode{writeError(w,http.StatusNotFound,"not found");return}
  var in struct{RefreshToken string `json:"refresh_token"`}
- if json.NewDecoder(r.Body).Decode(&in)!=nil||in.RefreshToken==""{writeError(w,http.StatusBadRequest,"refresh_token is required");return}
+ refreshToken:=cookieValue(r,refreshCookieName)
+ if refreshToken=="" && r.Header.Get("X-Session-Transport")!="cookie" {
+  if json.NewDecoder(r.Body).Decode(&in)!=nil { writeError(w,http.StatusBadRequest,"refresh token is required");return }
+  refreshToken=in.RefreshToken
+ }
+ if refreshToken==""{writeError(w,http.StatusBadRequest,"refresh token is required");return}
  accessTTL,refreshTTL:=h.sessionTTLs()
- tokens,err:=h.Store.RotateSession(r.Context(),in.RefreshToken,h.SessionPepper,accessTTL,refreshTTL)
- if err!=nil{writeError(w,http.StatusUnauthorized,"refresh token is invalid or has been replayed");return}
+ tokens,err:=h.Store.RotateSession(r.Context(),refreshToken,h.SessionPepper,accessTTL,refreshTTL)
+ if err!=nil{h.clearSessionCookies(w);writeError(w,http.StatusUnauthorized,"refresh token is invalid or has been replayed");return}
+ if r.Header.Get("X-Session-Transport")=="cookie" || cookieValue(r,refreshCookieName)!="" {
+  if err=h.setSessionCookies(w,tokens);err!=nil{writeError(w,http.StatusInternalServerError,"could not rotate session cookies");return}
+  writeJSON(w,http.StatusOK,map[string]any{"session_id":tokens.SessionID,"access_expires_at":tokens.AccessExpiresAt,"refresh_expires_at":tokens.RefreshExpiresAt})
+  return
+ }
  writeJSON(w,http.StatusOK,tokens)
 }
 
@@ -137,7 +155,9 @@ func (h *Handler) revokeSession(w http.ResponseWriter,r *http.Request){
  principal,err:=h.principal(r);if err!=nil{writeError(w,http.StatusUnauthorized,"unauthorized");return}
  if principal.SessionID=="test-session"{writeError(w,http.StatusNotImplemented,"test session revocation is not supported");return}
  token:=strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"),"Bearer "))
+ if token=="" { token=cookieValue(r,accessCookieName) }
  if err=h.Store.RevokeSession(r.Context(),token,h.SessionPepper);err!=nil{writeError(w,http.StatusUnauthorized,"session is invalid");return}
+ h.clearSessionCookies(w)
  writeJSON(w,http.StatusOK,map[string]string{"status":"revoked"})
 }
 
