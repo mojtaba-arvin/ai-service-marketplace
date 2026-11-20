@@ -20,8 +20,23 @@ async function signIn(page: Page, request: APIRequestContext, phone: string): Pr
   await page.getByRole("button", { name: "Send verification code" }).click();
   const code = await capturedOTP(request, phone);
   await page.getByLabel("Verification code").fill(code);
+  const verificationResponsePromise = page.waitForResponse((response) =>
+    response.url().endsWith("/v1/auth/otp/verify"),
+  );
   await page.getByRole("button", { name: "Verify and continue" }).click();
-  await expect(page.getByRole("heading", { name: "Good service starts with trust." })).toBeVisible();
+  const verificationResponse = await verificationResponsePromise;
+  const verificationBody = await verificationResponse.text();
+  expect(verificationResponse.status(), `OTP verification response: ${verificationBody}`).toBe(200);
+  try {
+    await expect(page.getByRole("heading", { name: "Good service starts with trust." })).toBeVisible();
+  } catch {
+    const body = await page.locator("body").innerText();
+    const sessionStatus = await page.evaluate(async () => {
+      const response = await fetch("/v1/auth/me", { credentials: "same-origin" });
+      return { status: response.status, body: await response.text() };
+    });
+    throw new Error(`Session did not become active after OTP verification. OTP response=${verificationBody}; auth/me=${JSON.stringify(sessionStatus)}; page=${body}`);
+  }
 }
 
 async function signOut(page: Page): Promise<void> {
