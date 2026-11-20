@@ -23,7 +23,7 @@ import (
 // account. The capture endpoint is bound to loopback and is never in the API
 // production image.
 type captureOTP struct {
-	mu    sync.RWMutex
+	mu    sync.Mutex
 	codes map[string]string
 }
 
