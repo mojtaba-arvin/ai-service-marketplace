@@ -6,7 +6,7 @@ This deployment profile is intentionally small: one Go API process, one Next.js 
 
 The repository now contains the first customer/professional/operator API and browser workflow. Treat it as an MVP release candidate until the full CI suite, configured OTP delivery, host deployment, and end-to-end acceptance gate have all passed. Do not expose test OTP/session endpoints or treat ledger primitives as evidence of real payment processing.
 
-The API currently applies its versioned SQL migrations during startup. Keep exactly one API replica until migrations are moved to a dedicated one-shot migration job.
+Database migrations run in a dedicated one-shot `migrate` Compose service before the API is allowed to start. The runner takes a PostgreSQL advisory lock, applies each migration in its own transaction, and records completed versions in `schema_migrations`. API replicas no longer execute DDL during startup; this removes the single-replica restriction caused by concurrent startup migrations. Keep the migration service serialized and do not run manual DDL concurrently with it.
 
 The web application and API must remain on the same public origin. Caddy routes `/v1/*` to the Go API and all other paths to Next.js. Browser sessions use Secure, HttpOnly access/refresh cookies and a same-origin CSRF token; do not split the web and API across unrelated origins without revisiting cookie and CSRF policy.
 
@@ -45,7 +45,7 @@ Use URL encoding for reserved characters in the PostgreSQL password embedded in 
 
 The following example uses Oman values because the repository's existing examples use +968 and OMR. Replace them if the launch market is different. The market code must be a two-letter ISO country code; DEFAULT_TENANT_ID is an internal tenant identifier and must match across the API and seed data.
 
-After the API has started and applied migrations, load one sample category, price menu, operator identity, and professional profile. The operator phone must exactly match BOOTSTRAP_OPERATOR_PHONE. Both phone numbers must be real E.164 numbers that can receive OTPs.
+After the `migrate` service has completed successfully and the API is healthy, load one sample category, price menu, operator identity, and professional profile. The operator phone must exactly match BOOTSTRAP_OPERATOR_PHONE. Both phone numbers must be real E.164 numbers that can receive OTPs.
 
 ```sh
 set -a
@@ -79,7 +79,7 @@ Run from the repository root:
 docker compose --env-file .env.production -f infra/compose.production.yml config --quiet
 docker compose --env-file .env.production -f infra/compose.production.yml up -d --build
 docker compose --env-file .env.production -f infra/compose.production.yml ps
-docker compose --env-file .env.production -f infra/compose.production.yml logs --tail=100 api web caddy dispatch-worker
+docker compose --env-file .env.production -f infra/compose.production.yml logs --tail=100 migrate api web caddy dispatch-worker
 ```
 
 Caddy obtains and renews certificates automatically after DNS and firewall configuration are correct. Confirm https://SITE_ADDRESS/healthz returns HTTP 200.
@@ -102,11 +102,11 @@ Test backup restoration before treating the host as production-ready. Keep encry
 
 ## Known limitations before public use
 
-- Cookie-based browser sessions are implemented in PR #64; verify the merged build and browser-level CSRF/session tests before release.
+- Browser sessions use Secure, HttpOnly access/refresh cookies, a same-origin CSRF token, and Origin validation for cookie-authenticated mutations. Browser-level CSRF/session tests through Caddy are still required before release.
 - Browser-level customer booking → professional offer acceptance → customer status visibility E2E is still a release blocker.
 - Independent release QA against a clean deployed environment remains required.
 - The OTP adapter requires a real provider endpoint and token.
 - The initial service catalog and sample professional must be seeded for the configured market before the UI can create a booking.
 - Payment capture, escrow movement, refunds, and settlement are not enabled.
-- The initial profile runs one API replica and does not include managed database failover.
+- The initial profile supports multiple API replicas after the one-shot migration service completes, but does not include managed database failover.
 - A host, DNS name, and secret values must be supplied by the operator; none are stored in the repository.
