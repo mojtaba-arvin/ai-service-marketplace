@@ -456,6 +456,7 @@ export default function HomePage() {
       {notice && <div className="notice success">{notice}</div>}
 
       {activeRole === "customer" && (
+        <>
         <div className="workspace-grid">
           <section className="panel booking-panel">
             <div className="panel-heading"><div><p className="eyebrow">NEW REQUEST</p><h2>Book a service</h2></div><span className="step-number">01</span></div>
@@ -503,6 +504,7 @@ export default function HomePage() {
             </form>
           </section>
         )}
+        </>
       )}
 
       {activeRole === "professional" && (
