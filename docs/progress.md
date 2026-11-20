@@ -9,7 +9,7 @@ MVP release candidate assembly for one configured market. The integrated Go/Post
 ## Completed foundation
 
 - Repository harness, ADRs, agent instructions, playbooks, issue/PR templates, module scaffolds, Docker Compose, CI, and security workflows.
-- 44 atomic backlog features across all 14 modules, with acceptance criteria, dependencies, S/M sizing, nature tags, and QA status; module tracking issues #5–#18.
+- 44 atomic backlog features across all 14 modules, with acceptance criteria, dependencies, S/M sizing, nature tags, and QA status. Issues #11–#17 are closed as not planned for the current MVP; their feature records remain intact.
 - Backlog checker validates feature shape, unique IDs, dependency references/cycles, sizing, and QA evidence invariants.
 - PostgreSQL walking skeleton: test-only OTP/auth, idempotent order creation, guarded state transitions, transactional outbox, idempotent outbox consumer, simulated balanced append-only ledger, and HTTP E2E.
 - Backend integration baseline merged through PR #58.
@@ -49,7 +49,7 @@ MVP release candidate assembly for one configured market. The integrated Go/Post
 4. Provision the actual host, DNS, OTP delivery provider, and production secrets through #56.
 5. Execute the full customer booking → eligible professional offer → single acceptance → order timeline workflow.
 6. Run independent authorization, idempotency, expiry, concurrency, failure, backup/restore, and deployed smoke tests through #57.
-7. Update module issues #5–#18 with implementation status; keep them open where independent QA or remaining features are outstanding.
+7. Continue independent QA for module trackers #5–#10 and #18; keep `passes: false` until evidence is recorded.
 
 ## Deferred product backlog
 
