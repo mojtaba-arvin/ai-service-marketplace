@@ -41,6 +41,28 @@ PY
 MAINTENANCE_DATABASE_URL="${DATABASE_URLS[0]}"
 RESTORE_DATABASE_URL="${DATABASE_URLS[1]}"
 
+cat >"$TMP_DIR/compose.env" <<'EOF'
+SITE_ADDRESS=market.example.test
+POSTGRES_DB=marketplace
+POSTGRES_USER=marketplace
+POSTGRES_PASSWORD=ci-only-password
+DATABASE_URL=postgres://marketplace:ci-only-password@postgres:5432/marketplace?sslmode=disable
+OTP_DELIVERY_URL=https://otp.example.test/send
+OTP_DELIVERY_TOKEN=ci-only-token
+OTP_PEPPER=0123456789abcdef0123456789abcdef
+SESSION_PEPPER=abcdef0123456789abcdef0123456789
+DEFAULT_TENANT_ID=tenant-e2e
+DEFAULT_MARKET_CODE=ZZ
+BOOTSTRAP_OPERATOR_PHONE=+15550000003
+OUTBOX_PUBLISH_URL=https://events.example.test/v1/events
+OUTBOX_PUBLISH_TOKEN=ci-only-outbox-token
+OUTBOX_WORKER_ID=ci-outbox-worker
+EOF
+
+echo "==> Validating default and optional outbox production Compose profiles"
+docker compose --env-file "$TMP_DIR/compose.env" -f "$ROOT/infra/compose.production.yml" config --quiet
+docker compose --profile outbox --env-file "$TMP_DIR/compose.env" -f "$ROOT/infra/compose.production.yml" config --quiet
+
 echo "==> Creating an isolated restore database"
 createdb --maintenance-db="$MAINTENANCE_DATABASE_URL" "$RESTORE_DB"
 RESTORE_CREATED=1
