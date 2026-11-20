@@ -23,7 +23,7 @@ import (
 // account. The capture endpoint is bound to loopback and is never in the API
 // production image.
 type captureOTP struct {
-	mu    sync.RWMutex
+	mu    sync.Mutex
 	codes map[string]string
 }
 
@@ -38,10 +38,13 @@ func (c *captureOTP) SendOTP(_ context.Context, phone, code, _ string) error {
 	return nil
 }
 
-func (c *captureOTP) latest(phone string) (string, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+func (c *captureOTP) take(phone string) (string, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	code, ok := c.codes[phone]
+	if ok {
+		delete(c.codes, phone)
+	}
 	return code, ok
 }
 
@@ -141,7 +144,7 @@ func main() {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		code, ok := capture.latest(r.URL.Query().Get("phone"))
+		code, ok := capture.take(r.URL.Query().Get("phone"))
 		if !ok {
 			http.Error(w, "OTP not captured", http.StatusNotFound)
 			return
