@@ -251,7 +251,14 @@ export default function HomePage() {
   async function signOut() {
     setBusy(true);
     try {
-      if (accessToken) await api("/auth/session/revoke", undefined, { method: "POST" });
+      if (accessToken) {
+        // Rotate first so sign-out also revokes the session when the short-lived
+        // access cookie has expired but the refresh cookie is still valid.
+        await api("/auth/session/refresh", undefined, {
+          method: "POST", headers: { "X-Session-Transport": "cookie" },
+        });
+        await api("/auth/session/revoke", undefined, { method: "POST" });
+      }
     } catch { /* local sign-out still clears the browser session */ }
     setAccessToken(""); setMe(null); setChallengeId(""); setOtpCode("");
     setOrders([]); setOffers([]); setProfessionalOrders([]); setProviders([]); setProfile(null);
