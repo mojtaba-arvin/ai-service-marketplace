@@ -4,7 +4,7 @@ An open-source, multi-market home-services marketplace connecting customers with
 
 ## Project status
 
-The repository has moved beyond the initial foundation stage. The Go/PostgreSQL backend baseline is integrated into `main`, and the MVP release is being assembled around one complete customer-to-professional workflow.
+The repository has moved beyond the initial foundation stage. The Go/PostgreSQL backend and the first customer-to-professional browser MVP are integrated into `main`. The remaining release gates are browser E2E, production hardening, real-host deployment, and independent acceptance QA.
 
 The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/53). The release is not considered ready for public use until the production API, browser experience, deployment, and end-to-end acceptance criteria are complete.
 
@@ -24,8 +24,8 @@ The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba
 
 - Backend integration baseline: merged.
 - Single-host container and HTTPS deployment foundation: merged.
-- Production-safe customer/professional/operator API workflow: in progress.
-- Responsive customer/professional/operations browser experience: implemented in the MVP release candidate; CI and integration acceptance pending.
+- Production-safe customer/professional/operator API workflow: merged via PR #61.
+- Responsive customer/professional/operations browser experience: merged via PR #62; production build and Go/Python/JavaScript-TypeScript CodeQL passed. Browser-level E2E acceptance and cookie-based session hardening remain.
 - Host provisioning and deployed acceptance: tracked in [#56](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/56) and [#57](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/57).
 
 See the [deployment guide](infra/DEPLOYMENT.md) for the current container topology, configuration requirements, seed procedure, and known limitations. It is a deployment foundation, not a claim that the complete MVP is already live.
