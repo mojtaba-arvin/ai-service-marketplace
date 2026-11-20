@@ -15,7 +15,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #21). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "IDENT-002",
@@ -35,7 +35,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #22). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "IDENT-003",
@@ -55,7 +55,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #23). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "IDENT-004",
@@ -75,7 +75,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #24 and PR #61). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "CAT-001",
@@ -93,7 +93,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #25). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "CAT-002",
@@ -113,7 +113,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #27). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "CAT-003",
@@ -133,7 +133,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #29). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "PRICE-001",
@@ -153,7 +153,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #26). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "PRICE-002",
@@ -173,7 +173,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #34). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "PRICE-003",
@@ -193,7 +193,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #35). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "ORDER-001",
@@ -215,7 +215,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #36 and PR #61). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "ORDER-002",
@@ -235,7 +235,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #20 and PR #61). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "ORDER-003",
@@ -255,7 +255,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #37 and PR #61). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "ORDER-004",
@@ -275,7 +275,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #38 and PR #61). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "DISP-001",
@@ -295,7 +295,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #39 and PR #61). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "DISP-002",
@@ -317,7 +317,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #40 and PR #61). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "DISP-003",
@@ -338,7 +338,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #41 and PR #61). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "FIN-001",
@@ -356,7 +356,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #30). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "FIN-002",
@@ -376,7 +376,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #31). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "FIN-003",
@@ -396,7 +396,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #32). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "FIN-004",
@@ -417,7 +417,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #33). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "TRUST-001",
@@ -437,7 +437,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #48). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "TRUST-002",
@@ -457,7 +457,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "TRUST-003",
@@ -478,7 +478,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "TRUST-004",
@@ -499,7 +499,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "MSG-001",
@@ -519,7 +519,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #47). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "MSG-002",
@@ -539,7 +539,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #47). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "MSG-003",
@@ -560,7 +560,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Partial groundwork merged in PR #52 (HTTPS outbox publisher/transport adapter). Notification preferences and complete production notification adapters remain incomplete; independent QA pending."
   },
   {
     "id": "SUP-001",
@@ -580,7 +580,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #49). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "SUP-002",
@@ -600,7 +600,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "ADMIN-001",
@@ -620,7 +620,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "ADMIN-002",
@@ -640,7 +640,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "ADMIN-003",
@@ -661,7 +661,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "GROW-001",
@@ -681,7 +681,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "GROW-002",
@@ -702,7 +702,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "AN-001",
@@ -722,7 +722,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "AN-002",
@@ -743,7 +743,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "B2B-001",
@@ -763,7 +763,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "B2B-002",
@@ -783,7 +783,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "B2B-003",
@@ -804,7 +804,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "PLAT-001",
@@ -822,7 +822,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #28, PR #45, and PR #51). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "PLAT-002",
@@ -842,7 +842,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #42). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "PLAT-003",
@@ -863,7 +863,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #43 and PR #44). Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "PLAT-004",
@@ -883,6 +883,6 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation merged (PR #46). Independent QA evidence is still pending; passes remains false."
   }
 ]
