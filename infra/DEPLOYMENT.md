@@ -8,6 +8,8 @@ The repository now contains the first customer/professional/operator API and bro
 
 The API currently applies its versioned SQL migrations during startup. Keep exactly one API replica until migrations are moved to a dedicated one-shot migration job.
 
+The web application and API must remain on the same public origin. Caddy routes `/v1/*` to the Go API and all other paths to Next.js. Browser sessions use Secure, HttpOnly access/refresh cookies and a same-origin CSRF token; do not split the web and API across unrelated origins without revisiting cookie and CSRF policy.
+
 ## Host prerequisites
 
 - A Linux host with Docker Engine and the Docker Compose plugin.
@@ -100,7 +102,9 @@ Test backup restoration before treating the host as production-ready. Keep encry
 
 ## Known limitations before public use
 
-- The first browser workflow uses sessionStorage for access/refresh tokens. Before broad public launch, move sessions to Secure, HttpOnly, SameSite cookies and add a reviewed CSRF strategy.
+- Cookie-based browser sessions are implemented in PR #64; verify the merged build and browser-level CSRF/session tests before release.
+- Browser-level customer booking → professional offer acceptance → customer status visibility E2E is still a release blocker.
+- Independent release QA against a clean deployed environment remains required.
 - The OTP adapter requires a real provider endpoint and token.
 - The initial service catalog and sample professional must be seeded for the configured market before the UI can create a booking.
 - Payment capture, escrow movement, refunds, and settlement are not enabled.

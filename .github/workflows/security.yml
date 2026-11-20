@@ -53,7 +53,7 @@ jobs:
       - uses: github/codeql-action/analyze@v3
 
   dependency-review:
-    # Enable the repository dependency graph first, then set this repository variable.
+    # Enable the repository dependency graph, then set the Actions variable.
     if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:

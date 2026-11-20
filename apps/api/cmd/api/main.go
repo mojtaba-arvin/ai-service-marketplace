@@ -56,7 +56,7 @@ func main() {
   handler=&marketplace.Handler{
    Store:store,OTPPepper:requiredSecret("OTP_PEPPER"),SessionPepper:requiredSecret("SESSION_PEPPER"),
    OTPDelivery:delivery,AccessTTL:15*time.Minute,RefreshTTL:30*24*time.Hour,
-   DefaultTenantID:tenantID,DefaultMarketCode:marketCode,BootstrapOperatorPhone:operatorPhone,
+   DefaultTenantID:tenantID,DefaultMarketCode:marketCode,BootstrapOperatorPhone:operatorPhone,CookieSecure:true,
   }
  } else if appEnv==""||appEnv=="development"||appEnv=="test" {
   code:=os.Getenv("TEST_OTP_CODE");if code==""{code="000000"}

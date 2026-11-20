@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 type Role = "customer" | "professional" | "operator";
-type SessionTokens = { access_token: string; refresh_token: string };
 type Me = { session_id: string; identity_id: string; phone: string; roles: Role[] };
 type CatalogItem = {
   category_id: string;
@@ -41,15 +40,36 @@ type ProfessionalOrder = Order;
 type ProfileResponse = { profile: ProviderProfile; qualification_complete: boolean };
 type ApiError = { error?: string };
 
-async function api<T>(path: string, token?: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  const response = await fetch(`/v1${path}`, { ...init, headers, cache: "no-store" });
-  const payload = await response.json().catch(() => ({} as ApiError));
-  if (!response.ok) {
-    throw new Error((payload as ApiError).error || `Request failed (${response.status})`);
+function csrfToken(): string {
+  if (typeof document === "undefined") return "";
+  const prefix = "marketplace_csrf=";
+  const item = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
+  return item ? decodeURIComponent(item.slice(prefix.length)) : "";
+}
+
+async function api<T>(path: string, _token?: string, init: RequestInit = {}): Promise<T> {
+  const send = async (requestInit: RequestInit) => {
+    const headers = new Headers(requestInit.headers);
+    if (requestInit.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+    const method = (requestInit.method ?? "GET").toUpperCase();
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+      const csrf = csrfToken();
+      if (csrf) headers.set("X-CSRF-Token", csrf);
+    }
+    return fetch(`/v1${path}`, { ...requestInit, headers, credentials: "same-origin", cache: "no-store" });
+  };
+  let response = await send(init);
+  if (response.status === 401 && !path.startsWith("/auth/otp/") && !path.startsWith("/auth/session/")) {
+    const csrf = csrfToken();
+    const headers = new Headers({ "X-Session-Transport": "cookie" });
+    if (csrf) headers.set("X-CSRF-Token", csrf);
+    const refreshed = await fetch("/v1/auth/session/refresh", {
+      method: "POST", headers, credentials: "same-origin", cache: "no-store",
+    });
+    if (refreshed.ok) response = await send(init);
   }
+  const payload = await response.json().catch(() => ({} as ApiError));
+  if (!response.ok) throw new Error((payload as ApiError).error || `Request failed (${response.status})`);
   return payload as T;
 }
 
@@ -107,7 +127,6 @@ export default function HomePage() {
   const [challengeId, setChallengeId] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [accessToken, setAccessToken] = useState("");
-  const [refreshToken, setRefreshToken] = useState("");
   const [me, setMe] = useState<Me | null>(null);
   const [activeRole, setActiveRole] = useState<Role>("customer");
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -136,21 +155,15 @@ export default function HomePage() {
   );
 
   useEffect(() => {
-    const savedAccess = window.sessionStorage.getItem("marketplace_access_token") || "";
-    const savedRefresh = window.sessionStorage.getItem("marketplace_refresh_token") || "";
-    if (!savedAccess) return;
-    setAccessToken(savedAccess);
-    setRefreshToken(savedRefresh);
-    void api<Me>("/auth/me", savedAccess)
+    void api<Me>("/auth/me")
       .then((identity) => {
+        setAccessToken("cookie-session");
         setMe(identity);
         setActiveRole(preferredRole(identity.roles));
       })
       .catch(() => {
-        window.sessionStorage.removeItem("marketplace_access_token");
-        window.sessionStorage.removeItem("marketplace_refresh_token");
         setAccessToken("");
-        setRefreshToken("");
+        setMe(null);
       });
   }, []);
 
@@ -221,13 +234,12 @@ export default function HomePage() {
     event.preventDefault();
     setBusy(true); setError(""); setNotice("");
     try {
-      const tokens = await api<SessionTokens>("/auth/otp/verify", undefined, {
-        method: "POST", body: JSON.stringify({ challenge_id: challengeId, code: otpCode }),
+      await api("/auth/otp/verify", undefined, {
+        method: "POST", headers: { "X-Session-Transport": "cookie" },
+        body: JSON.stringify({ challenge_id: challengeId, code: otpCode }),
       });
-      window.sessionStorage.setItem("marketplace_access_token", tokens.access_token);
-      window.sessionStorage.setItem("marketplace_refresh_token", tokens.refresh_token);
-      setAccessToken(tokens.access_token); setRefreshToken(tokens.refresh_token);
-      const identity = await api<Me>("/auth/me", tokens.access_token);
+      setAccessToken("cookie-session");
+      const identity = await api<Me>("/auth/me");
       setMe(identity);
       setActiveRole(identity.roles.includes("customer") ? "customer" : identity.roles[0] ?? "customer");
       setNotice("You are signed in.");
@@ -239,11 +251,16 @@ export default function HomePage() {
   async function signOut() {
     setBusy(true);
     try {
-      if (accessToken) await api("/auth/session/revoke", accessToken, { method: "POST" });
+      if (accessToken) {
+        // Rotate first so sign-out also revokes the session when the short-lived
+        // access cookie has expired but the refresh cookie is still valid.
+        await api("/auth/session/refresh", undefined, {
+          method: "POST", headers: { "X-Session-Transport": "cookie" },
+        });
+        await api("/auth/session/revoke", undefined, { method: "POST" });
+      }
     } catch { /* local sign-out still clears the browser session */ }
-    window.sessionStorage.removeItem("marketplace_access_token");
-    window.sessionStorage.removeItem("marketplace_refresh_token");
-    setAccessToken(""); setRefreshToken(""); setMe(null); setChallengeId(""); setOtpCode("");
+    setAccessToken(""); setMe(null); setChallengeId(""); setOtpCode("");
     setOrders([]); setOffers([]); setProfessionalOrders([]); setProviders([]); setProfile(null);
     setBusy(false);
   }
