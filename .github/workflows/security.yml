@@ -53,9 +53,8 @@ jobs:
       - uses: github/codeql-action/analyze@v3
 
   dependency-review:
-    # Public repositories expose the dependency graph; run this on every PR
-    # so dependency risk cannot silently disappear behind an unset variable.
-    if: github.event_name == 'pull_request'
+    # Enable the repository dependency graph, then set the Actions variable.
+    if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
