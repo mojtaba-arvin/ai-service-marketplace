@@ -33,7 +33,7 @@ func TestProductionHTTPOTPAndSessionLifecyclePostgres(t *testing.T){
   "021_support_cases.sql","022_identity_memberships.sql",
  }{
   raw,e:=os.ReadFile(filepath.Join("..","..","migrations",name));if e!=nil{t.Fatal(e)}
-  if _,e=pool.Exec(ctx,string(raw));e!=nil{t.Fatalf("apply %s: %v",name,e)}
+  if _,e=execMigrationScript(ctx, pool, raw);e!=nil{t.Fatalf("apply %s: %v",name,e)}
  }
  delivery:=&fakeOTPDelivery{}
  pepper:=[]byte("auth-test-pepper-material-at-least-32-bytes")
@@ -89,7 +89,7 @@ func TestOTPDeliveryFailureInvalidatesChallengePostgres(t *testing.T){
  dsn:=os.Getenv("TEST_DATABASE_URL");if dsn==""{t.Skip("TEST_DATABASE_URL is not configured")}
  ctx,cancel:=context.WithTimeout(context.Background(),20*time.Second);defer cancel()
  pool,err:=pgxpool.New(ctx,dsn);if err!=nil{t.Fatal(err)};defer pool.Close()
- for _,name:=range []string{"002_identity.sql","022_identity_memberships.sql"}{raw,e:=os.ReadFile(filepath.Join("..","..","migrations",name));if e!=nil{t.Fatal(e)};if _,e=pool.Exec(ctx,string(raw));e!=nil{t.Fatal(e)}}
+ for _,name:=range []string{"002_identity.sql","022_identity_memberships.sql"}{raw,e:=os.ReadFile(filepath.Join("..","..","migrations",name));if e!=nil{t.Fatal(e)};if _,e=execMigrationScript(ctx, pool, raw);e!=nil{t.Fatal(e)}}
  delivery:=&fakeOTPDelivery{err:errors.New("provider unavailable")}
  h:=&Handler{Store:&Store{DB:pool},OTPPepper:[]byte("auth-test-pepper-material-at-least-32-bytes"),OTPDelivery:delivery,DefaultTenantID:"auth-failure-tenant"}
  phone:=fmt.Sprintf("+1995%011d",time.Now().UnixNano()%100000000000)
