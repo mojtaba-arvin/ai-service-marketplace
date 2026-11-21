@@ -4,7 +4,7 @@ An open-source, multi-market home-services marketplace connecting customers with
 
 ## Project status
 
-The Go/PostgreSQL backend and the first customer-to-professional browser MVP are integrated into `main`. The browser session uses HttpOnly cookies with CSRF protection. Repository-side browser journey, migration safety, and backup/restore CI tests now pass in open PRs #66–#69, but those changes are not merged and no public production deployment exists. External host/OTP provisioning, production smoke/restore validation, and independent release QA remain open.
+The Go/PostgreSQL backend and the first customer-to-professional browser MVP are integrated into `main`. The browser session uses HttpOnly cookies with CSRF protection. Repository-side browser journey, migration safety, and backup/restore CI evidence now exists in the current PR stack (#66, #67, and #69); migration integration tests from PR #68 have been merged into PR #66's feature branch, but none of these changes is integrated into `main`. No public production deployment exists. External host/OTP provisioning, production smoke/restore validation, and independent release QA remain open.
 
 The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/53). Do not treat the release as ready for public use until the deployment and end-to-end acceptance criteria are complete.
 
@@ -29,11 +29,11 @@ The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba
 - Browser session hardening: merged via PR #64 (HttpOnly access/refresh cookies, same-origin CSRF token, Origin validation for cookie-authenticated mutations, and no browser token persistence).
 - CI and CodeQL on PR #64: passed, including Go tests, walking-skeleton HTTP E2E, production Compose validation, API/Web image builds, and all three CodeQL language jobs. Dependency Review remains skipped until the repository Dependency Graph is enabled.
 - Browser-level E2E: implemented in open PR #67; CI passed the same-origin HTTPS journey (customer booking → operator verification/dispatch → professional acceptance → customer status) plus cookie/CSRF/refresh/sign-out checks. Pending review/merge.
-- Migration runner: open PR #66; PR #68 adds passing PostgreSQL tests for first apply, no-op replay, legacy bootstrap, concurrent invocations, and rollback/retry. Pending review/merge.
+- Migration runner: open PR #66. Its PostgreSQL integration tests (first apply, no-op replay, legacy bootstrap, concurrent invocations, rollback/retry) were merged from PR #68 into the feature branch; the updated PR #66 CI passed. Pending merge to `main`.
 - Backup/restore and outbox operations: open PR #69; CI passed a clean PostgreSQL dump/restore rehearsal, checked transactional `order.created` and `dispatch.offer_created` events, and validated the optional outbox Compose profile. Pending review/merge. The external event sink remains unconfigured.
 - Host provisioning, real OTP credentials, public smoke/production backup-restore validation, and independent release QA: tracked in [#56](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/56) and [#57](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/57).
 
-See the [deployment guide](infra/DEPLOYMENT.md) for the container topology, configuration requirements, seed procedure, and known limitations. It is a deployment foundation, not a claim that the complete MVP is live.
+See [the deployment guide](infra/DEPLOYMENT.md) for the container topology, configuration requirements, seed procedure, and known limitations. It is a deployment foundation, not a claim that the complete MVP is live.
 
 ## Architecture at a glance
 
