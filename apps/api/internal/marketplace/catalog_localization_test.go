@@ -23,7 +23,7 @@ func TestMarketLocalizedCatalogVisibilityPostgres(t *testing.T) {
 	for _,name:=range []string{"004_catalog.sql","007_market_config.sql","008_catalog_localization.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
-		if _,err=pool.Exec(ctx,string(migration)); err!=nil { t.Fatalf("apply %s: %v",name,err) }
+		if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("apply %s: %v",name,err) }
 	}
 	store:=&Store{DB:pool}
 	operator:=Actor{SubjectID:"catalog-operator",TenantID:"platform",Role:RoleOperator}
