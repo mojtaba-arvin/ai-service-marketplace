@@ -10,19 +10,15 @@ on:
 
 permissions:
   contents: read
-
-concurrency:
-  group: security-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  security-events: write
 
 jobs:
   detect:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     outputs:
       languages: ${{ steps.detect.outputs.languages }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v4
       - id: detect
         name: Detect source languages
         shell: bash
@@ -45,28 +41,24 @@ jobs:
   codeql:
     needs: detect
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      security-events: write
     strategy:
       fail-fast: false
       matrix:
         language: ${{ fromJSON(needs.detect.outputs.languages) }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: github/codeql-action/init@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-      - uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
+      - uses: github/codeql-action/analyze@v3
 
   dependency-review:
     # Enable the repository dependency graph, then set the Actions variable.
     if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     permissions:
       contents: read
+      pull-requests: write
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
