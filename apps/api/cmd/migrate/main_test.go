@@ -119,7 +119,7 @@ func TestRunBootstrapsLegacySchemaWithoutMigrationHistory(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read legacy migration %s: %v", name, err)
 		}
-		if _, err := pool.Exec(ctx, string(sql)); err != nil {
+		if _, err := pool.Exec(ctx, string(sql), pgx.QueryExecModeSimpleProtocol); err != nil {
 			t.Fatalf("apply legacy migration %s: %v", name, err)
 		}
 	}
