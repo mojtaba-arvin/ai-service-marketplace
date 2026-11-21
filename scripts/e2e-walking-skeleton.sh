@@ -57,3 +57,9 @@ status="$(curl -sS -o /tmp/marketplace-invalid-transition.json -w '%{http_code}'
 [[ "$status" == "409" ]]
 
 echo "Walking skeleton E2E passed: migrations (initial + idempotent replay) -> OTP -> idempotent order -> accepted transition -> invalid transition rejected."
+
+echo "==> Starting browser-level production-mode E2E through same-origin HTTPS ingress"
+bash "$ROOT/scripts/e2e-browser.sh"
+
+echo "==> Verifying PostgreSQL backup and restore against a clean database"
+bash "$ROOT/scripts/e2e-backup-restore.sh"
