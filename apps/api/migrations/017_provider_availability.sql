@@ -42,7 +42,7 @@ ALTER TABLE provider_bookings
 ALTER TABLE provider_bookings
     ADD CONSTRAINT provider_bookings_no_overlap
     EXCLUDE USING gist (
-        provider_id WITH =,
+        provider_id public.gist_text_ops WITH =,
         tstzrange(start_at,end_at,'[)') WITH &&
     ) WHERE (status='booked');
 
