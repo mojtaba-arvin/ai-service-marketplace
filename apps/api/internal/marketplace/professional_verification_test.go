@@ -18,7 +18,7 @@ func TestProfessionalVerificationCasePostgres(t *testing.T){
  pool,err:=pgxpool.New(ctx,dsn);if err!=nil{t.Fatal(err)};defer pool.Close()
  for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","006_provider_eligibility.sql","020_professional_verification.sql"}{
   raw,e:=os.ReadFile(filepath.Join("..","..","migrations",name));if e!=nil{t.Fatal(e)}
-  if _,e=pool.Exec(ctx,string(raw));e!=nil{t.Fatalf("apply %s: %v",name,e)}
+  if _,e=execMigrationScript(ctx, pool, raw);e!=nil{t.Fatalf("apply %s: %v",name,e)}
  }
  store:=&Store{DB:pool}
  professionalID,operatorID,providerID:=newTestIdentity(t,ctx,pool),newTestIdentity(t,ctx,pool),newTestID(t)
