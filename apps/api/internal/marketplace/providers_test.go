@@ -23,7 +23,7 @@ func TestProviderEligibilityPostgres(t *testing.T) {
 	for _,name:=range []string{"002_identity.sql","004_catalog.sql","006_provider_eligibility.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
-		if _,err=pool.Exec(ctx,string(migration)); err!=nil { t.Fatalf("apply %s: %v",name,err) }
+		if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("apply %s: %v",name,err) }
 	}
 	store:=&Store{DB:pool}
 	category,err:=store.CreateCategory(ctx,nil,fmt.Sprintf("electrical-%d",time.Now().UnixNano()),"Electrical")
