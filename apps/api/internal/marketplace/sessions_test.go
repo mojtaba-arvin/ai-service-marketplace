@@ -23,7 +23,7 @@ func TestSessionLifecyclePostgres(t *testing.T) {
 	for _, name := range []string{"002_identity.sql", "003_sessions.sql"} {
 		migration, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if readErr != nil { t.Fatal(readErr) }
-		if _, err = pool.Exec(ctx, string(migration)); err != nil { t.Fatalf("apply %s: %v", name, err) }
+		if _, err = execMigrationScript(ctx, pool, migration); err != nil { t.Fatalf("apply %s: %v", name, err) }
 	}
 	store := &Store{DB: pool}
 	phone := fmt.Sprintf("+1998%011d", time.Now().UnixNano()%100_000_000_000)
