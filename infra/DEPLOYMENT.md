@@ -10,7 +10,17 @@ Database migrations run in a dedicated one-shot `migrate` Compose service before
 
 The web application and API must remain on the same public origin. Caddy routes `/v1/*` to the Go API and all other paths to Next.js. Browser sessions use Secure, HttpOnly access/refresh cookies and a separate same-origin CSRF token. Cookie-authenticated unsafe requests require the CSRF header and reject a supplied cross-origin Origin. Non-browser API clients may continue using the Bearer session transport.
 
-The web application and API must remain on the same public origin. Caddy routes `/v1/*` to the Go API and all other paths to Next.js. Browser sessions use Secure, HttpOnly access/refresh cookies and a same-origin CSRF token; do not split the web and API across unrelated origins without revisiting cookie and CSRF policy.
+## Browser end-to-end verification
+
+Run `scripts/e2e-browser.sh` directly, or use `scripts/e2e-walking-skeleton.sh` to run it after the API-level lifecycle checks. The browser harness:
+
+- Builds a separate E2E-only Go server; its OTP capture endpoint is bound to loopback and is not included in the production API image.
+- Seeds an isolated `ZZ/USD` market and synthetic customer, operator, and professional identities in the disposable PostgreSQL database.
+- Builds and starts the production-mode Next.js standalone app.
+- Routes the browser through local Caddy HTTPS so cookie `Secure`, same-origin, and Origin checks are exercised rather than bypassed with direct HTTP.
+- Verifies OTP challenge/session persistence, HttpOnly access and refresh cookies, CSRF rejection, cross-origin rejection, refresh after access-token expiry, booking, operator verification/dispatch, professional acceptance, customer status visibility, and sign-out.
+
+This is local CI evidence using synthetic identities and an in-memory OTP sink. It does not verify a real SMS provider, a public deployment, or production DNS/TLS configuration. Keep those as separate release gates.
 
 ## Host prerequisites
 
@@ -104,8 +114,8 @@ Test backup restoration before treating the host as production-ready. Keep encry
 
 ## Known limitations before public use
 
-- Browser sessions use Secure, HttpOnly access/refresh cookies, a same-origin CSRF token, and Origin validation for cookie-authenticated mutations. Browser-level CSRF/session tests through Caddy are still required before release.
-- Browser-level customer booking → professional offer acceptance → customer status visibility E2E is still a release blocker.
+- Browser E2E exercises the complete customer booking → operator verification/dispatch → professional acceptance → customer status journey through local Caddy HTTPS, including cookie, CSRF, Origin, refresh, and sign-out behavior.
+- A public deployed smoke test and real OTP-provider verification remain required; local E2E evidence is not production-host evidence.
 - Independent release QA against a clean deployed environment remains required.
 - The OTP adapter requires a real provider endpoint and token.
 - The initial service catalog and sample professional must be seeded for the configured market before the UI can create a booking.
