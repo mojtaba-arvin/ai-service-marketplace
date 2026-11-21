@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -9,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -38,6 +41,11 @@ var migrationFiles = []string{
 }
 
 const advisoryLockID int64 = 824713921734
+
+func migrationChecksum(sql []byte) string {
+	sum := sha256.Sum256(sql)
+	return hex.EncodeToString(sum[:])
+}
 
 func run(ctx context.Context) error {
 	dsn := os.Getenv("DATABASE_URL")
@@ -83,6 +91,7 @@ func runWithPool(ctx context.Context, pool *pgxpool.Pool, files []string, migrat
 	if _, err := conn.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version text PRIMARY KEY,
+			checksum text NOT NULL,
 			applied_at timestamptz NOT NULL DEFAULT now()
 		)
 	`); err != nil {
@@ -90,19 +99,27 @@ func runWithPool(ctx context.Context, pool *pgxpool.Pool, files []string, migrat
 	}
 
 	for _, name := range files {
-		var applied bool
-		if err := conn.QueryRow(ctx,
-			"SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)", name,
-		).Scan(&applied); err != nil {
-			return fmt.Errorf("check migration %s: %w", name, err)
-		}
-		if applied {
-			continue
-		}
-
 		sql, err := os.ReadFile(filepath.Join(migrationDir, name))
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", name, err)
+		}
+		checksum := migrationChecksum(sql)
+
+		var appliedChecksum string
+		err = conn.QueryRow(ctx,
+			"SELECT checksum FROM schema_migrations WHERE version = $1", name,
+		).Scan(&appliedChecksum)
+		if err == nil {
+			if appliedChecksum != checksum {
+				return fmt.Errorf(
+					"migration %s checksum mismatch: database has %s, file has %s",
+					name, appliedChecksum, checksum,
+				)
+			}
+			continue
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("check migration %s: %w", name, err)
 		}
 
 		tx, err := conn.Begin(ctx)
@@ -114,7 +131,7 @@ func runWithPool(ctx context.Context, pool *pgxpool.Pool, files []string, migrat
 			return fmt.Errorf("apply migration %s: %w", name, err)
 		}
 		if _, err = tx.Exec(ctx,
-			"INSERT INTO schema_migrations (version) VALUES ($1)", name,
+			"INSERT INTO schema_migrations (version, checksum) VALUES ($1, $2)", name, checksum,
 		); err != nil {
 			_ = tx.Rollback(ctx)
 			return fmt.Errorf("record migration %s: %w", name, err)
