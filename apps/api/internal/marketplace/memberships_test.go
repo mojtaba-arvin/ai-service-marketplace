@@ -30,7 +30,7 @@ func TestIdentityMembershipResolutionPostgres(t *testing.T) {
         if readErr != nil {
             t.Fatal(readErr)
         }
-        if _, err = pool.Exec(ctx, string(raw)); err != nil {
+        if _, err = execMigrationScript(ctx, pool, raw); err != nil {
             t.Fatalf("apply %s: %v", name, err)
         }
     }
