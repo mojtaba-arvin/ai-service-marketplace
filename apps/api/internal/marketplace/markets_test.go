@@ -21,7 +21,7 @@ func TestMarketConfigurationAndLocaleResolutionPostgres(t *testing.T) {
 	defer pool.Close()
 	migration,err:=os.ReadFile(filepath.Join("..","..","migrations","007_market_config.sql"))
 	if err!=nil { t.Fatal(err) }
-	if _,err=pool.Exec(ctx,string(migration)); err!=nil { t.Fatalf("market migration: %v",err) }
+	if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("market migration: %v",err) }
 	store:=&Store{DB:pool}
 	operator:=Actor{SubjectID:"operator-market-test",TenantID:"platform",Role:RoleOperator}
 	config,err:=store.SaveMarket(ctx,operator,MarketConfig{

@@ -22,7 +22,7 @@ func TestServiceCategoryHierarchyPostgres(t *testing.T) {
 	defer pool.Close()
 	migration, err := os.ReadFile(filepath.Join("..", "..", "migrations", "004_catalog.sql"))
 	if err != nil { t.Fatal(err) }
-	if _, err = pool.Exec(ctx, string(migration)); err != nil { t.Fatalf("catalog migration: %v", err) }
+	if _, err = execMigrationScript(ctx, pool, migration); err != nil { t.Fatalf("catalog migration: %v", err) }
 	store := &Store{DB: pool}
 
 	rootSlug := fmt.Sprintf("home-services-%d", time.Now().UnixNano())

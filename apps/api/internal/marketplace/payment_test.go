@@ -53,7 +53,7 @@ func TestPaymentOperationAndWebhookPersistencePostgres(t *testing.T) {
 	defer pool.Close()
 	migration,err:=os.ReadFile(filepath.Join("..","..","migrations","011_payment_adapter_contract.sql"))
 	if err!=nil { t.Fatal(err) }
-	if _,err=pool.Exec(ctx,string(migration)); err!=nil { t.Fatalf("payment migration: %v",err) }
+	if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("payment migration: %v",err) }
 	store:=&Store{DB:pool}
 	key:=fmt.Sprintf("payment-op-%d",time.Now().UnixNano())
 	op,created,err:=store.BeginPaymentOperation(ctx,"fake","authorize",key,1250,"OMR")

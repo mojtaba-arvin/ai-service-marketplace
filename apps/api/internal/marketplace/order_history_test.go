@@ -23,7 +23,7 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","007_market_config.sql","008_catalog_localization.sql","015_order_schedule.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
-		if _,err=pool.Exec(ctx,string(migration)); err!=nil { t.Fatalf("apply %s: %v",name,err) }
+		if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("apply %s: %v",name,err) }
 	}
 	store:=&Store{DB:pool}
 	ids:=make([]string,2)

@@ -35,7 +35,7 @@ func TestOTPChallengeLifecyclePostgres(t *testing.T) {
 	defer pool.Close()
 	migration, err := os.ReadFile(filepath.Join("..", "..", "migrations", "002_identity.sql"))
 	if err != nil { t.Fatal(err) }
-	if _, err = pool.Exec(ctx, string(migration)); err != nil { t.Fatalf("identity migration: %v", err) }
+	if _, err = execMigrationScript(ctx, pool, migration); err != nil { t.Fatalf("identity migration: %v", err) }
 	store := &Store{DB: pool}
 	pepper := []byte("otp-pepper-material-must-be-at-least-32-bytes")
 	phone := fmt.Sprintf("+1999%011d", time.Now().UnixNano()%100_000_000_000)

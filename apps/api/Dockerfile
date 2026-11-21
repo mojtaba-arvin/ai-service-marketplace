@@ -5,6 +5,7 @@ RUN go mod download
 COPY apps/api/ ./
 RUN go mod tidy \
     && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api \
+    && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/migrate ./cmd/migrate \
     && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/dispatch-worker ./cmd/dispatch-worker \
     && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/outbox-worker ./cmd/outbox-worker
 
@@ -14,6 +15,7 @@ RUN apk add --no-cache ca-certificates wget \
     && adduser -S -G app -u 10001 app
 WORKDIR /app
 COPY --from=build /out/api /app/api
+COPY --from=build /out/migrate /app/migrate
 COPY --from=build /out/dispatch-worker /app/dispatch-worker
 COPY --from=build /out/outbox-worker /app/outbox-worker
 COPY --from=build /src/migrations /app/migrations

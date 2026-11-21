@@ -10,6 +10,8 @@ export HTTP_ADDR=":$PORT"
 : "${DATABASE_URL:?DATABASE_URL must point to the disposable test PostgreSQL database}"
 
 cd "$API_DIR"
+go run ./cmd/migrate
+go run ./cmd/migrate
 go run ./cmd/api >/tmp/marketplace-api-e2e.log 2>&1 &
 server_pid=$!
 cleanup() {
@@ -54,4 +56,4 @@ status="$(curl -sS -o /tmp/marketplace-invalid-transition.json -w '%{http_code}'
   -H 'Content-Type: application/json' -d '{"to":"completed"}')"
 [[ "$status" == "409" ]]
 
-echo "Walking skeleton E2E passed: OTP -> idempotent order -> accepted transition -> invalid transition rejected."
+echo "Walking skeleton E2E passed: migrations (initial + idempotent replay) -> OTP -> idempotent order -> accepted transition -> invalid transition rejected."
