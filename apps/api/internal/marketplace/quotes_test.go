@@ -23,7 +23,7 @@ func TestInspectionQuoteRequiresCustomerApprovalPostgres(t *testing.T) {
 	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","006_provider_eligibility.sql","013_inspection_quotes.sql","014_quote_variations.sql","015_order_schedule.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
-		if _,err=pool.Exec(ctx,string(migration)); err!=nil { t.Fatalf("apply %s: %v",name,err) }
+		if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("apply %s: %v",name,err) }
 	}
 	store:=&Store{DB:pool}
 	identities:=make([]string,3)
