@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -198,5 +200,54 @@ func TestRunRollsBackFailedMigrationAndCanRetry(t *testing.T) {
 	}
 	if !tableExists || !versionRecorded {
 		t.Fatalf("successful retry was not committed: table_exists=%v version_recorded=%v", tableExists, versionRecorded)
+	}
+}
+
+func TestMigrationFilesMatchDisk(t *testing.T) {
+	dir := migrationDirectory(t)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read migration directory: %v", err)
+	}
+	var actual []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sql") {
+			actual = append(actual, entry.Name())
+		}
+	}
+	if !reflect.DeepEqual(actual, migrationFiles) {
+		t.Fatalf("migrationFiles drifted from disk: configured=%v disk=%v", migrationFiles, actual)
+	}
+}
+
+func TestRunRejectsModifiedAppliedMigration(t *testing.T) {
+	pool, _ := migrationTestPool(t)
+	ctx := migrationTestContext(t)
+	dir := t.TempDir()
+	file := filepath.Join(dir, "001_checksum.sql")
+	original := "CREATE TABLE checksum_probe (id integer PRIMARY KEY);"
+	if err := os.WriteFile(file, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	files := []string{"001_checksum.sql"}
+	if err := runWithPool(ctx, pool, files, dir); err != nil {
+		t.Fatalf("initial migration run: %v", err)
+	}
+
+	modified := "CREATE TABLE checksum_probe (id bigint PRIMARY KEY);"
+	if err := os.WriteFile(file, []byte(modified), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := runWithPool(ctx, pool, files, dir)
+	if err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+		t.Fatalf("modified applied migration error = %v, want checksum mismatch", err)
+	}
+
+	var recorded string
+	if err := pool.QueryRow(ctx, "SELECT checksum FROM schema_migrations WHERE version=$1", files[0]).Scan(&recorded); err != nil {
+		t.Fatalf("read recorded checksum: %v", err)
+	}
+	if recorded != migrationChecksum([]byte(original)) {
+		t.Fatalf("recorded checksum = %s, want %s", recorded, migrationChecksum([]byte(original)))
 	}
 }
