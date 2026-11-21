@@ -250,4 +250,14 @@ func TestRunRejectsModifiedAppliedMigration(t *testing.T) {
 	if recorded != migrationChecksum([]byte(original)) {
 		t.Fatalf("recorded checksum = %s, want %s", recorded, migrationChecksum([]byte(original)))
 	}
+	var columnType string
+	if err := pool.QueryRow(ctx, `
+		SELECT data_type FROM information_schema.columns
+		WHERE table_schema = current_schema() AND table_name = 'checksum_probe' AND column_name = 'id'
+	`).Scan(&columnType); err != nil {
+		t.Fatalf("read original migration schema: %v", err)
+	}
+	if columnType != "integer" {
+		t.Fatalf("modified migration was unexpectedly executed: column type = %s, want integer", columnType)
+	}
 }
