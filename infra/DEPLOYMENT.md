@@ -1,16 +1,14 @@
 # Single-host MVP deployment
 
-This deployment profile is intentionally small: one Go API process, one Next.js web process, one dispatch-expiry worker, PostgreSQL/PostGIS, and Caddy for automatic HTTPS. It does not introduce Kubernetes, Valkey, or NATS into the first runtime.
+This deployment profile is intentionally small: one Go API process, one Next.js web process, one dispatch-expiry worker, PostgreSQL/PostGIS, and Caddy for automatic HTTPS. An optional outbox publisher worker can be enabled when an HTTPS event sink is configured. The default profile does not introduce Kubernetes, Valkey, or NATS.
 
 ## Release boundary
 
 The repository now contains the first customer/professional/operator API and browser workflow. Treat it as an MVP release candidate until the full CI suite, configured OTP delivery, host deployment, and end-to-end acceptance gate have all passed. Do not expose test OTP/session endpoints or treat ledger primitives as evidence of real payment processing.
 
-Database migrations run in a dedicated one-shot `migrate` Compose service before the API is allowed to start. The runner takes a PostgreSQL advisory lock, applies each migration in its own transaction, and records the SHA-256 checksum with each version in `schema_migrations`. Re-running an unchanged migration is a no-op; changing the contents of an already-applied migration is a hard error and must be handled by adding a new forward migration instead. API replicas no longer execute DDL during startup; this removes the single-replica restriction caused by concurrent startup migrations. Keep the migration service serialized and do not run manual DDL concurrently with it.
+Database migrations run in a dedicated one-shot `migrate` Compose service before the API is allowed to start. The runner takes a PostgreSQL advisory lock, applies each migration in its own transaction, and records completed versions in `schema_migrations`. API replicas no longer execute DDL during startup; this removes the single-replica restriction caused by concurrent startup migrations. Keep the migration service serialized and do not run manual DDL concurrently with it.
 
 The web application and API must remain on the same public origin. Caddy routes `/v1/*` to the Go API and all other paths to Next.js. Browser sessions use Secure, HttpOnly access/refresh cookies and a separate same-origin CSRF token. Cookie-authenticated unsafe requests require the CSRF header and reject a supplied cross-origin Origin. Non-browser API clients may continue using the Bearer session transport.
-
-The web application and API must remain on the same public origin. Caddy routes `/v1/*` to the Go API and all other paths to Next.js. Browser sessions use Secure, HttpOnly access/refresh cookies and a same-origin CSRF token; do not split the web and API across unrelated origins without revisiting cookie and CSRF policy.
 
 ## Host prerequisites
 
@@ -73,6 +71,15 @@ The sample price is 2.500 OMR in the currency's minor-unit representation. Chang
 
 The OTP delivery adapter sends an HTTPS POST with a bearer token and an idempotency key. Verify the provider request/response contract before enabling sign-in. Missing or invalid delivery configuration must fail startup rather than silently falling back to test authentication.
 
+Outbox events are committed transactionally with their business changes. The default Compose profile persists them in PostgreSQL but does not send them to an external destination. When an HTTPS event sink is available, configure `OUTBOX_PUBLISH_URL`, `OUTBOX_PUBLISH_TOKEN`, and optionally `OUTBOX_WORKER_ID`, then enable the optional worker:
+
+```sh
+docker compose --env-file .env.production -f infra/compose.production.yml --profile outbox up -d outbox-worker
+docker compose --env-file .env.production -f infra/compose.production.yml logs --tail=100 outbox-worker
+```
+
+The publisher sends each event with its database event ID as the `Idempotency-Key`. The sink must deduplicate that key because delivery is at-least-once. Network errors and transient HTTP responses are retried; non-retryable 4xx responses are dead-lettered. Do not enable this profile until the sink contract and idempotency behavior are verified.
+
 ## Deploy
 
 Run from the repository root:
@@ -104,11 +111,13 @@ Test backup restoration before treating the host as production-ready. Keep encry
 
 ## Known limitations before public use
 
-- Browser sessions use Secure, HttpOnly access/refresh cookies, a same-origin CSRF token, and Origin validation for cookie-authenticated mutations. Browser-level CSRF/session tests through Caddy are still required before release.
-- Browser-level customer booking → professional offer acceptance → customer status visibility E2E is still a release blocker.
+- Browser sessions use Secure, HttpOnly access/refresh cookies, a same-origin CSRF token, and Origin validation for cookie-authenticated mutations. The browser E2E in open PR #67 passed through local Caddy HTTPS, including CSRF, refresh, access expiry, and sign-out checks; the PR still requires review/merge.
+- The customer booking → operator verification/dispatch → professional acceptance → customer status browser journey passed CI in PR #67. A public deployed smoke test is still required.
+- CI backup/restore rehearsal against the disposable PostgreSQL service passed in open PR #69; production backup storage and restore must still be rehearsed on the actual host.
 - Independent release QA against a clean deployed environment remains required.
 - The OTP adapter requires a real provider endpoint and token.
 - The initial service catalog and sample professional must be seeded for the configured market before the UI can create a booking.
 - Payment capture, escrow movement, refunds, and settlement are not enabled.
 - The initial profile supports multiple API replicas after the one-shot migration service completes, but does not include managed database failover.
-- A host, DNS name, and secret values must be supplied by the operator; none are stored in the repository.
+- Outbox events are persisted but remain unpublished unless the optional outbox profile is enabled with a real HTTPS sink and idempotency support.
+- A host, DNS name, OTP credentials, optional outbox sink credentials, and secret values must be supplied by the operator; none are stored in the repository.
