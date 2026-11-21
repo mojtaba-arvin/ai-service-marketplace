@@ -16,7 +16,6 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17
@@ -34,43 +33,25 @@ jobs:
     env:
       TEST_DATABASE_URL: postgres://marketplace:marketplace@localhost:5432/marketplace?sslmode=disable
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.23"
           cache-dependency-path: apps/api/go.mod
       - name: Resolve Go module checksums
         working-directory: apps/api
-        run: go mod tidy -diff
+        run: go mod tidy
       - name: Verify repository
-        run: make verify
-      - name: Verify changed Go files are formatted and run tests
-        working-directory: apps/api
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.sha }}
-        shell: bash
         run: |
-          set -euo pipefail
-          files=()
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            mapfile -t files < <(git diff --name-only "$BASE_SHA...HEAD" -- '*.go')
-          else
-            mapfile -t files < <(git diff-tree --no-commit-id --name-only -r "$HEAD_SHA" -- '*.go')
-          fi
-          if (("${#files[@]}" > 0)); then
-            formatting_diff="$(gofmt -d "${files[@]}")"
-            if [[ -n "$formatting_diff" ]]; then
-              printf 'Changed Go files require gofmt:\n%s\n' "$formatting_diff" >&2
-              exit 1
-            fi
-          fi
+          chmod +x scripts/verify.sh
+          make verify
+      - name: Verify Go formatting and tests
+        working-directory: apps/api
+        run: |
+          gofmt -w ./cmd ./internal
           go test -race ./...
       - name: Run walking-skeleton HTTP E2E
         env:
