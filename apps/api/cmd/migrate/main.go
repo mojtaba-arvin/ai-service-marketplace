@@ -126,7 +126,7 @@ func runWithPool(ctx context.Context, pool *pgxpool.Pool, files []string, migrat
 		if err != nil {
 			return fmt.Errorf("begin migration %s: %w", name, err)
 		}
-		if _, err = tx.Exec(ctx, string(sql)); err != nil {
+		if _, err = tx.Exec(ctx, string(sql), pgx.QueryExecModeSimpleProtocol); err != nil {
 			_ = tx.Rollback(ctx)
 			return fmt.Errorf("apply migration %s: %w", name, err)
 		}
