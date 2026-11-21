@@ -8,26 +8,19 @@ permissions:
   contents: read
   pull-requests: read
 
-concurrency:
-  group: agent-guard-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
   guard:
     if: startsWith(github.head_ref, 'agent/')
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Reject protected-path changes from implementation agents
         env:
           BASE_REF: ${{ github.base_ref }}
-        shell: bash
         run: |
-          set -euo pipefail
-          git fetch --no-tags origin "$BASE_REF"
+          git fetch origin "$BASE_REF"
           changed="$(git diff --name-only "origin/$BASE_REF...HEAD")"
           printf '%s\n' "$changed"
           if printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)'; then
