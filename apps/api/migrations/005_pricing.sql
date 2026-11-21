@@ -18,22 +18,33 @@ CREATE TABLE IF NOT EXISTS service_price_versions (
     UNIQUE(menu_id, version_no)
 );
 
-DO $$
+ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS price_version_id text;
+
+DO $
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='service_price_menus_active_version_fk') THEN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'service_price_menus_active_version_fk'
+          AND conrelid = 'service_price_menus'::regclass
+    ) THEN
         ALTER TABLE service_price_menus
             ADD CONSTRAINT service_price_menus_active_version_fk
             FOREIGN KEY (active_version_id) REFERENCES service_price_versions(id)
             DEFERRABLE INITIALLY DEFERRED;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='orders_price_version_fk') THEN
-        ALTER TABLE orders
-            ADD COLUMN IF NOT EXISTS price_version_id text;
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'orders_price_version_fk'
+          AND conrelid = 'orders'::regclass
+    ) THEN
         ALTER TABLE orders
             ADD CONSTRAINT orders_price_version_fk
             FOREIGN KEY (price_version_id) REFERENCES service_price_versions(id);
     END IF;
-END $$;
+END $;
 
 CREATE INDEX IF NOT EXISTS service_price_versions_menu_idx
     ON service_price_versions(menu_id, version_no DESC);
