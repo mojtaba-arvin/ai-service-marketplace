@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS service_price_versions (
 ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS price_version_id text;
 
-DO $
+DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1
@@ -44,7 +44,7 @@ BEGIN
             ADD CONSTRAINT orders_price_version_fk
             FOREIGN KEY (price_version_id) REFERENCES service_price_versions(id);
     END IF;
-END $;
+END $$;
 
 CREATE INDEX IF NOT EXISTS service_price_versions_menu_idx
     ON service_price_versions(menu_id, version_no DESC);
