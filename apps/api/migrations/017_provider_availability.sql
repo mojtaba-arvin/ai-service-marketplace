@@ -1,4 +1,4 @@
-CREATE EXTENSION IF NOT EXISTS btree_gist;
+CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
 
 CREATE TABLE IF NOT EXISTS provider_availability_windows (
     id text PRIMARY KEY,
@@ -18,7 +18,7 @@ ALTER TABLE provider_availability_windows
 ALTER TABLE provider_availability_windows
     ADD CONSTRAINT provider_availability_no_overlap
     EXCLUDE USING gist (
-        provider_id WITH =,
+        provider_id public.gist_text_ops WITH =,
         tstzrange(start_at,end_at,'[)') WITH &&
     ) WHERE (window_type='available');
 
