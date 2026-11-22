@@ -25,3 +25,28 @@ func TestPermanentErrorCanBeClassifiedAsNonRetryable(t *testing.T) {
  retryable:=func(err error)bool{return !errors.Is(err,permanent)}
  if retryable(permanent) { t.Fatal("permanent error should be dead-lettered") }
 }
+
+func TestValidateCanonicalDomainEvent(t *testing.T) {
+ event:=DomainEvent{
+  ID:"evt-01",Type:"order.created",Version:1,OccurredAt:time.Date(2026,11,22,10,0,0,0,time.UTC),
+  TenantID:"tenant-a",Aggregate:EventAggregate{Type:"order",ID:"order-01"},
+  Data:[]byte(`{"status":"requested","market_code":"OM"}`),
+ }
+ if err:=ValidateDomainEvent(event);err!=nil { t.Fatalf("valid event rejected: %v",err) }
+}
+
+func TestCanonicalDomainEventFailsClosedForMissingTenantAndSensitiveFields(t *testing.T) {
+ base:=DomainEvent{
+  ID:"evt-01",Type:"order.created",Version:1,OccurredAt:time.Date(2026,11,22,10,0,0,0,time.UTC),
+  TenantID:"tenant-a",Aggregate:EventAggregate{Type:"order",ID:"order-01"},
+  Data:[]byte(`{"status":"requested"}`),
+ }
+ cases:=[]struct{name string; mutate func(*DomainEvent)}{
+  {"missing tenant",func(e *DomainEvent){e.TenantID=""}},
+  {"invalid event type",func(e *DomainEvent){e.Type="Order Created"}},
+  {"non-object data",func(e *DomainEvent){e.Data=[]byte(`["bad"]`)}},
+  {"raw phone field",func(e *DomainEvent){e.Data=[]byte(`{"customer":{"phone":"+96890000000"}}`)}},
+  {"secret metadata",func(e *DomainEvent){e.Metadata=map[string]string{"access_token":"secret"}}},
+ }
+ for _,tc:=range cases {t.Run(tc.name,func(t *testing.T){event:=base;tc.mutate(&event);if err:=ValidateDomainEvent(event);!errors.Is(err,ErrInvalidPolicy){t.Fatalf("expected fail-closed validation, got %v",err)}})}
+}
