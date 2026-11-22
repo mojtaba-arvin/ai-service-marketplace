@@ -94,8 +94,20 @@ PR #104 adds an authenticated pending-invitation inbox, PostgreSQL lifecycle cov
 The feature inventory remains `passes: false` pending independent acceptance. Property delegation management, property update/archive, invitation expiry/re-send/delivery, order/ledger aggregation and consolidated billing remain deferred. No production billing or money movement is enabled.
 
 
-## 2026-11-22 M13 organization/property lifecycle follow-up
 
-Implementation is proposed in [PR #106](https://github.com/mojtaba-arvin/ai-service-marketplace/pull/106) on `agent/88-organization-property-lifecycle`, based on the post-PR-104 `main` baseline. The branch adds organization update/archive, property update/archive, and property-delegation list/grant/role-change/revoke operations. Archive operations are soft and retain historical rows; organization archive archives child properties and revokes all memberships/delegations, while property archive revokes only its own delegations. All mutations are tenant-scoped, lock the organization/property rows, and write append-only audit plus canonical outbox events transactionally.
+## 2026-11-22 PR #106 — organization/property lifecycle merged
 
-Authorization policy: organization updates require owner/admin; organization archive is owner-only; property update/archive require owner/admin/manager; owner/admin can manage manager/viewer property delegations; organization managers may grant/revoke viewer only. Delegation roles currently provide visibility only. PostgreSQL lifecycle integration tests, the complete CI workflow, Security (Dependency Review, Security Detect and all three CodeQL languages), and Agent Guard passed on PR #106 head `2c6935e`. Independent feature QA remains pending; no feature inventory status is changed and no independent QA claim is made.
+PR [#106](https://github.com/mojtaba-arvin/ai-service-marketplace/pull/106) was squash-merged to `main` as `a45390739ed543a09698a55aa15ad618f9e3183a`.
+
+The merged API adds organization update/archive, property update/archive, and property-delegation list/grant/role-change/revoke operations. Authorization is tenant-scoped and role-checked; mutations serialize on organization/property row locks and commit append-only audit plus canonical outbox events transactionally. Archive is soft and preserves historical organization/property/order/ledger rows.
+
+QA evidence on the exact PR head `fd9b95db49c80e2c58c0fba1ce35f9e6a361c611`:
+- CI run [#45020849394](https://github.com/mojtaba-arvin/ai-service-marketplace/actions/runs/45020849394): success, including Go race tests with PostgreSQL 17 and `TEST_DATABASE_URL`, HTTP/browser E2E, Compose checks, and production API/Web image builds.
+- Security run [#45020849401](https://github.com/mojtaba-arvin/ai-service-marketplace/actions/runs/45020849401): success, including Dependency Review, Security Detect and CodeQL Go/Python/JavaScript-TypeScript.
+- Agent Guard run [#45020849366](https://github.com/mojtaba-arvin/ai-service-marketplace/actions/runs/45020849366): success.
+- Agent-led code review checked tenant/organization/property scoping, role restrictions, row-lock serialization, soft archive, audit/outbox transaction boundaries and OpenAPI structure. PostgreSQL lifecycle tests cover update/archive/delegation paths and cross-tenant denials.
+- This is agent-led QA evidence, not independent third-party acceptance. No feature inventory flag was changed.
+
+### Remaining M13 work
+
+Issue #88 remains open. The relationship of B2B orders to properties and the finance attribution/read model are now specified in [ADR 0006](adr/0006-b2b-order-finance-attribution.md), but intentionally not implemented. The current order model lacks organization/property attribution; payment operations and ledger journals lack a reliable order/tenant link. Adding these before independent order and finance QA would create unsafe historical attribution. The implementation gates are #57 (order tenant isolation), #10 (finance invariants), and #87 (canonical event adoption). No legacy financial/order backfill, mutable organization balance, production billing or money movement is authorized by this design.
