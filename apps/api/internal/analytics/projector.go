@@ -8,6 +8,7 @@ import (
     "errors"
     "regexp"
     "strings"
+    "time"
 
     "github.com/jackc/pgx/v5"
     "github.com/jackc/pgx/v5/pgxpool"
@@ -70,6 +71,13 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
     for key:=range fields {
         if _,ok:=allowed[key]; !ok {
             return p.quarantine(ctx,tx,event,"unapproved_event_data_field")
+        }
+    }
+    if domain.Type=="dispatch.offer_created" {
+        rawExpiry,ok:=fields["expires_at"]
+        var expiresAt time.Time
+        if !ok || json.Unmarshal(rawExpiry,&expiresAt)!=nil || !expiresAt.After(domain.OccurredAt) {
+            return p.quarantine(ctx,tx,event,"invalid_offer_expiry")
         }
     }
     marketCode:=domain.Metadata["market_code"]
