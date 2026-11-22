@@ -106,7 +106,7 @@ func (s *Store) CancelOrder(ctx context.Context,actor Actor,orderID,idempotencyK
 	defer tx.Rollback(ctx)
 
 	existing,storedHash,err:=scanOrderCancellation(tx.QueryRow(ctx,`
-		SELECT id,order_id,actor_identity_id,policy_version,from_status,currency,amount_minor,fee_minor,refund_minor,reason,created_at,request_hash
+		SELECT c.id,c.order_id,c.actor_identity_id,c.policy_version,c.from_status,c.currency,c.amount_minor,c.fee_minor,c.refund_minor,c.reason,c.created_at,c.request_hash
 		FROM order_cancellations c JOIN orders o ON o.id=c.order_id
 		WHERE c.actor_identity_id=$1 AND c.idempotency_key=$2 AND o.tenant_id=$3
 	`,actor.SubjectID,idempotencyKey,actor.TenantID))
