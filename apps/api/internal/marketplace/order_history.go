@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 var ErrInvalidHistoryCursor = errors.New("invalid order history cursor")
@@ -20,6 +21,7 @@ type OrderHistoryEvent struct {
 	ID int64 `json:"id"`
 	Type string `json:"type"`
 	Payload json.RawMessage `json:"payload"`
+	DomainEvent json.RawMessage `json:"domain_event,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -41,6 +43,23 @@ func authorizeOrderHistory(actor Actor) error {
 	return Authorize(actor,Resource{TenantID:actor.TenantID,OwnerID:actor.SubjectID},ActionOrderRead)
 }
 
+// normalizeOrderHistoryEvent preserves the historical business-data payload
+// while exposing the canonical envelope separately. Legacy payloads remain
+// byte-for-byte compatible; malformed envelope-shaped payloads fail closed.
+func normalizeOrderHistoryEvent(event *OrderHistoryEvent) error {
+ var fields map[string]json.RawMessage
+ if err:=json.Unmarshal(event.Payload,&fields); err!=nil || fields==nil { return nil }
+ if _,versioned:=fields["version"]; !versioned { return nil }
+ var domain outbox.DomainEvent
+ if err:=json.Unmarshal(event.Payload,&domain); err!=nil || outbox.ValidateDomainEvent(domain)!=nil ||
+  domain.Type!=event.Type {
+  return outbox.ErrInvalidPolicy
+ }
+ event.DomainEvent=append(json.RawMessage(nil),event.Payload...)
+ event.Payload=append(json.RawMessage(nil),domain.Data...)
+ return nil
+}
+
 func loadOrderHistoryEvents(ctx context.Context,tx pgx.Tx,orderID string) ([]OrderHistoryEvent,error) {
 	rows,err:=tx.Query(ctx,`
 		SELECT id,event_type,payload,created_at FROM outbox_events
@@ -52,6 +71,7 @@ func loadOrderHistoryEvents(ctx context.Context,tx pgx.Tx,orderID string) ([]Ord
 	for rows.Next() {
 		var event OrderHistoryEvent
 		if err=rows.Scan(&event.ID,&event.Type,&event.Payload,&event.CreatedAt); err!=nil { return nil,err }
+		if err=normalizeOrderHistoryEvent(&event); err!=nil { return nil,err }
 		events=append(events,event)
 	}
 	if err=rows.Err(); err!=nil { return nil,err }
