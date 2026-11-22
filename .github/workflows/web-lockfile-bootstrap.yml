@@ -6,7 +6,7 @@ on:
       - chore/web-lockfile-bootstrap
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   generate:
@@ -21,10 +21,20 @@ jobs:
       - name: Generate npm lockfile
         working-directory: apps/web
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - name: Upload generated lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-package-lock
-          path: apps/web/package-lock.json
-          if-no-files-found: error
-          retention-days: 3
+      - name: Validate deterministic install and application build
+        working-directory: apps/web
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Switch production image to npm ci
+        run: |
+          sed -i 's/RUN npm install --no-audit --no-fund/RUN npm ci --no-audit --no-fund/' apps/web/Dockerfile
+          docker build --file apps/web/Dockerfile --tag ai-service-marketplace-web:lockfile .
+      - name: Commit lockfile and remove bootstrap workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/package-lock.json apps/web/Dockerfile
+          git rm .github/workflows/web-lockfile-bootstrap.yml
+          git commit -m "build(web): lock npm dependency tree"
+          git push origin HEAD:chore/web-lockfile-bootstrap
