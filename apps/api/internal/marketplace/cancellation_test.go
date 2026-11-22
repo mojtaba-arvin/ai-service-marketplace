@@ -2,6 +2,7 @@ package marketplace
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 func TestVersionedCancellationPolicyAndIdempotencyPostgres(t *testing.T) {
@@ -79,6 +81,13 @@ func TestVersionedCancellationPolicyAndIdempotencyPostgres(t *testing.T) {
 	var status string
 	if err=pool.QueryRow(ctx,`SELECT status FROM orders WHERE id=$1`,earlyOrder.ID).Scan(&status); err!=nil || status!="cancelled" {
 		t.Fatalf("cancelled order state: %s %v",status,err)
+	}
+	var cancellationEventRaw []byte
+	if err=pool.QueryRow(ctx,`SELECT payload FROM outbox_events WHERE aggregate_type='order' AND aggregate_id=$1 AND event_type='order.cancelled'`,earlyOrder.ID).Scan(&cancellationEventRaw); err!=nil { t.Fatal(err) }
+	var cancellationEvent outbox.DomainEvent
+	if err=json.Unmarshal(cancellationEventRaw,&cancellationEvent); err!=nil { t.Fatalf("decode cancellation event: %v",err) }
+	if err=outbox.ValidateDomainEvent(cancellationEvent); err!=nil || cancellationEvent.TenantID!=customer.TenantID || cancellationEvent.Aggregate.ID!=earlyOrder.ID {
+		t.Fatalf("cancellation event must be canonical and tenant-scoped: event=%+v err=%v",cancellationEvent,err)
 	}
 
 	lateOrder:=createOrder("cancel-late-"+fmt.Sprint(time.Now().UnixNano()),time.Now().UTC().Add(45*time.Minute))

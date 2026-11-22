@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 var (
@@ -176,13 +177,19 @@ func (s *Store) CancelOrder(ctx context.Context,actor Actor,orderID,idempotencyK
 	bookingTag,err:=tx.Exec(ctx,`UPDATE provider_bookings SET status='cancelled',updated_at=now() WHERE order_id=$1 AND status='booked'`,orderID)
 	if err!=nil { return OrderCancellation{},err }
 	if bookingTag.RowsAffected()>0 {
-		bookingPayload,_:=json.Marshal(map[string]any{"order_id":orderID,"cancellation_id":id,"status":"cancelled"})
-		if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('order',$1,'provider.booking_cancelled',$2::jsonb)`,orderID,bookingPayload); err!=nil {
+		bookingPayload,marshalErr:=json.Marshal(map[string]any{"order_id":orderID,"cancellation_id":id,"status":"cancelled"})
+		if marshalErr!=nil { return OrderCancellation{},marshalErr }
+		eventID,idErr:=newID()
+		if idErr!=nil { return OrderCancellation{},idErr }
+		if _,err=outbox.AppendDomainEvent(ctx,tx,outbox.DomainEvent{ID:eventID,Type:"provider.booking_cancelled",Version:1,OccurredAt:time.Now().UTC(),TenantID:actor.TenantID,Aggregate:outbox.EventAggregate{Type:"order",ID:orderID},Data:bookingPayload}); err!=nil {
 			return OrderCancellation{},err
 		}
 	}
-	payload,_:=json.Marshal(map[string]any{"order_id":orderID,"from":status,"to":"cancelled","cancellation_id":id})
-	if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('order',$1,'order.cancelled',$2::jsonb)`,orderID,payload); err!=nil {
+	payload,marshalErr:=json.Marshal(map[string]any{"order_id":orderID,"from":status,"to":"cancelled","cancellation_id":id})
+	if marshalErr!=nil { return OrderCancellation{},marshalErr }
+	eventID,err:=newID()
+	if err!=nil { return OrderCancellation{},err }
+	if _,err=outbox.AppendDomainEvent(ctx,tx,outbox.DomainEvent{ID:eventID,Type:"order.cancelled",Version:1,OccurredAt:time.Now().UTC(),TenantID:actor.TenantID,Aggregate:outbox.EventAggregate{Type:"order",ID:orderID},Data:payload}); err!=nil {
 		return OrderCancellation{},err
 	}
 	if err=tx.Commit(ctx); err!=nil { return OrderCancellation{},err }
