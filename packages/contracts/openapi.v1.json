@@ -43,6 +43,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -78,6 +84,12 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -125,6 +137,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -138,7 +156,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionTransport"
+          }
+        ]
       }
     },
     "/v1/auth/session/refresh": {
@@ -171,6 +194,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -184,7 +213,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionTransport"
+          }
+        ]
       }
     },
     "/v1/auth/session/revoke": {
@@ -216,6 +250,12 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -258,6 +298,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -299,6 +345,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -334,6 +386,12 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -374,6 +432,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -392,7 +456,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ]
       }
     },
     "/v1/orders/{order_id}": {
@@ -424,6 +493,12 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -476,6 +551,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -496,6 +577,9 @@
           }
         },
         "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
           {
             "name": "order_id",
             "in": "path",
@@ -538,6 +622,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -576,6 +666,12 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -628,6 +724,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -679,6 +781,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -720,6 +828,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -760,6 +874,12 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -812,6 +932,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -862,6 +988,12 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -924,6 +1056,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -965,6 +1103,12 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -1005,6 +1149,12 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -1056,6 +1206,12 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -1338,6 +1494,26 @@
       },
       "ServerError": {
         "description": "Unexpected server-side failure.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "The request conflicts with the current resource state or idempotency record.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unprocessable": {
+        "description": "The request is syntactically valid but violates domain constraints.",
         "content": {
           "application/json": {
             "schema": {
