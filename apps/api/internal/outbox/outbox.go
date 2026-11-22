@@ -6,6 +6,7 @@ import (
  "encoding/json"
  "errors"
  "fmt"
+ "regexp"
  "strconv"
  "strings"
  "time"
@@ -26,6 +27,77 @@ type PublishFunc func(context.Context,Event,string) error
 func (f PublishFunc) Publish(ctx context.Context,e Event,key string) error { return f(ctx,e,key) }
 
 type Transaction interface { QueryRow(context.Context,string,...any) pgx.Row }
+
+type EventAggregate struct {
+ Type string `json:"type"`
+ ID string `json:"id"`
+}
+
+// DomainEvent is the canonical v1 tenant-scoped envelope.
+type DomainEvent struct {
+ ID string `json:"id"`
+ Type string `json:"type"`
+ Version int `json:"version"`
+ OccurredAt time.Time `json:"occurred_at"`
+ TenantID string `json:"tenant_id"`
+ Aggregate EventAggregate `json:"aggregate"`
+ CorrelationID string `json:"correlation_id,omitempty"`
+ CausationID string `json:"causation_id,omitempty"`
+ Data json.RawMessage `json:"data"`
+ Metadata map[string]string `json:"metadata,omitempty"`
+}
+
+var domainEventTypePattern = regexp.MustCompile("^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_]*)+$")
+
+var prohibitedEventFieldNames = map[string]struct{}{
+ "phone": {}, "phone_number": {}, "email": {}, "address": {},
+ "full_address": {}, "access_token": {}, "refresh_token": {}, "token": {},
+ "password": {}, "secret": {}, "evidence_ref": {}, "evidence_reference": {},
+ "national_id": {}, "identity_document": {}, "raw_text": {},
+ "latitude": {}, "longitude": {},
+}
+
+func ValidateDomainEvent(event DomainEvent) error {
+ if strings.TrimSpace(event.ID)=="" || len(event.ID)>200 ||
+  !domainEventTypePattern.MatchString(event.Type) || len(event.Type)>160 ||
+  event.Version<1 || event.OccurredAt.IsZero() ||
+  strings.TrimSpace(event.TenantID)=="" || len(event.TenantID)>120 ||
+  strings.TrimSpace(event.Aggregate.Type)=="" || len(event.Aggregate.Type)>80 ||
+  strings.TrimSpace(event.Aggregate.ID)=="" || len(event.Aggregate.ID)>200 ||
+  len(event.CorrelationID)>200 || len(event.CausationID)>200 ||
+  len(event.Data)==0 || len(event.Data)>256*1024 || !json.Valid(event.Data) {
+  return ErrInvalidPolicy
+ }
+ var data map[string]any
+ if err:=json.Unmarshal(event.Data,&data); err!=nil || data==nil { return ErrInvalidPolicy }
+ if containsProhibitedEventField(data) { return ErrInvalidPolicy }
+ for key:=range event.Metadata {
+  normalized:=strings.ToLower(strings.TrimSpace(key))
+  if _,blocked:=prohibitedEventFieldNames[normalized]; blocked { return ErrInvalidPolicy }
+ }
+ return nil
+}
+
+func containsProhibitedEventField(value any) bool {
+ switch typed:=value.(type) {
+ case map[string]any:
+  for key,nested:=range typed {
+   normalized:=strings.ToLower(strings.TrimSpace(key))
+   if _,blocked:=prohibitedEventFieldNames[normalized]; blocked { return true }
+   if containsProhibitedEventField(nested) { return true }
+  }
+ case []any:
+  for _,nested:=range typed { if containsProhibitedEventField(nested) { return true } }
+ }
+ return false
+}
+
+func AppendDomainEvent(ctx context.Context, tx Transaction, event DomainEvent) (int64,error) {
+ if err:=ValidateDomainEvent(event); err!=nil { return 0,err }
+ payload,err:=json.Marshal(event)
+ if err!=nil { return 0,err }
+ return Append(ctx,tx,event.Aggregate.Type,event.Aggregate.ID,event.Type,payload)
+}
 
 func Append(ctx context.Context,tx Transaction,aggregateType,aggregateID,eventType string,payload json.RawMessage)(int64,error) {
  if tx==nil||strings.TrimSpace(aggregateType)==""||strings.TrimSpace(aggregateID)==""||strings.TrimSpace(eventType)==""||len(payload)==0||len(payload)>256*1024||!json.Valid(payload){return 0,ErrInvalidPolicy}
