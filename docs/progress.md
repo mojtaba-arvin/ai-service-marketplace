@@ -1,61 +1,64 @@
 # Development Progress
 
-> Update at the end of each engineering session. Do not mark features passing without independent QA evidence.
+> Status snapshot: 2026-11-22. Update after each engineering session. Never mark a feature QA-passing without independent evidence.
 
-## Current phase
+## Project direction
 
-The API, responsive browser MVP, browser-level E2E journey, and disposable PostgreSQL backup/restore rehearsal are integrated into `main` for one configured market. CI and CodeQL passed on the post-merge commit. The project is not deployed to a live host; production smoke/restore and independent release QA remain open.
+This is an open-source, reusable home-services marketplace platform. Geographic context (Armenia and the GCC countries) informs localization, configuration, and compatibility scenarios; it is not a go-to-market plan, a launch sequence, or permission to enable regulated production integrations.
 
-## Completed foundation
+The long-term engineering stages and exit gates are documented in [the engineering roadmap](ROADMAP.md). This file records the evidence-backed current state; the roadmap is not a substitute for issue-level acceptance criteria.
 
-- Repository harness, ADRs, agent instructions, playbooks, issue/PR templates, module scaffolds, Docker Compose, CI, and security workflows.
-- 44 atomic backlog features across all 14 modules, with acceptance criteria, dependencies, S/M sizing, nature tags, and QA status. Issues #11–#17 are closed as not planned for the current MVP; their feature records remain intact.
-- Backlog checker validates feature shape, unique IDs, dependency references/cycles, sizing, and QA evidence invariants.
-- PostgreSQL walking skeleton: test-only OTP/auth, idempotent order creation, guarded state transitions, transactional outbox, idempotent outbox consumer, simulated balanced append-only ledger, and HTTP E2E.
-- Backend integration baseline merged through PR #58.
-- Single-host deployment foundation merged through PR #60.
-- Production-safe customer/professional/operator API vertical slice merged through PR #61 (merge commit `1f022a236c8cae4bf0bcb39d061f3b5d412d0c09`).
-- 29 of 44 feature records have implementation merged. MSG-003 has partial transport groundwork; remaining 14 features are not implemented. No feature is marked QA-passing.
+## Integrated on main
 
-## Current MVP delivery
+The current main baseline is `255659317f5bf7202966c79fe2aa4e65b3253010`.
 
-- API: merged to `main` via PR #61. CI and CodeQL passed; dependency-review was skipped because the repository dependency graph is not enabled.
-- Web: merged via PR #62 (merge commit `58678ae2b3c03b066e574e40afc1f2c79afaa80c`). Production web image build passed with Next.js 15.5.29 and React/React DOM 19.1.10. PR #78 adds the npm v3 lockfile and changes the dependency stage to copy both manifest files and run `npm ci`.
-- Web security boundary: sessionStorage token storage is temporary. Move to Secure, HttpOnly, SameSite cookies and add reviewed CSRF protection before broad public launch.
-- Deployment: production Compose, non-root API/worker image, Caddy HTTPS ingress, and deployment/backup/restore instructions are merged. Actual host, DNS, OTP provider credentials, peppers, smoke test, and backup/restore validation remain external deployment work in #56.
-- Release QA: independent end-to-end and negative-path validation remains open in #57. No public release or independent QA sign-off is claimed.
+- Go modular-monolith API and PostgreSQL persistence.
+- Customer/professional/operator API vertical slice and responsive Next.js browser application.
+- Browser session hardening using HttpOnly cookies and CSRF/Origin protections.
+- One-shot migration runner with PostgreSQL advisory-lock serialization, transactional migrations, replay safety, and concurrency/rollback/retry integration coverage.
+- Production-oriented container and Compose deployment foundation with Caddy HTTPS ingress.
+- Browser E2E journey covering customer booking, operator verification/dispatch, professional acceptance, order status, cookie/CSRF/refresh/sign-out behavior.
+- CI rehearsal for PostgreSQL backup/restore and transactional outbox behavior.
+- CI, CodeQL, dependency review, repository ruleset, and agent guard workflows are present.
 
-## Verification evidence
+These are repository-integrated capabilities. They do not establish that the application is running on a public production host or that every feature has passed independent QA.
 
-- PR #61: Go formatting/tests, repository verification, PostgreSQL integration, HTTP E2E, Compose validation, production API image build, CodeQL Go/Python passed. Dependency-review skipped pending dependency-graph enablement.
-- PR #62: corrected customer JSX grouping and strict TypeScript nullability errors (currency fraction metadata and market timezone); production web image build passed on Next.js 15.5.29. CI, CodeQL Go, Python, and JavaScript/TypeScript passed. Dependency-review skipped pending dependency-graph enablement.
-- PR #72: aligned Go CI/API image toolchain with Go 1.25, upgraded `golang.org/x/crypto` to `0.52.0`, and integrated browser journey plus disposable PostgreSQL backup/restore/outbox rehearsal. PR CI and CodeQL passed before merge.
-- PR #78: generated `apps/web/package-lock.json` on a GitHub-hosted runner (npm lockfileVersion 3); `npm ci --ignore-scripts --no-audit --no-fund`, `npm run build`, and the production Docker image build using `npm ci` all passed in bootstrap run `44996862114`. The temporary bootstrap workflow removed itself after committing the lockfile and Dockerfile change.
-- Post-merge commit `406c2f968c5c0e24d2ccb9fe75d12546d08385a5`: CI run `44994610354` passed; Security run `44994610357` passed for `detect` and all three CodeQL jobs, while `dependency-review` was skipped; Dependabot Go module graph update run `44994614747` succeeded.
-- Security language detection now scans Go, Python, and JavaScript/TypeScript.
-- No local checkout/test execution or real-host deployment was available in this session.
+## Current release-foundation state
 
-## Owner decisions and repository settings
+- Repository-side deployment assets and migration safety work are integrated. Real-host provisioning, DNS, production secrets, OTP delivery credentials, public smoke tests, and backup/restore against actual production storage remain external deployment tasks tracked in #56.
+- Independent end-to-end and negative-path release verification remains tracked in #57.
+- The parent MVP vertical-slice issue #53 remains open until its stated deployment and independent verification criteria are met.
+- Real payment capture, escrow movement, settlement, and production KYC are not enabled by the current MVP. Simulated ledger behavior and test-only identity paths must never be presented as production integrations.
+- An external outbox sink is optional and is not configured in the repository baseline.
 
-- Enable the repository dependency graph and set `DEPENDENCY_GRAPH_ENABLED=true`; the post-merge Dependabot Go module graph update succeeded, but this does not prove the repository-wide dependency graph setting or the Actions variable is enabled.
-- An active `protect main` ruleset blocks deletion and non-fast-forward updates; required PR/CI/Security checks and Actions permissions still need configuration.
-- Enable Dependabot alerts/security updates and secret scanning/push protection where available.
-- `.github/CODEOWNERS` now assigns the verified repository owner `@mojtaba-arvin`; mandatory code-owner approval is not enabled.
-- MIT license is present in the repository.
-- Confirm launch jurisdiction before enabling regulated payment, KYC, tax, or labor-related workflows.
+## Backlog and QA discipline
 
-## Remaining release work
+- The feature inventory in `feature_list.json` is the structured source of truth for feature acceptance and QA state.
+- Implementation merged is not equivalent to independently verified.
+- Keep `passes: false` until an independent verification workflow records evidence and the verifier identity.
+- Module tracker issues #5–#10 and #18 remain useful coordination records; reconcile them against the current feature inventory before changing their status.
+- Do not remove deferred capabilities merely because they are outside the current vertical slice.
 
-1. Extend and independently review the integrated browser-level E2E journey; automated CI rehearsal is present, but independent release QA remains open in #57.
-2. Replace temporary sessionStorage tokens with Secure, HttpOnly, SameSite cookies and add reviewed CSRF protection before broad public exposure.
-3. Provision the actual host, DNS, OTP delivery provider, and production secrets through #56.
-4. Run independent authorization, idempotency, expiry, concurrency, failure, backup/restore, and deployed smoke tests through #57.
-5. Continue independent QA for module trackers #5–#10 and #18; keep `passes: false` until evidence is recorded.
+## Security and repository operations
 
-## Deferred product backlog
+- The active `protect main` ruleset was confirmed on 2026-11-22. Required checks and branch protections are documented in issue #2.
+- Dependency Review succeeded on PR #84 (Security run #45001472857); its post-merge skip in run #45002061644 is expected because that job is pull-request-only.
+- The current security workflow does not require a `DEPENDENCY_GRAPH_ENABLED` Actions variable.
+- Dependabot alerts/security updates and repository-level secret scanning/push-protection settings still require owner-side confirmation in GitHub Settings; do not report them as enabled without verification.
+- CODEOWNER approval is intentionally not required while the project has a single maintainer. Revisit when an independent maintainer is added.
 
-- Implemented but not independently QA-passed: identity, catalog, pricing, orders, dispatch, finance primitives/contracts, TRUST-001, MSG-001/002, SUP-001, and PLAT-001–004.
-- Partial: MSG-003 has an HTTPS outbox publisher groundwork; notification preferences and complete adapters remain.
-- Not implemented: TRUST-002–004, SUP-002, ADMIN-001–003, GROW-001–002, AN-001–002, and B2B-001–003.
-- Financial invariants remain mandatory: integer minor units, balanced immutable double-entry journals, idempotency, and compensating reversals. No live payment capture, escrow, refund, or settlement is enabled in the MVP.
-- AI suggestions must never authorize identity/safety decisions or set payable prices.
+## Geographic configuration guidance
+
+Use Armenia and Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, and the United Arab Emirates as representative configuration/test contexts when useful. Keep country, currency, locale, language/direction, timezone, and provider configuration explicit and data-driven. These examples do not establish a production launch jurisdiction or imply that payments, KYC, tax, labor, or other regulated workflows are approved.
+
+## Next engineering priorities
+
+1. **Independent release QA (#57):** extend and execute negative-path coverage for authorization, idempotency, expiry, concurrency, migration failures, unavailable dependencies, and data recovery. Record evidence; do not self-certify.
+2. **Reproducible deployment (#56):** complete host-agnostic documentation and deployment checks; keep actual host/DNS/credentials as explicit owner-operated steps.
+3. **Feature QA:** independently validate implemented features in `feature_list.json`, starting with security- and money-sensitive identity, order, dispatch, ledger, and market-configuration invariants.
+4. **Architecture/spec alignment:** ensure module specifications, OpenAPI/event contracts, ADRs, and implementation agree; add missing executable contract tests before expanding scope.
+5. **Open-source contributor readiness:** keep setup instructions deterministic, document supported local workflows, clarify contribution/review expectations, and ensure CI can run without live third-party credentials.
+
+## Verification limitations
+
+This snapshot is based on repository files, issue records, and GitHub workflow evidence. No claim is made here that a local checkout was built in this session, that a real host was provisioned, or that independent release QA has passed.
