@@ -31,7 +31,7 @@ Metric definitions must specify event source, denominator, time window, timezone
 
 Tracking: [#88](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/88). Architecture decision: [ADR 0004](../adr/0004-tenant-organization-boundary.md).
 
-Organization membership, property registry and consolidated statements are backlog capabilities, not current MVP functionality. The future model must distinguish tenant (security/data boundary) from organization (business grouping). An organization may not bypass identity membership or tenant isolation. Property/location records need explicit ownership, access delegation, archival and audit rules. Consolidated billing is a read model over immutable financial postings, not a mutable balance field.
+Migration `024_organizations_properties.sql` provides the first tenant-scoped schema foundation for organizations, organization memberships, properties, property delegations and append-only organization audit events. Composite foreign keys bind actor attribution to membership in the same tenant and organization. This is schema groundwork only: service/API authorization, invitation delivery, revocation behavior, property access handlers and consolidated statements remain unimplemented and must be tested before the module is considered usable. The model distinguishes tenant (security/data boundary) from organization (business grouping). An organization may not bypass identity membership or tenant isolation. Consolidated billing is a read model over immutable financial postings, not a mutable balance field.
 
 ## AI intake and evaluation (M14)
 
