@@ -25,8 +25,30 @@ if ! grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' "$TMP_DIR/health.json"; th
   echo "health endpoint did not return the expected healthy payload" >&2
   exit 1
 fi
-if ! grep -Eiq '^X-Request-ID:[[:space:]]*[0-9a-f]{32}[[:space:]]*$' "$TMP_DIR/health.headers"; then
-  echo "health response is missing a server-generated 128-bit X-Request-ID" >&2
+request_id_header="$(grep -i '^X-Request-ID:' "$TMP_DIR/health.headers" || true)"
+if [[ -n "$request_id_header" ]] && ! grep -Eiq '^X-Request-ID:[[:space:]]*[0-9a-f]{32}[[:space:]]*
+
+echo "==> Checking deployed web origin"
+"$CURL" --fail --silent --show-error --output /dev/null "$BASE_URL/"
+
+if [[ -n "${HTTP_BASE_URL:-}" ]]; then
+  case "$HTTP_BASE_URL" in
+    http://*) ;;
+    *) echo "HTTP_BASE_URL must use http://" >&2; exit 2 ;;
+  esac
+  redirect="$("$CURL" --silent --show-error --output /dev/null --max-time 15 \
+    --write-out '%{http_code} %{redirect_url}' "${HTTP_BASE_URL%/}/healthz")"
+  code="${redirect%% *}"
+  destination="${redirect#* }"
+  if [[ "$code" != "301" && "$code" != "308" ]] || [[ "$destination" != https://* ]]; then
+    echo "HTTP ingress did not redirect to HTTPS (received: $redirect)" >&2
+    exit 1
+  fi
+fi
+
+echo "Deployment smoke test passed for $BASE_URL"
+ <<<"$request_id_header"; then
+  echo "health response contains a malformed X-Request-ID" >&2
   exit 1
 fi
 
