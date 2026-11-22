@@ -1333,13 +1333,9 @@
         "properties": {
           "to": {
             "type": "string",
-            "enum": [
-              "in_progress",
-              "completed",
-              "cancelled",
-              "disputed",
-              "accepted"
-            ]
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "Target state; the server validates the role-specific state machine."
           }
         }
       },
