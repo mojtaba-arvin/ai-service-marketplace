@@ -2,6 +2,8 @@ package aiintake
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"testing"
@@ -44,6 +46,7 @@ func TestSuggestRejectsUnknownOrForbiddenFields(t *testing.T) {
 		`{"category_id":"unknown","summary":"x","required_details":[],"confidence":0.5}`,
 		`{"category_id":"cleaning","summary":"x","required_details":[],"confidence":0.5,"price_minor":100}`,
 		`{"category_id":"cleaning","summary":"x","required_details":[],"confidence":0.5,"identity_verified":true}`,
+		`{"category_id":"cleaning","summary":"x","required_details":[],"confidence":0.5,"refund_approved":true,"actions":["create_order"]}`,
 		`{"category_id":"cleaning","summary":"x","required_details":[],"confidence":1.1}`,
 		`{"category_id":"cleaning","summary":"x","confidence":0.5}`,
 		`{"category_id":"cleaning","summary":"x","required_details":[]}`,
@@ -65,7 +68,13 @@ func TestSuggestRedactsBeforeModelAndFingerprintsRedactedText(t *testing.T) {
 	got,err:=s.Suggest(context.Background(),Request{Market:"OM",Locale:"en",Text:"phone +968 9000 0000"})
 	if err!=nil {t.Fatal(err)}
 	if model.input.Text!="cleaned text" {t.Fatalf("model received unredacted text: %q",model.input.Text)}
-	if got.Provenance.InputSHA256=="" {t.Fatal("missing redacted-input fingerprint")}
+	expected := sha256.Sum256([]byte("cleaned text"))
+	if got.Provenance.InputSHA256 != hex.EncodeToString(expected[:]) {
+		t.Fatalf("provenance fingerprint must cover redacted input only: got %s", got.Provenance.InputSHA256)
+	}
+	if got.Provenance.InputSHA256 == hex.EncodeToString(sha256.Sum256([]byte("phone +968 9000 0000"))[:]) {
+		t.Fatal("provenance fingerprint exposed the raw input")
+	}
 }
 
 func TestSuggestFailsClosedWhenRedactionFails(t *testing.T) {
