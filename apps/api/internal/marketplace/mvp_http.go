@@ -322,6 +322,13 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
     }
     path := r.URL.Path
     switch {
+    case r.Method == http.MethodGet && path == "/v1/organizations":
+        h.organizationList(w,r); return true
+    case r.Method == http.MethodGet && strings.HasPrefix(path,"/v1/organizations/"):
+        organizationID,ok:=parseOrganizationPath(path)
+        if !ok { writeError(w,http.StatusNotFound,"not found"); return true }
+        if strings.HasSuffix(path,"/properties") { h.organizationProperties(w,r,organizationID) } else { h.organizationGet(w,r,organizationID) }
+        return true
     case r.Method == http.MethodGet && path == "/v1/catalog":
         h.publicCatalog(w,r); return true
     case r.Method == http.MethodPost && path == "/v1/orders":
