@@ -204,6 +204,11 @@ func (s *Store) RevokeOrganizationMember(ctx context.Context, actorID, tenantID,
 		if err=tx.QueryRow(ctx,`SELECT count(*) FROM organization_memberships WHERE organization_id=$1 AND tenant_id=$2 AND role='owner' AND status='active'`,organizationID,tenantID).Scan(&owners);err!=nil{return err}
 		if owners<=1{return ErrMembershipConflict}
 	}
+	_,err=tx.Exec(ctx,`
+		UPDATE property_memberships SET status='revoked',revoked_at=now()
+		WHERE organization_id=$1 AND tenant_id=$2 AND identity_id=$3 AND status='active'
+	`,organizationID,tenantID,targetID)
+	if err!=nil{return err}
 	_,err=tx.Exec(ctx,`UPDATE organization_memberships SET status='revoked',revoked_at=now(),updated_at=now() WHERE id=$1`,membershipID)
 	if err!=nil{return err}
 	if err=appendOrganizationAudit(ctx,tx,organizationID,tenantID,actorID,actorIdentityRole,"organization.member.revoked",map[string]string{"identity_id":targetID,"role":targetRole});err!=nil{return err}
@@ -234,7 +239,7 @@ func (h *Handler) organizationMembershipRoutes(w http.ResponseWriter,r *http.Req
 		writeMembershipResult(w,item,e)
 		return true
 	}
-	if len(parts)==6 && parts[3]=="invitations" && parts[5]=="accept" && r.Method==http.MethodPost {
+	if len(parts)==5 && parts[3]=="invitations" && parts[4]=="accept" && r.Method==http.MethodPost {
 		item,e:=h.Store.AcceptOrganizationInvitation(r.Context(),principal.IdentityID,tenantID,organizationID)
 		writeMembershipResult(w,item,e)
 		return true
