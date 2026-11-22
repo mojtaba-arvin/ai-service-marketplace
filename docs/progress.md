@@ -10,7 +10,7 @@ The long-term engineering stages and exit gates are documented in [the engineeri
 
 ## Integrated on main
 
-The current main baseline is `255659317f5bf7202966c79fe2aa4e65b3253010`.
+The current main baseline includes PR #86 (`e3ff27c09104a63c7ab79b243dddbd127b0f4c7f`) and PR #90 (`9db26f97306747bb020a2110ed43060b8622b635`).
 
 - Go modular-monolith API and PostgreSQL persistence.
 - Customer/professional/operator API vertical slice and responsive Next.js browser application.
@@ -73,6 +73,6 @@ PR [#86](https://github.com/mojtaba-arvin/ai-service-marketplace/pull/86) was sq
 - **Contributor readiness:** `CONTRIBUTING.md` and `SECURITY.md` establish contribution, verification and private vulnerability-reporting guidance.
 - **Long-term modules:** #87 tracks analytics/event adoption, #88 tracks B2B organization/property modeling, and #89 tracks adversarial AI evaluation and prompt governance. ADRs 0004 and 0005 record tenant/organization separation and the canonical event envelope.
 
-Post-merge tenant-access audit identified additional order history, timeline, professional-order and cancellation paths requiring explicit tenant checks; follow-up PR #90 is under CI verification. M14 prompt-governance regression work is tracked in PR #91, and the first canonical event-writer primitive is tracked in PR #92. The initial B2B schema foundation is tracked in PR #93. These follow-ups are not considered complete until their CI and acceptance criteria pass.
+PR #90 is now merged after CI, Security and Agent Guard passed. It scopes customer history/timeline, professional order reads/transitions and cancellation idempotency to the order tenant, with a same-identity cross-tenant regression. M14 prompt-governance regression work is in PR #91 (CI, Security and Agent Guard passed). The canonical event-writer primitive is in PR #92 (CI verification pending after a validation fix). The B2B schema foundation is in PR #93 (CI/Security pending; Agent Guard passed after removing a prohibited feature-inventory edit). These follow-ups are not considered complete until their current CI and acceptance criteria pass.
 
 No feature inventory item has been marked independently passing. M12 producer/consumer adoption, M13 service/API authorization and M14 adversarial evaluation gates remain incomplete until their focused follow-up work is accepted.
