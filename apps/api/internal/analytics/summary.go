@@ -46,20 +46,24 @@ func QuerySummary(ctx context.Context,db *pgxpool.Pool,tenantID string,filter Su
     result.WindowFrom,result.WindowTo,result.MarketCode=from,to,filter.MarketCode
     err:=db.QueryRow(ctx,`
 WITH created_orders AS (
-    SELECT DISTINCT tenant_id,data->>'order_id' AS order_id,market_code,occurred_at AS created_at
+    SELECT DISTINCT ON (tenant_id,data->>'order_id',market_code)
+           tenant_id,data->>'order_id' AS order_id,market_code,occurred_at AS created_at
     FROM analytics_event_facts
     WHERE tenant_id=$1 AND event_type='order.created' AND traffic_class='production'
       AND market_code IS NOT NULL AND occurred_at >= $2 AND occurred_at < $3
       AND ($4='' OR market_code=$4) AND NULLIF(data->>'order_id','') IS NOT NULL
+    ORDER BY tenant_id,data->>'order_id',market_code,occurred_at,event_id
 ),
 created_offers AS (
-    SELECT DISTINCT tenant_id,data->>'offer_id' AS offer_id,data->>'order_id' AS order_id,
+    SELECT DISTINCT ON (tenant_id,data->>'offer_id',market_code)
+           tenant_id,data->>'offer_id' AS offer_id,data->>'order_id' AS order_id,
            market_code,occurred_at AS created_at,(data->>'expires_at')::timestamptz AS expires_at
     FROM analytics_event_facts
     WHERE tenant_id=$1 AND event_type='dispatch.offer_created' AND traffic_class='production'
       AND market_code IS NOT NULL AND occurred_at >= $2 AND occurred_at < $3
       AND ($4='' OR market_code=$4) AND NULLIF(data->>'offer_id','') IS NOT NULL
       AND NULLIF(data->>'expires_at','') IS NOT NULL
+    ORDER BY tenant_id,data->>'offer_id',market_code,occurred_at,event_id
 ),
 assignments AS (
     SELECT DISTINCT tenant_id,data->>'order_id' AS order_id,data->>'offer_id' AS offer_id,
