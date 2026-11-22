@@ -1652,141 +1652,136 @@
         ]
       },
       "patch": {
-        "patch": {
-          "summary": "Update an organization",
-          "operationId": "update_organization",
-          "tags": [
-            "B2B"
-          ],
-          "description": "Updates the name and/or slug. Only active owners and admins may update an active organization.",
-          "security": [
-            {
-              "bearerAuth": []
-            },
-            {
-              "cookieAuth": []
-            }
-          ],
-          "parameters": [
-            {
-              "name": "organization_id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 200
-              }
-            },
-            {
-              "$ref": "#/components/parameters/TenantID"
-            }
-          ],
-          "requestBody": {
+        "summary": "Update an organization",
+        "operationId": "update_organization",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Updates the name and/or slug. Only active owners and admins may update an active organization.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
             "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updates the name and/or slug. Only active owners and admins may update an active organization.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrganizationUpdate"
+                  "$ref": "#/components/schemas/OrganizationResponse"
                 }
               }
             }
           },
-          "responses": {
-            "200": {
-              "description": "Updates the name and/or slug. Only active owners and admins may update an active organization.",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Object"
-                  }
-                }
-              }
-            },
-            "400": {
-              "$ref": "#/components/responses/BadRequest"
-            },
-            "401": {
-              "$ref": "#/components/responses/Unauthorized"
-            },
-            "403": {
-              "$ref": "#/components/responses/Forbidden"
-            },
-            "404": {
-              "$ref": "#/components/responses/NotFound"
-            },
-            "409": {
-              "$ref": "#/components/responses/Conflict"
-            },
-            "500": {
-              "$ref": "#/components/responses/ServerError"
-            }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           }
         }
       },
       "delete": {
-        "delete": {
-          "summary": "Archive an organization",
-          "operationId": "archive_organization",
-          "tags": [
-            "B2B"
-          ],
-          "description": "Soft-archives the organization. Only the active owner may archive it. All organization memberships and property delegations are revoked atomically; properties and downstream order/ledger history are retained.",
-          "security": [
-            {
-              "bearerAuth": []
-            },
-            {
-              "cookieAuth": []
+        "summary": "Archive an organization",
+        "operationId": "archive_organization",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Soft-archives the organization. Only the active owner may archive it. Child properties are archived and all organization memberships and property delegations are revoked atomically; historical rows and downstream order/ledger records are retained.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
             }
-          ],
-          "parameters": [
-            {
-              "name": "organization_id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 200
-              }
-            },
-            {
-              "$ref": "#/components/parameters/TenantID"
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Soft-archives the organization. Only the active owner may archive it. All organization memberships and property delegations are revoked atomically; properties and downstream order/ledger history are retained.",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Object"
-                  }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Soft-archives the organization. Only the active owner may archive it. All organization memberships and property delegations are revoked atomically; properties and downstream order/ledger history are retained.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
-            },
-            "400": {
-              "$ref": "#/components/responses/BadRequest"
-            },
-            "401": {
-              "$ref": "#/components/responses/Unauthorized"
-            },
-            "403": {
-              "$ref": "#/components/responses/Forbidden"
-            },
-            "404": {
-              "$ref": "#/components/responses/NotFound"
-            },
-            "409": {
-              "$ref": "#/components/responses/Conflict"
-            },
-            "500": {
-              "$ref": "#/components/responses/ServerError"
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           }
-        },
-        "description": "Soft-archives the organization. Only the active owner may archive it. Child properties are archived and all organization memberships and property delegations are revoked atomically; historical rows and downstream order/ledger records are retained."
+        }
       }
     },
     "/v1/organizations/{organization_id}/properties": {
@@ -2266,7 +2261,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Object"
+                  "$ref": "#/components/schemas/PropertyResponse"
                 }
               }
             }
@@ -2337,7 +2332,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Object"
+                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
             }
@@ -2410,7 +2405,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Object"
+                  "$ref": "#/components/schemas/PropertyMembershipsResponse"
                 }
               }
             }
@@ -2491,7 +2486,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Object"
+                  "$ref": "#/components/schemas/PropertyMembershipResponse"
                 }
               }
             }
@@ -2574,7 +2569,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Object"
+                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
             }
@@ -2667,7 +2662,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Object"
+                  "$ref": "#/components/schemas/PropertyMembershipResponse"
                 }
               }
             }
@@ -3198,6 +3193,180 @@
           "revoked_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "OrganizationSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "tenant_id",
+          "name",
+          "slug",
+          "status",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "manager",
+              "member",
+              "viewer"
+            ]
+          }
+        }
+      },
+      "PropertySummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "organization_id",
+          "tenant_id",
+          "property_code",
+          "name",
+          "country_code",
+          "region_code",
+          "city_code",
+          "area_code",
+          "status",
+          "access_role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "property_code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "region_code": {
+            "type": "string"
+          },
+          "city_code": {
+            "type": "string"
+          },
+          "area_code": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ]
+          },
+          "access_role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "manager",
+              "member",
+              "viewer"
+            ]
+          }
+        }
+      },
+      "OrganizationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "organization"
+        ],
+        "properties": {
+          "organization": {
+            "$ref": "#/components/schemas/OrganizationSummary"
+          }
+        }
+      },
+      "PropertyResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "property"
+        ],
+        "properties": {
+          "property": {
+            "$ref": "#/components/schemas/PropertySummary"
+          }
+        }
+      },
+      "PropertyMembershipResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "membership"
+        ],
+        "properties": {
+          "membership": {
+            "$ref": "#/components/schemas/PropertyMembership"
+          }
+        }
+      },
+      "PropertyMembershipsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "memberships"
+        ],
+        "properties": {
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PropertyMembership"
+            }
+          }
+        }
+      },
+      "StatusResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "archived",
+              "revoked"
+            ]
           }
         }
       }
