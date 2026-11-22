@@ -41,6 +41,9 @@ Migration `024_organizations_properties.sql` and the organization API provide a 
 - Invite identities already registered as customer/professional in the same tenant; invitations are pending memberships and are surfaced through `GET /v1/organization-invitations` (maximum 100, newest first) for the authenticated identity and selected tenant.
 - The invitee alone can accept its pending invitation. Membership role changes enforce owner/admin/manager policy. Revocation atomically revokes the organization membership and that identity's active property delegations.
 - Organization writes and membership lifecycle mutations persist append-only audit records and canonical tenant-scoped outbox events in the same database transaction.
+- Organization owners/admins can update organization names/slugs; only owners can archive an organization. Archiving is soft and terminal in this API: it archives child properties, revokes all organization memberships and property delegations, and retains historical rows.
+- Owners/admins/managers can update active property metadata; owners/admins/managers can archive properties. Property archive is soft, revokes active delegations, and preserves the property row for downstream order/ledger history.
+- Property delegation APIs list, grant, change and revoke property visibility. Owners/admins can grant manager/viewer and change either role; organization managers can grant/revoke viewer only. Only active organization members with member/viewer roles can receive delegations. Property delegation roles currently grant visibility only and do not confer organization-management or property-write authority.
 - The API contract is maintained in `packages/contracts/openapi.v1.json`; tenant selection through `X-Tenant-ID` is a context selector, never proof of authorization.
 
 ### Authorization invariants
@@ -49,11 +52,13 @@ Migration `024_organizations_properties.sql` and the organization API provide a 
 - Every operation resolves the authenticated identity against the selected tenant and current organization membership in the database. Token claims and client-supplied tenant IDs are not sufficient authorization.
 - Authorization is deny-by-default. Owners may manage all organization roles; admins cannot grant/manage owners; managers may manage only members/viewers and assign only member/viewer. Other roles cannot manage membership.
 - The last active owner cannot be demoted or revoked. Membership mutation transactions serialize on the organization row to prevent concurrent last-owner races.
+- Property delegation management is limited to owner/admin/manager actors; manager actors may grant/revoke viewer access only. Delegation targets must be active organization members, and property delegation roles currently control visibility only.
+- Archiving is non-destructive: archived organizations and properties remain stored; organization archive revokes all memberships and archives child properties, while property archive revokes only that property's delegations. No order or ledger rows are deleted.
 - Cross-tenant organization, member, property, delegation and audit-actor references are rejected by composite database constraints.
 
 ### Explicit limits
 
-Invitation delivery is in-app only: no email/SMS, no invitation to identities that do not yet exist in the tenant, and no invitation expiry/re-send workflow. Property delegation management endpoints, property update/archive, pending-invitation pagination beyond the bounded first 100, order/ledger aggregation and consolidated billing remain deferred. No payment capture, money movement or production billing is introduced.
+Invitation delivery is in-app only: no email/SMS, no invitation to identities that do not yet exist in the tenant, and no invitation expiry/re-send workflow. Pending-invitation pagination beyond the bounded first 100, order/ledger aggregation and consolidated billing remain deferred. No payment capture, money movement or production billing is introduced.
 
 Merged implementation and passing CI are not independent QA. The feature inventory remains `passes: false` until independent negative-path and acceptance evidence is recorded.
 
