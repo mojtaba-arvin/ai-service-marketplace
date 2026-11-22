@@ -2,6 +2,7 @@ package marketplace
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
@@ -66,8 +68,18 @@ func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
 	order,created,err:=store.CreateScheduledOrder(ctx,customer,"dispatch-offer-race-"+fmt.Sprint(time.Now().UnixNano()),menu.ID,base,"OM","Muscat","Muscat","Al-Khuwair")
 	if err!=nil || !created { t.Fatalf("create scheduled order: %#v %v",order,err) }
 	expires:=time.Now().UTC().Add(5*time.Minute)
+	wrongTenantOperator:=operator
+	wrongTenantOperator.TenantID="market-other"
+	if _,err=store.CreateDispatchOffers(ctx,wrongTenantOperator,order.ID,[]string{providerA.ID},1,expires); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("operator from another tenant must not create offers: %v",err)
+	}
 	offers,err:=store.CreateDispatchOffers(ctx,operator,order.ID,[]string{providerA.ID,providerB.ID},2,expires)
 	if err!=nil || len(offers)!=2 { t.Fatalf("create two bounded offers: %#v %v",offers,err) }
+	wrongTenantProfessional:=proA
+	wrongTenantProfessional.TenantID="market-other"
+	if _,err=store.AcceptDispatchOffer(ctx,wrongTenantProfessional,offers[0].ID); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("professional from another tenant must not accept an offer: %v",err)
+	}
 	if _,err=pool.Exec(ctx,`UPDATE dispatch_rounds SET round_no=round_no+1 WHERE id=$1`,offers[0].RoundID); err==nil {
 		t.Fatal("dispatch rounds must be immutable audit records")
 	}
@@ -144,6 +156,15 @@ func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
 		var got int
 		if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE event_type=$1 AND aggregate_id=ANY($2::text[])`,eventType,aggregateIDs).Scan(&got); err!=nil || got!=len(aggregateIDs) {
 			t.Fatalf("outbox event %s count=%d want=%d err=%v",eventType,got,len(aggregateIDs),err)
+		}
+		for _,aggregateID:=range aggregateIDs {
+			var raw []byte
+			if err=pool.QueryRow(ctx,`SELECT payload FROM outbox_events WHERE event_type=$1 AND aggregate_id=$2`,eventType,aggregateID).Scan(&raw); err!=nil { t.Fatal(err) }
+			var event outbox.DomainEvent
+			if err=json.Unmarshal(raw,&event); err!=nil { t.Fatalf("decode %s event: %v",eventType,err) }
+			if err=outbox.ValidateDomainEvent(event); err!=nil || event.TenantID!=operator.TenantID {
+				t.Fatalf("%s must be canonical and tenant-scoped: event=%+v err=%v",eventType,event,err)
+			}
 		}
 	}
 }
