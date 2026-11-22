@@ -275,3 +275,61 @@ func writeMembershipError(w http.ResponseWriter,err error) {
 	default: writeError(w,http.StatusInternalServerError,"membership operation failed")
 	}
 }
+
+
+// OrganizationInvitationSummary is the minimal tenant-scoped view returned to
+// the invited identity. It deliberately excludes inviter and internal identity
+// metadata that the invitee does not need to accept the invitation.
+type OrganizationInvitationSummary struct {
+	MembershipID string    `json:"membership_id"`
+	OrganizationID string  `json:"organization_id"`
+	OrganizationName string `json:"organization_name"`
+	OrganizationSlug string `json:"organization_slug"`
+	Role string            `json:"role"`
+	CreatedAt time.Time    `json:"created_at"`
+}
+
+// ListOrganizationInvitationsForIdentity lists only pending invitations
+// addressed to the authenticated identity in the selected tenant. The tenant
+// and identity are both mandatory; client-supplied organization IDs are not
+// used as authorization evidence.
+func (s *Store) ListOrganizationInvitationsForIdentity(ctx context.Context, identityID, tenantID string) ([]OrganizationInvitationSummary, error) {
+	identityID = strings.TrimSpace(identityID)
+	tenantID = strings.TrimSpace(tenantID)
+	if identityID == "" || tenantID == "" {
+		return nil, ErrOrganizationAccessDenied
+	}
+	rows, err := s.DB.Query(ctx, `
+		SELECT om.id, o.id, o.name, o.slug, om.role, om.created_at
+		FROM organization_memberships om
+		JOIN organizations o
+		  ON o.id=om.organization_id AND o.tenant_id=om.tenant_id
+		JOIN identity_memberships im
+		  ON im.identity_id=om.identity_id
+		 AND im.tenant_id=om.tenant_id
+		 AND im.role=om.identity_role
+		WHERE om.identity_id=$1
+		  AND om.tenant_id=$2
+		  AND om.status='invited'
+		  AND o.status='active'
+		ORDER BY om.created_at DESC, om.id
+		LIMIT 100
+	`, identityID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]OrganizationInvitationSummary, 0)
+	for rows.Next() {
+		var item OrganizationInvitationSummary
+		if err = rows.Scan(&item.MembershipID, &item.OrganizationID, &item.OrganizationName,
+			&item.OrganizationSlug, &item.Role, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
