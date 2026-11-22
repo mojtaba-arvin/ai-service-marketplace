@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
+		"net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -98,8 +97,9 @@ func (s *Store) CreateOrganizationForIdentity(ctx context.Context, identityID, t
 		if strings.Contains(strings.ToLower(err.Error()),"unique"){return OrganizationSummary{},ErrOrganizationConflict}
 		return OrganizationSummary{},err
 	}
+	membershipID,err:=newID();if err!=nil{return OrganizationSummary{},err}
 	_,err=tx.Exec(ctx,`INSERT INTO organization_memberships(id,organization_id,tenant_id,identity_id,identity_role,role,status)
-		VALUES($1,$2,$3,$4,$5,'owner','active')`,mustID(),orgID,tenantID,identityID,identityRole)
+		VALUES($1,$2,$3,$4,$5,'owner','active')`,membershipID,orgID,tenantID,identityID,identityRole)
 	if err!=nil{return OrganizationSummary{},err}
 	if err=appendOrganizationAudit(ctx,tx,orgID,tenantID,identityID,identityRole,"organization.created",map[string]string{"slug":slug});err!=nil{return OrganizationSummary{},err}
 	if err=appendOrganizationDomainEvent(ctx,tx,tenantID,orgID,"organization.created",map[string]string{"organization_id":orgID,"status":"active"});err!=nil{return OrganizationSummary{},err}
@@ -107,7 +107,6 @@ func (s *Store) CreateOrganizationForIdentity(ctx context.Context, identityID, t
 	return OrganizationSummary{ID:orgID,TenantID:tenantID,Name:name,Slug:slug,Status:"active",Role:"owner"},nil
 }
 
-func mustID() string { id,err:=newID(); if err!=nil { panic(fmt.Sprintf("generate id: %v",err)) }; return id }
 
 func (s *Store) CreatePropertyForIdentity(ctx context.Context, identityID, tenantID, organizationID string, in PropertyCreateInput) (PropertySummary,error) {
 	in.Code=strings.TrimSpace(in.Code); in.Name=strings.TrimSpace(in.Name)
@@ -291,7 +290,7 @@ func (h *Handler) organizationMembershipAction(w http.ResponseWriter,r *http.Req
 	if errors.Is(err,ErrOrganizationInvalid){writeError(w,http.StatusBadRequest,err.Error());return}
 	if errors.Is(err,ErrOrganizationForbidden){writeError(w,http.StatusForbidden,"membership operation is not permitted");return}
 	if err!=nil{writeError(w,http.StatusInternalServerError,"could not update membership");return}
-	writeJSON(w,http.StatusOK,map[string]string{"status":action+"ed"})
+	writeJSON(w,http.StatusOK,map[string]string{"status":action})
 }
 
 func parseOrganizationManagementPath(path string)(orgID,resourceID,action string,ok bool){
