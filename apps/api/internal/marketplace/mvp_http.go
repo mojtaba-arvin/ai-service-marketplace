@@ -326,10 +326,12 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.organizationCreate(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/organizations":
         h.organizationList(w,r); return true
-    case strings.HasPrefix(path,"/v1/organizations/") && (r.Method == http.MethodPost || r.Method == http.MethodPatch || r.Method == http.MethodDelete):
-        organizationID,ok:=parseOrganizationPath(path)
-        if !ok { writeError(w,http.StatusNotFound,"not found"); return true }
-        if h.organizationMembershipRoutes(w,r,organizationID) { return true }
+    case strings.HasPrefix(path,"/v1/organizations/") && (strings.Contains(path,"/memberships/") || strings.HasSuffix(path,"/invitations/accept")):
+        parts:=strings.Split(strings.Trim(path,"/"),"/")
+        if len(parts)<5 || parts[0]!="v1" || parts[1]!="organizations" || parts[2]=="" {
+            writeError(w,http.StatusNotFound,"not found"); return true
+        }
+        if h.organizationMembershipRoutes(w,r,parts[2]) { return true }
     case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/organizations/") && strings.HasSuffix(path,"/properties"):
         organizationID,ok:=parseOrganizationPath(path)
         if !ok { writeError(w,http.StatusNotFound,"not found"); return true }
