@@ -49,6 +49,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -90,6 +93,9 @@
           },
           "422": {
             "$ref": "#/components/responses/Unprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -142,6 +148,9 @@
           },
           "422": {
             "$ref": "#/components/responses/Unprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -200,12 +209,15 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
         },
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -257,6 +269,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -264,6 +279,14 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CSRFToken"
           }
         ]
       }
@@ -304,6 +327,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -311,6 +337,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ]
       }
@@ -350,6 +379,9 @@
           },
           "422": {
             "$ref": "#/components/responses/Unprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -393,6 +425,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -400,6 +435,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ]
       },
@@ -410,6 +448,16 @@
           "Marketplace"
         ],
         "responses": {
+          "200": {
+            "description": "Exact idempotent replay; returns the original order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
           "201": {
             "description": "Returns 201 for a new order and 200 for an exact idempotent replay.",
             "content": {
@@ -438,6 +486,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -445,6 +496,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ],
         "requestBody": {
@@ -460,6 +514,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CSRFToken"
           }
         ]
       }
@@ -500,6 +557,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -507,6 +567,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ],
         "parameters": [
@@ -557,6 +620,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -564,6 +630,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ],
         "requestBody": {
@@ -587,6 +656,9 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/CSRFToken"
           }
         ],
         "description": "Requires Idempotency-Key. Response explicitly reports funds_moved=false."
@@ -628,6 +700,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -635,6 +710,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ]
       },
@@ -673,6 +751,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -680,6 +761,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ],
         "requestBody": {
@@ -691,7 +775,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CSRFToken"
+          }
+        ]
       }
     },
     "/v1/professional/profile/qualification": {
@@ -730,6 +819,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -737,6 +829,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ],
         "requestBody": {
@@ -748,7 +843,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CSRFToken"
+          }
+        ]
       }
     },
     "/v1/professional/orders": {
@@ -787,6 +887,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -794,6 +897,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ]
       }
@@ -834,6 +940,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -841,6 +950,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ]
       }
@@ -881,6 +993,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -888,6 +1003,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ],
         "parameters": [
@@ -898,6 +1016,9 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/CSRFToken"
           }
         ]
       }
@@ -938,6 +1059,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -945,6 +1069,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ],
         "parameters": [
@@ -955,6 +1082,9 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/CSRFToken"
           }
         ]
       }
@@ -995,6 +1125,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -1002,6 +1135,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ],
         "requestBody": {
@@ -1022,6 +1158,9 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/CSRFToken"
           }
         ]
       }
@@ -1062,6 +1201,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -1069,6 +1211,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ]
       }
@@ -1109,6 +1254,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -1116,6 +1264,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ]
       }
@@ -1156,6 +1307,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -1163,6 +1317,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ],
         "parameters": [
@@ -1173,6 +1330,9 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/CSRFToken"
           }
         ]
       }
@@ -1213,6 +1373,9 @@
           "422": {
             "$ref": "#/components/responses/Unprocessable"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
@@ -1220,6 +1383,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
           }
         ],
         "requestBody": {
@@ -1240,6 +1406,9 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/CSRFToken"
           }
         ]
       }
@@ -1251,6 +1420,12 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "opaque session token"
+      },
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "marketplace_access",
+        "description": "HttpOnly access cookie. Mutating browser requests must echo marketplace_csrf in X-CSRF-Token and satisfy same-origin validation."
       }
     },
     "schemas": {
@@ -1287,11 +1462,12 @@
           },
           "scheduled_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Must be at least 30 minutes and no more than 90 days in the future."
           },
           "country_code": {
             "type": "string",
-            "pattern": "^[A-Z]{2}$"
+            "pattern": "^[A-Za-z]{2}$"
           },
           "region_code": {
             "type": "string",
@@ -1410,7 +1586,7 @@
           },
           "country_code": {
             "type": "string",
-            "pattern": "^[A-Z]{2}$"
+            "pattern": "^[A-Za-z]{2}$"
           },
           "region_code": {
             "type": "string"
@@ -1517,6 +1693,16 @@
             }
           }
         }
+      },
+      "RateLimited": {
+        "description": "OTP or another bounded operation is rate limited.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
       }
     },
     "parameters": {
@@ -1541,6 +1727,15 @@
           ]
         },
         "description": "When set to cookie, auth endpoints establish HttpOnly session cookies."
+      },
+      "CSRFToken": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Required for cookie-authenticated browser mutations; bearer clients do not need this header."
       }
     }
   }
