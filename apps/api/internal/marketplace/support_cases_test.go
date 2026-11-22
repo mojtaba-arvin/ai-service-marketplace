@@ -23,11 +23,16 @@ func TestSupportCaseLifecycleAndTenantPrivacyPostgres(t *testing.T){
  requester:=newTestIdentity(t,ctx,pool);agent:=newTestIdentity(t,ctx,pool);outsider:=newTestIdentity(t,ctx,pool)
  tenant:="support-tenant-"+newTestID(t)
  if _,err=pool.Exec(ctx,`INSERT INTO support_agents(tenant_id,identity_id) VALUES($1,$2)`,tenant,agent);err!=nil{t.Fatal(err)}
+ if _,err=pool.Exec(ctx,`INSERT INTO support_agents(tenant_id,identity_id,active) VALUES($1,$2,false)`,tenant,outsider);err!=nil{t.Fatal(err)}
  customer:=Actor{SubjectID:requester,TenantID:tenant,Role:RoleCustomer}
  support:=Actor{SubjectID:agent,TenantID:tenant,Role:RoleSupport}
  created,err:=store.CreateSupportCase(ctx,customer,"billing","high","Refund status","Please review the refund timeline.",time.Now().Add(4*time.Hour))
  if err!=nil{t.Fatal(err)}
  if created.Status!="open"||created.SLADueAt.IsZero(){t.Fatalf("unexpected case: %+v",created)}
+ inactiveSupport:=Actor{SubjectID:outsider,TenantID:tenant,Role:RoleSupport}
+ if _,err=store.GetSupportCase(ctx,inactiveSupport,created.ID);!errors.Is(err,ErrForbidden){t.Fatalf("inactive support agent read: %v",err)}
+ if _,err=store.AssignSupportCase(ctx,inactiveSupport,created.ID,agent,"unauthorized assignment");!errors.Is(err,ErrForbidden){t.Fatalf("inactive support agent assignment: %v",err)}
+ if _,err=store.TransitionSupportCase(ctx,inactiveSupport,created.ID,"in_progress","unauthorized transition");!errors.Is(err,ErrForbidden){t.Fatalf("inactive support agent transition: %v",err)}
  if _,err=store.GetSupportCase(ctx,Actor{SubjectID:outsider,TenantID:tenant,Role:RoleCustomer},created.ID);!errors.Is(err,ErrForbidden){t.Fatalf("unrelated identity read: %v",err)}
  assigned,err:=store.AssignSupportCase(ctx,support,created.ID,agent,"Taking ownership")
  if err!=nil{t.Fatal(err)}

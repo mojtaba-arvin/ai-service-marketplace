@@ -144,10 +144,10 @@ func (s *Store) ListOperatorOrders(ctx context.Context, actor Actor, marketCode 
         SELECT id,customer_id,amount_minor,currency,status,scheduled_at,country_code,
             region_code,city_code,area_code,assigned_provider_id,created_at,updated_at
         FROM orders
-        WHERE country_code=$1
+        WHERE tenant_id=$1 AND country_code=$2
         ORDER BY created_at DESC,id DESC
         LIMIT 100
-    `, strings.ToUpper(strings.TrimSpace(marketCode)))
+    `, actor.TenantID, strings.ToUpper(strings.TrimSpace(marketCode)))
     if err != nil {
         return nil, err
     }

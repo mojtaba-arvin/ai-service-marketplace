@@ -23,6 +23,11 @@ func TestFakePaymentProviderContract(t *testing.T) {
 	if err!=nil || second.ExternalReference!=first.ExternalReference || success.Calls()!=1 {
 		t.Fatalf("fake provider must deduplicate operations: %#v %#v calls=%d err=%v",first,second,success.Calls(),err)
 	}
+	changedRequest:=request
+	changedRequest.AmountMinor++
+	if _,err=success.Authorize(ctx,changedRequest);!errors.Is(err,ErrPaymentIdempotencyConflict){
+		t.Fatalf("same provider idempotency key with changed amount must fail: %v",err)
+	}
 
 	unknown:=NewFakePaymentProvider(FakeProviderTimeoutAfter,[]byte("fake-webhook-secret-at-least-32-bytes"))
 	if _,err=unknown.Capture(ctx,request); !errors.Is(err,ErrProviderOutcomeUnknown) { t.Fatalf("timeout-after must report unknown outcome: %v",err) }

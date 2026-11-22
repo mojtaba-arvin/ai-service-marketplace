@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -64,11 +65,12 @@ type FakePaymentProvider struct {
 	Secret []byte
 	mu sync.Mutex
 	results map[string]ProviderResult
+	requestHashes map[string][32]byte
 	calls int
 }
 
 func NewFakePaymentProvider(mode FakeProviderMode,secret []byte) *FakePaymentProvider {
-	return &FakePaymentProvider{Mode:mode,Secret:append([]byte(nil),secret...),results:make(map[string]ProviderResult)}
+	return &FakePaymentProvider{Mode:mode,Secret:append([]byte(nil),secret...),results:make(map[string]ProviderResult),requestHashes:make(map[string][32]byte)}
 }
 
 func (p *FakePaymentProvider) execute(ctx context.Context,operation string,request PaymentRequest) (ProviderResult,error) {
@@ -78,9 +80,15 @@ func (p *FakePaymentProvider) execute(ctx context.Context,operation string,reque
 		return ProviderResult{},ErrLedgerInvalidJournal
 	}
 	key:=operation+":"+request.IdempotencyKey
+	requestHash:=sha256.Sum256([]byte(fmt.Sprintf("%d\x00%s\x00%s",request.AmountMinor,request.Currency,request.Reference)))
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if result,ok:=p.results[key]; ok { return result,nil }
+	if p.results==nil { p.results=make(map[string]ProviderResult) }
+	if p.requestHashes==nil { p.requestHashes=make(map[string][32]byte) }
+	if result,ok:=p.results[key]; ok {
+		if p.requestHashes[key]!=requestHash { return ProviderResult{},ErrPaymentIdempotencyConflict }
+		return result,nil
+	}
 	p.calls++
 	if p.Mode==FakeProviderTimeoutBefore { return ProviderResult{},context.DeadlineExceeded }
 	digest:=sha256.Sum256([]byte(key))
@@ -90,9 +98,11 @@ func (p *FakePaymentProvider) execute(ctx context.Context,operation string,reque
 	}
 	if p.Mode==FakeProviderTimeoutAfter {
 		p.results[key]=result
+		p.requestHashes[key]=requestHash
 		return ProviderResult{},ErrProviderOutcomeUnknown
 	}
 	p.results[key]=result
+	p.requestHashes[key]=requestHash
 	return result,nil
 }
 
