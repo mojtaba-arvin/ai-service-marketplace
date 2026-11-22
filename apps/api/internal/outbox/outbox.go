@@ -204,3 +204,40 @@ func (c Consumer) Process(ctx context.Context,event Event)(bool,error){
  if err=tx.Commit(ctx);err!=nil{return false,err}
  return true,nil
 }
+
+// ReplayBatch replays persisted outbox rows after afterID in stable outbox-ID
+// order. The consumer name is the projection generation: use a new name when
+// rebuilding a projection from the beginning. The returned cursor advances
+// only past successfully processed or already-deduplicated events.
+func (c Consumer) ReplayBatch(ctx context.Context, afterID int64, limit int) (int, int64, error) {
+ if c.DB == nil || strings.TrimSpace(c.Name) == "" || c.Handler == nil ||
+  afterID < 0 || limit < 1 || limit > 500 {
+  return 0, afterID, ErrInvalidPolicy
+ }
+ rows, err := c.DB.Query(ctx, `SELECT id,aggregate_type,aggregate_id,event_type,payload,attempts
+  FROM outbox_events WHERE id>$1 ORDER BY id LIMIT $2`, afterID, limit)
+ if err != nil { return 0, afterID, err }
+ events := make([]Event, 0, limit)
+ for rows.Next() {
+  var event Event
+  if err = rows.Scan(&event.ID,&event.AggregateType,&event.AggregateID,&event.EventType,&event.Payload,&event.Attempts); err != nil {
+   rows.Close()
+   return 0, afterID, err
+  }
+  events = append(events,event)
+ }
+ if err = rows.Err(); err != nil {
+  rows.Close()
+  return 0, afterID, err
+ }
+ rows.Close()
+
+ applied, cursor := 0, afterID
+ for _, event := range events {
+  didApply, processErr := c.Process(ctx,event)
+  if processErr != nil { return applied, cursor, processErr }
+  if didApply { applied++ }
+  cursor = event.ID
+ }
+ return applied, cursor, nil
+}
