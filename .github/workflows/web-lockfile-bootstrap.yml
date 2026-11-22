@@ -26,8 +26,9 @@ jobs:
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           npm run build
-      - name: Switch production image to npm ci
+      - name: Switch production image to npm ci and build it
         run: |
+          sed -i '/COPY apps\/web\/package.json .\/package.json/a COPY apps/web/package-lock.json ./package-lock.json' apps/web/Dockerfile
           sed -i 's/RUN npm install --no-audit --no-fund/RUN npm ci --no-audit --no-fund/' apps/web/Dockerfile
           docker build --file apps/web/Dockerfile --tag ai-service-marketplace-web:lockfile .
       - name: Commit lockfile and remove bootstrap workflow
