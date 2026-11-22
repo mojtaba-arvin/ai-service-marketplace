@@ -46,7 +46,7 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
         "012_settlement_reconciliation.sql","013_inspection_quotes.sql","014_quote_variations.sql",
         "015_order_schedule.sql","016_cancellation_policy.sql","017_provider_availability.sql",
         "018_dispatch_offers.sql","019_outbox_delivery.sql","020_professional_verification.sql",
-        "021_support_cases.sql","022_identity_memberships.sql",
+        "021_support_cases.sql","022_identity_memberships.sql","023_order_tenant_scope.sql",
     }
     for _, name := range migrations {
         raw, readErr := os.ReadFile(filepath.Join("..","..","migrations",name))
@@ -319,6 +319,28 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     operatorOrdersResponse,operatorOrders := call(http.MethodGet,"/v1/operator/orders",tokens["operator"],"",nil)
     if operatorOrdersResponse.Code != http.StatusOK || len(operatorOrders["orders"].([]any))!=1 {
         t.Fatalf("operator order queue: status=%d body=%s",operatorOrdersResponse.Code,operatorOrdersResponse.Body.String())
+    }
+
+    // An operator must not see another tenant's orders, even when both tenants
+    // use the same market/country configuration.
+    otherTenant := "mvp-other-" + suffix
+    otherCustomerID := newTestIdentity(t,ctx,pool)
+    otherOperatorID := newTestIdentity(t,ctx,pool)
+    otherCustomerActor := Actor{SubjectID:otherCustomerID,TenantID:otherTenant,Role:RoleCustomer}
+    otherOperatorActor := Actor{SubjectID:otherOperatorID,TenantID:otherTenant,Role:RoleOperator}
+    if err = store.EnsureIdentityMembership(ctx,otherCustomerID,otherTenant,RoleCustomer); err != nil { t.Fatal(err) }
+    if err = store.EnsureIdentityMembership(ctx,otherOperatorID,otherTenant,RoleOperator); err != nil { t.Fatal(err) }
+    otherTenantOrder,createdOther,createOtherErr := store.CreateScheduledOrder(ctx,otherCustomerActor,
+        "other-tenant-order-"+suffix,menu.ID,time.Now().UTC().Add(6*time.Hour),marketCode,
+        "Test Region","Test City","Test Area")
+    if createOtherErr != nil || !createdOther { t.Fatalf("create other-tenant order: %#v created=%v err=%v",otherTenantOrder,createdOther,createOtherErr) }
+    originalTenantOrders, listErr := store.ListOperatorOrders(ctx,operator,marketCode)
+    if listErr != nil || len(originalTenantOrders)!=1 || originalTenantOrders[0].ID!=orderID {
+        t.Fatalf("operator saw cross-tenant order: orders=%#v err=%v",originalTenantOrders,listErr)
+    }
+    otherTenantOrders, listErr := store.ListOperatorOrders(ctx,otherOperatorActor,marketCode)
+    if listErr != nil || len(otherTenantOrders)!=1 || otherTenantOrders[0].ID!=otherTenantOrder.ID {
+        t.Fatalf("other tenant operator queue: orders=%#v err=%v",otherTenantOrders,listErr)
     }
 
     scheduleTwo := time.Now().UTC().Add(4*time.Hour).Truncate(time.Microsecond)
