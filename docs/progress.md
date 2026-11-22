@@ -20,7 +20,7 @@ The API, responsive browser MVP, browser-level E2E journey, and disposable Postg
 ## Current MVP delivery
 
 - API: merged to `main` via PR #61. CI and CodeQL passed; dependency-review was skipped because the repository dependency graph is not enabled.
-- Web: merged via PR #62 (merge commit `58678ae2b3c03b066e574e40afc1f2c79afaa80c`). Production web image build passed with Next.js 15.5.29 and React/React DOM 19.1.10. `apps/web/package-lock.json` is still absent; the Docker build currently uses `npm install`, not `npm ci`.
+- Web: merged via PR #62 (merge commit `58678ae2b3c03b066e574e40afc1f2c79afaa80c`). Production web image build passed with Next.js 15.5.29 and React/React DOM 19.1.10. PR #78 adds the npm v3 lockfile and changes the dependency stage to copy both manifest files and run `npm ci`.
 - Web security boundary: sessionStorage token storage is temporary. Move to Secure, HttpOnly, SameSite cookies and add reviewed CSRF protection before broad public launch.
 - Deployment: production Compose, non-root API/worker image, Caddy HTTPS ingress, and deployment/backup/restore instructions are merged. Actual host, DNS, OTP provider credentials, peppers, smoke test, and backup/restore validation remain external deployment work in #56.
 - Release QA: independent end-to-end and negative-path validation remains open in #57. No public release or independent QA sign-off is claimed.
@@ -30,6 +30,7 @@ The API, responsive browser MVP, browser-level E2E journey, and disposable Postg
 - PR #61: Go formatting/tests, repository verification, PostgreSQL integration, HTTP E2E, Compose validation, production API image build, CodeQL Go/Python passed. Dependency-review skipped pending dependency-graph enablement.
 - PR #62: corrected customer JSX grouping and strict TypeScript nullability errors (currency fraction metadata and market timezone); production web image build passed on Next.js 15.5.29. CI, CodeQL Go, Python, and JavaScript/TypeScript passed. Dependency-review skipped pending dependency-graph enablement.
 - PR #72: aligned Go CI/API image toolchain with Go 1.25, upgraded `golang.org/x/crypto` to `0.52.0`, and integrated browser journey plus disposable PostgreSQL backup/restore/outbox rehearsal. PR CI and CodeQL passed before merge.
+- PR #78: generated `apps/web/package-lock.json` on a GitHub-hosted runner (npm lockfileVersion 3); `npm ci --ignore-scripts --no-audit --no-fund`, `npm run build`, and the production Docker image build using `npm ci` all passed in bootstrap run `44996862114`. The temporary bootstrap workflow removed itself after committing the lockfile and Dockerfile change.
 - Post-merge commit `406c2f968c5c0e24d2ccb9fe75d12546d08385a5`: CI run `44994610354` passed; Security run `44994610357` passed for `detect` and all three CodeQL jobs, while `dependency-review` was skipped; Dependabot Go module graph update run `44994614747` succeeded.
 - Security language detection now scans Go, Python, and JavaScript/TypeScript.
 - No local checkout/test execution or real-host deployment was available in this session.
