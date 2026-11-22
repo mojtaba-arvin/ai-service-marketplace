@@ -171,6 +171,42 @@ func (s *Store) ChangeOrganizationMemberRole(ctx context.Context, actorID, tenan
 		if err = tx.QueryRow(ctx, `SELECT count(*) FROM organization_memberships WHERE organization_id=$1 AND tenant_id=$2 AND role='owner' AND status='active'`, organizationID,tenantID).Scan(&owners); err != nil { return OrganizationMembershipResult{}, err }
 		if owners <= 1 { return OrganizationMembershipResult{}, ErrMembershipConflict }
 	}
+	if targetRole == nextRole {
+		if err = tx.Commit(ctx); err != nil { return OrganizationMembershipResult{}, err }
+		return OrganizationMembershipResult{OrganizationID: organizationID, IdentityID: targetID, Role: nextRole, Status: "active"}, nil
+	}
+
+	// Property delegations are valid only while the organization role is
+	// member/viewer. Revoke stale grants atomically when crossing that boundary.
+	// A member<->viewer change preserves the explicit delegation; a later
+	// promotion/demotion cannot resurrect a grant that was already revoked.
+	if (targetRole != "member" && targetRole != "viewer") || (nextRole != "member" && nextRole != "viewer") {
+		rows, queryErr := tx.Query(ctx, `
+			UPDATE property_memberships
+			SET status='revoked', revoked_at=now()
+			WHERE organization_id=$1 AND tenant_id=$2 AND identity_id=$3 AND status='active'
+			RETURNING property_id
+		`, organizationID, tenantID, targetID)
+		if queryErr != nil { return OrganizationMembershipResult{}, queryErr }
+		propertyIDs := make([]string, 0)
+		for rows.Next() {
+			var propertyID string
+			if queryErr = rows.Scan(&propertyID); queryErr != nil { rows.Close(); return OrganizationMembershipResult{}, queryErr }
+			propertyIDs = append(propertyIDs, propertyID)
+		}
+		if queryErr = rows.Err(); queryErr != nil { rows.Close(); return OrganizationMembershipResult{}, queryErr }
+		rows.Close()
+		for _, propertyID := range propertyIDs {
+			details := map[string]string{"identity_id": targetID, "property_id": propertyID, "reason": "organization_role_changed", "from_role": targetRole, "to_role": nextRole}
+			if err = appendOrganizationAudit(ctx, tx, organizationID, tenantID, actorID, actorIdentityRole, "property.member.revoked", details); err != nil {
+				return OrganizationMembershipResult{}, err
+			}
+			if err = appendOrganizationDomainEvent(ctx, tx, tenantID, "property", propertyID, "property.member.revoked", details); err != nil {
+				return OrganizationMembershipResult{}, err
+			}
+		}
+	}
+
 	_, err = tx.Exec(ctx, `UPDATE organization_memberships SET role=$1,updated_at=now() WHERE id=$2`, nextRole,membershipID)
 	if err != nil { return OrganizationMembershipResult{}, err }
 	if err = appendOrganizationAudit(ctx,tx,organizationID,tenantID,actorID,actorIdentityRole,"organization.member.role_changed",map[string]string{"identity_id":targetID,"from":targetRole,"to":nextRole}); err != nil { return OrganizationMembershipResult{}, err }

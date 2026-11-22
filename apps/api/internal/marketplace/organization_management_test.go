@@ -72,6 +72,25 @@ func TestOrganizationPropertyLifecycleAndDelegationsPostgres(t *testing.T) {
 
 	granted,err:=store.GrantPropertyDelegation(ctx,ids["owner"],tenantID,org.ID,property.ID,PropertyDelegationInput{IdentityID:ids["member"],Role:"viewer"})
 	if err!=nil||granted.Status!="active"||granted.CreatedAt.IsZero(){t.Fatalf("grant viewer delegation: %+v err=%v",granted,err)}
+
+	// Member<->viewer transitions keep an eligible explicit grant. Crossing
+	// into an ineligible organization role revokes it transactionally.
+	if _,err=store.ChangeOrganizationMemberRole(ctx,ids["owner"],tenantID,org.ID,ids["member"],"viewer");err!=nil{t.Fatalf("member to viewer role change: %v",err)}
+	var roleChangeDelegationStatus string
+	if err=pool.QueryRow(ctx,"SELECT status FROM property_memberships WHERE property_id=$1 AND identity_id=$2",property.ID,ids["member"]).Scan(&roleChangeDelegationStatus);err!=nil{t.Fatal(err)}
+	if roleChangeDelegationStatus!="active"{t.Fatalf("member-to-viewer role change unexpectedly revoked delegation: %s",roleChangeDelegationStatus)}
+	if _,err=store.ChangeOrganizationMemberRole(ctx,ids["owner"],tenantID,org.ID,ids["member"],"member");err!=nil{t.Fatalf("viewer to member role change: %v",err)}
+	if _,err=store.ChangeOrganizationMemberRole(ctx,ids["owner"],tenantID,org.ID,ids["member"],"manager");err!=nil{t.Fatalf("member to manager role change: %v",err)}
+	if err=pool.QueryRow(ctx,"SELECT status FROM property_memberships WHERE property_id=$1 AND identity_id=$2",property.ID,ids["member"]).Scan(&roleChangeDelegationStatus);err!=nil{t.Fatal(err)}
+	if roleChangeDelegationStatus!="revoked"{t.Fatalf("promotion to manager left delegation active: %s",roleChangeDelegationStatus)}
+	if _,err=store.ChangeOrganizationMemberRole(ctx,ids["owner"],tenantID,org.ID,ids["member"],"member");err!=nil{t.Fatalf("manager to member role change: %v",err)}
+	if err=pool.QueryRow(ctx,"SELECT status FROM property_memberships WHERE property_id=$1 AND identity_id=$2",property.ID,ids["member"]).Scan(&roleChangeDelegationStatus);err!=nil{t.Fatal(err)}
+	if roleChangeDelegationStatus!="revoked"{t.Fatalf("demotion resurrected stale delegation: %s",roleChangeDelegationStatus)}
+	memberProperties,err:=store.ListPropertiesForIdentity(ctx,ids["member"],tenantID,org.ID)
+	if err!=nil||len(memberProperties)!=0{t.Fatalf("demoted member retained property visibility: %+v err=%v",memberProperties,err)}
+	if _,err=store.GrantPropertyDelegation(ctx,ids["owner"],tenantID,org.ID,property.ID,PropertyDelegationInput{IdentityID:ids["member"],Role:"viewer"});err!=nil{t.Fatalf("explicit regrant after demotion: %v",err)}
+	memberProperties,err=store.ListPropertiesForIdentity(ctx,ids["member"],tenantID,org.ID)
+	if err!=nil||len(memberProperties)!=1||memberProperties[0].ID!=property.ID{t.Fatalf("explicit regrant did not restore visibility: %+v err=%v",memberProperties,err)}
 	if _,err=store.GrantPropertyDelegation(ctx,ids["owner"],tenantID,org.ID,property.ID,PropertyDelegationInput{IdentityID:ids["outsider"],Role:"viewer"});err!=ErrMembershipNotFound{t.Fatalf("cross-tenant delegation target err=%v, want not found",err)}
 	if _,err=store.GrantPropertyDelegation(ctx,ids["manager"],tenantID,org.ID,property.ID,PropertyDelegationInput{IdentityID:ids["viewer"],Role:"manager"});err!=ErrMembershipForbidden{
 		t.Fatalf("manager grant manager role err=%v, want forbidden",err)

@@ -70,7 +70,16 @@ func TestCustomerScheduledOrderAggregatePostgres(t *testing.T) {
 	if _,_,err=store.CreateScheduledOrder(ctx,customer,"too-soon",menu.ID,time.Now().UTC().Add(5*time.Minute),"OM","Muscat","Muscat","Al-Khuwair"); !errors.Is(err,ErrInvalidOrderRequest) {
 		t.Fatalf("schedule inside minimum lead time must fail: %v",err)
 	}
-	if _,_,err=store.CreateScheduledOrder(ctx,customer,"wrong-market",menu.ID,scheduled,"US","California","San Francisco","Downtown"); !errors.Is(err,ErrMarketUnavailable) {
+	// Select a market code absent from the shared PostgreSQL fixture. Other
+	// integration tests may seed US (or another familiar market) as enabled.
+	unknownMarket := ""
+	for _, candidate := range []string{"ZZ","QZ","ZX","QQ","XQ","XZ","ZQ","QX"} {
+		var exists bool
+		if err=pool.QueryRow(ctx,`SELECT EXISTS(SELECT 1 FROM markets WHERE code=$1)`,candidate).Scan(&exists);err!=nil { t.Fatal(err) }
+		if !exists { unknownMarket=candidate;break }
+	}
+	if unknownMarket=="" { t.Fatal("could not find an unconfigured market code for negative test") }
+	if _,_,err=store.CreateScheduledOrder(ctx,customer,"wrong-market",menu.ID,scheduled,unknownMarket,"California","San Francisco","Downtown"); !errors.Is(err,ErrMarketUnavailable) {
 		t.Fatalf("orders outside the enabled launch market must fail: %v",err)
 	}
 	if _,err=pool.Exec(ctx,`UPDATE market_category_visibility SET visible=false WHERE market_code='OM' AND category_id=$1`,category.ID);err!=nil { t.Fatal(err) }
