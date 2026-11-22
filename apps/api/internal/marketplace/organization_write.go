@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -188,7 +189,7 @@ func decodeOrganizationInput(r *http.Request, target any) error {
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil { return err }
 	var extra any
-	if err := decoder.Decode(&extra); err == nil { return ErrOrganizationInput }
+	if err := decoder.Decode(&extra); err != io.EOF { return ErrOrganizationInput }
 	return nil
 }
 
@@ -223,4 +224,3 @@ func isOrganizationConflict(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
-var _ = context.Background
