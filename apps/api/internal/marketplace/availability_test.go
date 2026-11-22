@@ -2,6 +2,7 @@ package marketplace
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 func TestProviderAvailabilityAndNonOverlappingBookingsPostgres(t *testing.T) {
@@ -76,11 +78,22 @@ func TestProviderAvailabilityAndNonOverlappingBookingsPostgres(t *testing.T) {
 		return order
 	}
 	first:=createOrder("booking-first-"+fmt.Sprint(time.Now().UnixNano()),start.Add(30*time.Minute))
+	wrongTenantOperator:=operator
+	wrongTenantOperator.TenantID="market-other"
+	if _,err=store.CreateProviderBooking(ctx,wrongTenantOperator,provider.ID,first.ID,start,start.Add(time.Hour),loc.String()); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("operator from another tenant must not reserve this provider/order: %v",err)
+	}
 	booking,err:=store.CreateProviderBooking(ctx,operator,provider.ID,first.ID,start,start.Add(time.Hour),loc.String())
 	if err!=nil || booking.Status!="booked" { t.Fatalf("create provider booking: %#v %v",booking,err) }
 	var eventCount int
-	if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE aggregate_type='provider_booking' AND aggregate_id=$1`,booking.ID).Scan(&eventCount); err!=nil || eventCount!=1 {
+	var eventPayload []byte
+	if err=pool.QueryRow(ctx,`SELECT count(*),min(payload::text)::jsonb FROM outbox_events WHERE aggregate_type='provider_booking' AND aggregate_id=$1`,booking.ID).Scan(&eventCount,&eventPayload); err!=nil || eventCount!=1 {
 		t.Fatalf("booking reservation outbox event: count=%d err=%v",eventCount,err)
+	}
+	var domainEvent outbox.DomainEvent
+	if err=json.Unmarshal(eventPayload,&domainEvent); err!=nil { t.Fatalf("decode booking event: %v",err) }
+	if err=outbox.ValidateDomainEvent(domainEvent); err!=nil || domainEvent.TenantID!=operator.TenantID || domainEvent.Aggregate.ID!=booking.ID {
+		t.Fatalf("booking event must be canonical and tenant-scoped: event=%+v err=%v",domainEvent,err)
 	}
 	second:=createOrder("booking-second-"+fmt.Sprint(time.Now().UnixNano()),start.Add(45*time.Minute))
 	if _,err=store.CreateProviderBooking(ctx,operator,provider.ID,second.ID,start.Add(30*time.Minute),start.Add(time.Hour),loc.String()); !errors.Is(err,ErrProviderBookingConflict) {
