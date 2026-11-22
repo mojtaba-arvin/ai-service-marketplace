@@ -57,10 +57,10 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 		SELECT o.id,o.customer_id,o.amount_minor,o.currency,o.status,o.price_version_id,v.menu_id,
 			o.scheduled_at,o.country_code,o.region_code,o.city_code,o.area_code
 		FROM orders o JOIN service_price_versions v ON v.id=o.price_version_id
-		WHERE o.customer_id=$1 AND o.idempotency_key=$2
+		WHERE o.customer_id=$1 AND o.idempotency_key=$2 AND o.tenant_id=$3
 	`,actor.SubjectID,idempotencyKey).Scan(&prior.ID,&prior.CustomerID,&prior.AmountMinor,&prior.Currency,
 		&prior.Status,&prior.PriceVersionID,&priorMenuID,&prior.ScheduledAt,&prior.CountryCode,
-		&prior.RegionCode,&prior.CityCode,&prior.AreaCode)
+		&prior.RegionCode,&prior.CityCode,&prior.AreaCode,actor.TenantID)
 	if err==nil {
 		if !sameScheduledOrder(prior,menuID,scheduledAt,country,region,city,area,priorMenuID) {
 			return Order{},false,ErrOrderIdempotencyConflict
@@ -106,12 +106,12 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 	var createdID string
 	err=tx.QueryRow(ctx,`
 		INSERT INTO orders(id,customer_id,idempotency_key,amount_minor,currency,status,price_version_id,
-			scheduled_at,country_code,region_code,city_code,area_code)
-		VALUES($1,$2,$3,$4,$5,'requested',$6,$7,$8,$9,$10,$11)
+			scheduled_at,country_code,region_code,city_code,area_code,tenant_id)
+		VALUES($1,$2,$3,$4,$5,'requested',$6,$7,$8,$9,$10,$11,$12)
 		ON CONFLICT(customer_id,idempotency_key) DO NOTHING
 		RETURNING id
 	`,id,actor.SubjectID,idempotencyKey,version.AmountMinor,version.Currency,version.ID,
-		scheduledAt,country,region,city,area).Scan(&createdID)
+		scheduledAt,country,region,city,area,actor.TenantID).Scan(&createdID)
 	if errors.Is(err,pgx.ErrNoRows) {
 		var existing Order
 		var existingMenuID string
@@ -120,7 +120,7 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 				o.scheduled_at,o.country_code,o.region_code,o.city_code,o.area_code
 			FROM orders o JOIN service_price_versions v ON v.id=o.price_version_id
 			WHERE o.customer_id=$1 AND o.idempotency_key=$2
-		`,actor.SubjectID,idempotencyKey).Scan(&existing.ID,&existing.CustomerID,&existing.AmountMinor,&existing.Currency,
+		`,actor.SubjectID,idempotencyKey,actor.TenantID).Scan(&existing.ID,&existing.CustomerID,&existing.AmountMinor,&existing.Currency,
 			&existing.Status,&existing.PriceVersionID,&existingMenuID,&existing.ScheduledAt,&existing.CountryCode,
 			&existing.RegionCode,&existing.CityCode,&existing.AreaCode)
 		if errors.Is(err,pgx.ErrNoRows) { return Order{},false,ErrOrderIdempotencyConflict }
