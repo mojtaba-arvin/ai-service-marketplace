@@ -86,6 +86,18 @@ type Service struct {
 	Now func() time.Time
 }
 
+func validProviderMetadata(value string) bool {
+	if value == "" || strings.TrimSpace(value) != value || len(value) > 128 {
+		return false
+	}
+	for _, r := range value {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	return true
+}
+
 func (s Service) Suggest(ctx context.Context, request Request) (Suggestion, error) {
 	if s.Catalog == nil || s.Model == nil || s.Redactor == nil || s.Timeout <= 0 ||
 		strings.TrimSpace(request.Market) == "" || strings.TrimSpace(request.Locale) == "" ||
@@ -101,8 +113,15 @@ func (s Service) Suggest(ctx context.Context, request Request) (Suggestion, erro
 	if len(categories) == 0 { return Suggestion{}, ErrInvalidRequest }
 	allowed := make(map[string]struct{}, len(categories))
 	for _, category := range categories {
-		if strings.TrimSpace(category.ID) == "" { return Suggestion{}, ErrInvalidRequest }
-		allowed[category.ID] = struct{}{}
+		id := strings.TrimSpace(category.ID)
+		if id == "" || id != category.ID || len(id) > 128 ||
+			strings.TrimSpace(category.Label) == "" || len(category.Label) > 160 {
+			return Suggestion{}, ErrInvalidRequest
+		}
+		if _, exists := allowed[id]; exists {
+			return Suggestion{}, ErrInvalidRequest
+		}
+		allowed[id] = struct{}{}
 	}
 
 	modelCtx, cancel := context.WithTimeout(ctx, s.Timeout)
@@ -114,7 +133,7 @@ func (s Service) Suggest(ctx context.Context, request Request) (Suggestion, erro
 	if err != nil { return Suggestion{}, fmt.Errorf("generate intake suggestion: %w", err) }
 	if err := modelCtx.Err(); err != nil { return Suggestion{}, err }
 	if len(output.JSON) == 0 || len(output.JSON) > 16*1024 ||
-		strings.TrimSpace(output.Name) == "" || strings.TrimSpace(output.Version) == "" {
+		!validProviderMetadata(output.Name) || !validProviderMetadata(output.Version) {
 		return Suggestion{}, ErrInvalidSuggestion
 	}
 
@@ -135,8 +154,16 @@ func (s Service) Suggest(ctx context.Context, request Request) (Suggestion, erro
 		*candidate.Confidence < 0 || *candidate.Confidence > 1 {
 		return Suggestion{}, ErrInvalidSuggestion
 	}
+	seenDetails := make(map[string]struct{}, len(*candidate.RequiredDetails))
 	for _, detail := range *candidate.RequiredDetails {
-		if strings.TrimSpace(detail) == "" || len(detail) > 160 { return Suggestion{}, ErrInvalidSuggestion }
+		normalized := strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(detail)), " "))
+		if normalized == "" || len(detail) > 160 {
+			return Suggestion{}, ErrInvalidSuggestion
+		}
+		if _, exists := seenDetails[normalized]; exists {
+			return Suggestion{}, ErrInvalidSuggestion
+		}
+		seenDetails[normalized] = struct{}{}
 	}
 
 	fingerprint := sha256.Sum256([]byte(redactedText))
