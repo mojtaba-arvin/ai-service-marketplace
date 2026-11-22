@@ -82,7 +82,7 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	if _,err=store.GetOrderTimeline(ctx,other,first.ID); !errors.Is(err,ErrOrderNotFound) {
 		t.Fatalf("another customer cannot read order timeline: %v",err)
 	}
-	if _,err=store.GetOrderTimeline(ctx,secondTenant,secondTenantOrder.ID); !errors.Is(err,ErrOrderNotFound) {
+	if _,err=store.GetOrderTimeline(ctx,customer,secondTenantOrder.ID); !errors.Is(err,ErrOrderNotFound) {
 		t.Fatalf("same identity in another tenant cannot read timeline: %v",err)
 	}
 	if _,err=store.TransitionOrderAsActor(ctx,customer,secondTenantOrder.ID,"cancelled"); !errors.Is(err,ErrForbidden) {
