@@ -704,6 +704,7 @@ func (h *Handler) operatorAnalyticsSummary(w http.ResponseWriter,r *http.Request
         writeError(w,http.StatusInternalServerError,"could not load analytics summary")
         return
     }
+    w.Header().Set("Cache-Control","private, no-store")
     writeJSON(w,http.StatusOK,summary)
 }
 
