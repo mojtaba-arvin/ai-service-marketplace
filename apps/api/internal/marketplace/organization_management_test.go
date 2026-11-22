@@ -116,7 +116,7 @@ func TestOrganizationPropertyLifecycleAndDelegationsPostgres(t *testing.T) {
 	if err=pool.QueryRow(ctx,"SELECT status FROM organizations WHERE id=$1",orgToArchive.ID).Scan(&orgStatus);err!=nil{t.Fatal(err)}
 	if err=pool.QueryRow(ctx,"SELECT status FROM properties WHERE id=$1",archiveProperty.ID).Scan(&archivedPropertyStatus);err!=nil{t.Fatal(err)}
 	if err=pool.QueryRow(ctx,"SELECT status FROM property_memberships WHERE property_id=$1 AND identity_id=$2",archiveProperty.ID,ids["viewer"]).Scan(&revokedMembershipStatus);err!=nil{t.Fatal(err)}
-	if orgStatus!="archived"||archivedPropertyStatus!="active"||revokedMembershipStatus!="revoked"{
+	if orgStatus!="archived"||archivedPropertyStatus!="archived"||revokedMembershipStatus!="revoked"{
 		t.Fatalf("organization archive did not preserve records and revoke access: org=%s property=%s delegation=%s",orgStatus,archivedPropertyStatus,revokedMembershipStatus)
 	}
 	if _,err=store.GetOrganizationForIdentity(ctx,ids["owner"],tenantID,orgToArchive.ID);err==nil{
