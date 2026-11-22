@@ -30,7 +30,7 @@ func TestProductionHTTPOTPAndSessionLifecyclePostgres(t *testing.T){
   "010_ledger_idempotency_reversal.sql","011_payment_adapter_contract.sql","012_settlement_reconciliation.sql",
   "013_inspection_quotes.sql","014_quote_variations.sql","015_order_schedule.sql","016_cancellation_policy.sql",
   "017_provider_availability.sql","018_dispatch_offers.sql","019_outbox_delivery.sql","020_professional_verification.sql",
-  "021_support_cases.sql","022_identity_memberships.sql",
+  "021_support_cases.sql","022_identity_memberships.sql","023_order_tenant_scope.sql",
  }{
   raw,e:=os.ReadFile(filepath.Join("..","..","migrations",name));if e!=nil{t.Fatal(e)}
   if _,e=execMigrationScript(ctx, pool, raw);e!=nil{t.Fatalf("apply %s: %v",name,e)}
@@ -65,6 +65,7 @@ func TestProductionHTTPOTPAndSessionLifecyclePostgres(t *testing.T){
  if err=json.Unmarshal(authResp.Body.Bytes(),&me);err!=nil{t.Fatal(err)}
  if me.Phone!=phone||me.IdentityID==""{t.Fatalf("wrong principal: %+v",me)}
  order,_,err:=h.Store.CreateOrder(ctx,me.IdentityID,"auth-order-"+challenge.ID,100,"OMR");if err!=nil{t.Fatal(err)}
+ if _,err=pool.Exec(ctx,`UPDATE orders SET tenant_id=$2 WHERE id=$1`,order.ID,h.DefaultTenantID);err!=nil{t.Fatal(err)}
  orderReq:=httptest.NewRequest(http.MethodGet,"/v1/orders/"+order.ID,nil);orderReq.Header.Set("Authorization","Bearer "+tokens.AccessToken)
  orderResp:=httptest.NewRecorder();h.ServeHTTP(orderResp,orderReq)
  if orderResp.Code!=http.StatusOK{t.Fatalf("owner order read status=%d body=%s",orderResp.Code,orderResp.Body.String())}
