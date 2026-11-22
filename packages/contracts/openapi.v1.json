@@ -1421,6 +1421,62 @@
           }
         ]
       }
+    },
+    "/v1/organization-invitations": {
+      "get": {
+        "summary": "List pending invitations for the authenticated identity",
+        "operationId": "list_organization_invitations",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Returns at most 100 pending invitations addressed to the authenticated identity in the selected tenant. The optional X-Tenant-ID header selects tenant context; it does not grant access.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pending invitations for the authenticated identity and selected tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "invitations"
+                  ],
+                  "properties": {
+                    "invitations": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrganizationInvitation"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1636,6 +1692,48 @@
             "type": "string"
           }
         }
+      },
+      "OrganizationInvitation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "membership_id",
+          "organization_id",
+          "organization_name",
+          "organization_slug",
+          "role",
+          "created_at"
+        ],
+        "properties": {
+          "membership_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organization_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "manager",
+              "member",
+              "viewer"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       }
     },
     "responses": {
@@ -1751,6 +1849,17 @@
           "type": "string"
         },
         "description": "Required for cookie-authenticated browser mutations; bearer clients do not need this header."
+      },
+      "TenantID": {
+        "name": "X-Tenant-ID",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "description": "Selects tenant context for tenant-scoped B2B requests. The server still verifies current identity membership; this header is not an authorization credential."
       }
     }
   }
