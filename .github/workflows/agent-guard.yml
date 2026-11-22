@@ -10,16 +10,21 @@ permissions:
 
 jobs:
   guard:
-    if: startsWith(github.head_ref, 'agent/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Reject protected-path changes from implementation agents
+      - name: Enforce protected paths for implementation-agent branches
         env:
           BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
+          if [[ "$HEAD_REF" != agent/* ]]; then
+            echo "Branch '$HEAD_REF' is not agent-managed; protected-path restrictions do not apply."
+            exit 0
+          fi
+
           git fetch origin "$BASE_REF"
           changed="$(git diff --name-only "origin/$BASE_REF...HEAD")"
           printf '%s\n' "$changed"
