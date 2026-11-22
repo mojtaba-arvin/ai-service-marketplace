@@ -101,7 +101,7 @@ func main() {
 		addr = ":8080"
 	}
 	server := &http.Server{
-		Addr: addr, Handler: observability.HTTP(handler, slog.Default()), ReadHeaderTimeout: 5 * time.Second,
+		Addr: addr, Handler: observability.HTTP(handler, slog.New(slog.NewJSONHandler(os.Stdout, nil))), ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second,
 	}
 	log.Printf("marketplace API listening on %s (environment=%s)", addr, appEnv)
