@@ -4,7 +4,7 @@ This directory is the versioned public contract surface for clients, integration
 
 ## Current artifacts
 
-- `../schemas/domain-event.schema.json` defines the target v1 canonical event envelope.
+- `../../schemas/domain-event.schema.json` defines the target v1 canonical event envelope.
 - `../schemas/examples/order-created.v1.json` is a PII-minimized example conforming to that envelope.
 - `openapi.v1.json` is the initial source-aligned OpenAPI snapshot for the implemented MVP HTTP routes. Generic response schemas are explicitly provisional; the handler and E2E tests remain the source of truth until DTO schemas are fully specified.
 
