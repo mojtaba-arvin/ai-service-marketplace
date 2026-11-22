@@ -28,14 +28,12 @@ func (f PublishFunc) Publish(ctx context.Context,e Event,key string) error { ret
 
 type Transaction interface { QueryRow(context.Context,string,...any) pgx.Row }
 
-
 type EventAggregate struct {
  Type string `json:"type"`
  ID string `json:"id"`
 }
 
-// DomainEvent is the canonical v1 tenant-scoped envelope. Data must contain
-// only event-specific, minimized fields; raw identifiers and secrets are rejected.
+// DomainEvent is the canonical v1 tenant-scoped envelope.
 type DomainEvent struct {
  ID string `json:"id"`
  Type string `json:"type"`
@@ -49,35 +47,7 @@ type DomainEvent struct {
  Metadata map[string]string `json:"metadata,omitempty"`
 }
 
-var domainEventTypePattern = regexp.MustCompile(`^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_]*)+// Package outbox implements leased, bounded-retry publication and idempotent consumption.
-package outbox
-
-import (
- "context"
- "encoding/json"
- "errors"
- "fmt"
- "regexp"
- "strconv"
- "strings"
- "time"
-
- "github.com/jackc/pgx/v5"
- "github.com/jackc/pgx/v5/pgconn"
- "github.com/jackc/pgx/v5/pgxpool"
-)
-
-var (
- ErrInvalidPolicy=errors.New("invalid outbox policy")
- ErrLeaseLost=errors.New("outbox event lease was lost")
-)
-
-type Event struct { ID int64; AggregateType string; AggregateID string; EventType string; Payload json.RawMessage; Attempts int }
-type Publisher interface { Publish(context.Context,Event,string) error }
-type PublishFunc func(context.Context,Event,string) error
-func (f PublishFunc) Publish(ctx context.Context,e Event,key string) error { return f(ctx,e,key) }
-
-)
+var domainEventTypePattern = regexp.MustCompile("^[a-z][a-z0-9]*(\\\\.[a-z][a-z0-9_]*)+$")
 
 var prohibitedEventFieldNames = map[string]struct{}{
  "phone": {}, "phone_number": {}, "email": {}, "address": {},
@@ -122,8 +92,6 @@ func containsProhibitedEventField(value any) bool {
  return false
 }
 
-// AppendDomainEvent writes a validated canonical envelope in the caller's
-// aggregate transaction. Legacy Append remains available for staged migration.
 func AppendDomainEvent(ctx context.Context, tx Transaction, event DomainEvent) (int64,error) {
  if err:=ValidateDomainEvent(event); err!=nil { return 0,err }
  payload,err:=json.Marshal(event)
