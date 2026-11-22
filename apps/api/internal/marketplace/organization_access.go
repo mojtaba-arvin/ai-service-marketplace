@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 var ErrOrganizationAccessDenied = errors.New("organization access denied")
@@ -79,7 +81,8 @@ func (s *Store) GetOrganizationForIdentity(ctx context.Context, identityID, tena
 		WHERE o.id=$1 AND o.tenant_id=$2 AND om.identity_id=$3
 		  AND om.status='active' AND o.status='active'
 	`,organizationID,tenantID,identityID).Scan(&item.ID,&item.TenantID,&item.Name,&item.Slug,&item.Status,&item.Role)
-	if err!=nil { return OrganizationSummary{},ErrOrganizationAccessDenied }
+	if errors.Is(err,pgx.ErrNoRows) { return OrganizationSummary{},ErrOrganizationAccessDenied }
+	if err!=nil { return OrganizationSummary{},err }
 	return item,nil
 }
 
@@ -96,6 +99,7 @@ func (s *Store) ListPropertiesForIdentity(ctx context.Context, identityID, tenan
 		       p.country_code,p.region_code,p.city_code,p.area_code,p.status,
 		       CASE WHEN om.role IN ('owner','admin','manager') THEN om.role ELSE pm.role END
 		FROM properties p
+		JOIN organizations o ON o.id=p.organization_id AND o.tenant_id=p.tenant_id AND o.status='active'
 		JOIN organization_memberships om
 		  ON om.organization_id=p.organization_id AND om.tenant_id=p.tenant_id
 		 AND om.identity_id=$1 AND om.status='active'
