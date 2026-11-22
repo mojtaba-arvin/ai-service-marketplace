@@ -290,7 +290,9 @@ func (h *Handler) organizationMembershipAction(w http.ResponseWriter,r *http.Req
 	if errors.Is(err,ErrOrganizationInvalid){writeError(w,http.StatusBadRequest,err.Error());return}
 	if errors.Is(err,ErrOrganizationForbidden){writeError(w,http.StatusForbidden,"membership operation is not permitted");return}
 	if err!=nil{writeError(w,http.StatusInternalServerError,"could not update membership");return}
-	writeJSON(w,http.StatusOK,map[string]string{"status":action})
+	status:=action
+	if action=="accept"{status="accepted"} else if action=="revoke"{status="revoked"} else if action=="role"{status="updated"}
+	writeJSON(w,http.StatusOK,map[string]string{"status":status})
 }
 
 func parseOrganizationManagementPath(path string)(orgID,resourceID,action string,ok bool){
@@ -302,4 +304,3 @@ func parseOrganizationManagementPath(path string)(orgID,resourceID,action string
 	return "","","",false
 }
 
-var _ = fmt.Sprintf
