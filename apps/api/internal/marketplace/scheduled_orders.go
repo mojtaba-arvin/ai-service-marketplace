@@ -119,7 +119,7 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 			SELECT o.id,o.customer_id,o.amount_minor,o.currency,o.status,o.price_version_id,v.menu_id,
 				o.scheduled_at,o.country_code,o.region_code,o.city_code,o.area_code
 			FROM orders o JOIN service_price_versions v ON v.id=o.price_version_id
-			WHERE o.customer_id=$1 AND o.idempotency_key=$2
+			WHERE o.customer_id=$1 AND o.idempotency_key=$2 AND o.tenant_id=$3
 		`,actor.SubjectID,idempotencyKey,actor.TenantID).Scan(&existing.ID,&existing.CustomerID,&existing.AmountMinor,&existing.Currency,
 			&existing.Status,&existing.PriceVersionID,&existingMenuID,&existing.ScheduledAt,&existing.CountryCode,
 			&existing.RegionCode,&existing.CityCode,&existing.AreaCode)
