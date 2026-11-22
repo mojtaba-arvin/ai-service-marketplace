@@ -1,12 +1,14 @@
 # AI Service Marketplace
 
-An open-source, multi-market home-services marketplace connecting customers with vetted independent professionals. The platform is designed around managed service quality, trusted transactions, recurring services, and auditable operations.
+An open-source, multi-market home-services marketplace platform connecting customers with vetted independent professionals. It is designed as a reusable, self-hostable software foundation for trusted service discovery, scheduling, dispatch, and auditable operations.
 
 ## Project status
 
-The Go/PostgreSQL backend, one-shot migration runner, customer-to-professional browser MVP, browser-level E2E journey, and repository-side backup/restore rehearsal are integrated into `main`. This is a validated repository/deployment foundation, not a live production service.
+The Go/PostgreSQL backend, one-shot migration runner, customer-to-professional browser MVP, browser-level E2E journey, and repository-side backup/restore rehearsal are integrated into `main`. This is a validated repository/deployment foundation, not a claim that a live production service is operating.
 
-The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/53). Public release remains blocked on real-host provisioning, real OTP delivery credentials, production smoke and backup/restore validation, external event-sink configuration, and independent release QA.
+The project is developed as open-source infrastructure and a reference implementation. Regional context (Armenia and the GCC countries) is used to guide localization and market-configuration design; it does not represent a market-entry plan, launch commitment, or approval for regulated production integrations.
+
+The current MVP vertical-slice scope is tracked in [MVP Release #53](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/53). Public deployment and independent release QA remain blocked on real-host provisioning, real OTP delivery credentials, production smoke and backup/restore validation, external event-sink configuration where needed, and independent QA.
 
 ### Integrated backend capabilities
 
@@ -32,7 +34,7 @@ The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba
 - Backup/restore and outbox operations: merged via PR #74. CI rehearses a clean PostgreSQL dump/restore, checks transactional order/dispatch outbox events, and validates the optional outbox Compose profile. The external event sink is not configured.
 - Production deployment and independent acceptance: not complete. Host provisioning, real OTP credentials, production smoke/restore validation, and release QA remain tracked in [#56](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/56) and [#57](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/57).
 
-See [contributing guidance](CONTRIBUTING.md), the [security policy](SECURITY.md), [module specifications](docs/specs/README.md), and the [API/event contract directory](packages/contracts/README.md). See the [deployment guide](infra/DEPLOYMENT.md) for the current container topology, configuration requirements, seed procedure, and known limitations. It is a deployment foundation, not a claim that the complete MVP is already live.
+See the [deployment guide](infra/DEPLOYMENT.md) for the current container topology, configuration requirements, seed procedure, and known limitations. It is a deployment foundation, not a claim that the complete MVP is already live.
 
 ## Architecture at a glance
 
@@ -45,7 +47,7 @@ See [contributing guidance](CONTRIBUTING.md), the [security policy](SECURITY.md)
 - **Async and realtime infrastructure:** transactional outbox, NATS JetStream, and Valkey where caching or ephemeral coordination is justified.
 - **Contracts:** OpenAPI and JSON Schema as versioned interface contracts.
 
-See [the business vision](docs/vision/business-plan.md), [technical plan](docs/vision/tech-plan.md), [architecture decisions](docs/adr/), and [agent instructions](AGENTS.md).
+See [contributing guidance](CONTRIBUTING.md), the [security policy](SECURITY.md), [module specifications](docs/specs/README.md), and [API/event contracts](packages/contracts/README.md). See the [product vision](docs/vision/business-plan.md), [technical plan](docs/vision/tech-plan.md), [engineering roadmap](docs/ROADMAP.md), [architecture decisions](docs/adr/), and [agent instructions](AGENTS.md).
 
 ## Development
 
