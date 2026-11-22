@@ -72,7 +72,8 @@ func TestSuggestRedactsBeforeModelAndFingerprintsRedactedText(t *testing.T) {
 	if got.Provenance.InputSHA256 != hex.EncodeToString(expected[:]) {
 		t.Fatalf("provenance fingerprint must cover redacted input only: got %s", got.Provenance.InputSHA256)
 	}
-	if got.Provenance.InputSHA256 == hex.EncodeToString(sha256.Sum256([]byte("phone +968 9000 0000"))[:]) {
+	rawHash := sha256.Sum256([]byte("phone +968 9000 0000"))
+	if got.Provenance.InputSHA256 == hex.EncodeToString(rawHash[:]) {
 		t.Fatal("provenance fingerprint exposed the raw input")
 	}
 }
