@@ -11,7 +11,7 @@
     }
   ],
   "x-contract-status": "initial-source-snapshot",
-  "x-last-reviewed-commit": "220ea9491409f1279997cb4fb72d184cf1be69d8",
+  "x-last-reviewed-commit": "97fc33bec5c9b0d283ef5172eb1a236bcbfa71a5",
   "paths": {
     "/healthz": {
       "get": {
@@ -1785,7 +1785,8 @@
               "$ref": "#/components/responses/ServerError"
             }
           }
-        }
+        },
+        "description": "Soft-archives the organization. Only the active owner may archive it. Child properties are archived and all organization memberships and property delegations are revoked atomically; historical rows and downstream order/ledger records are retained."
       }
     },
     "/v1/organizations/{organization_id}/properties": {
