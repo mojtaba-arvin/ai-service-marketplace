@@ -16,7 +16,6 @@ import (
 var (
 	ErrMembershipForbidden = errors.New("organization membership operation forbidden")
 	ErrMembershipConflict = errors.New("organization membership operation conflict")
-	ErrMembershipNotFound = errors.New("organization membership not found")
 )
 
 type OrganizationMembershipInput struct {
