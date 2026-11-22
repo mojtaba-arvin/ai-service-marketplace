@@ -78,5 +78,3 @@ func routeClass(path string) string {
 		return "other"
 	}
 }
-
-var _ = context.Background
