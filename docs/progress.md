@@ -111,3 +111,25 @@ QA evidence on the exact PR head `fd9b95db49c80e2c58c0fba1ce35f9e6a361c611`:
 ### Remaining M13 work
 
 Issue #88 remains open. The relationship of B2B orders to properties and the finance attribution/read model are now specified in [ADR 0006](adr/0006-b2b-order-finance-attribution.md), but intentionally not implemented. The current order model lacks organization/property attribution; payment operations and ledger journals lack a reliable order/tenant link. Adding these before independent order and finance QA would create unsafe historical attribution. The implementation gates are #57 (order tenant isolation), #10 (finance invariants), and #87 (canonical event adoption). No legacy financial/order backfill, mutable organization balance, production billing or money movement is authorized by this design.
+
+
+## 2026-11-22 PR #107 — B2B attribution architecture accepted
+
+PR [#107](https://github.com/mojtaba-arvin/ai-service-marketplace/pull/107) was squash-merged as `5f487ad613e45a4ed57d07b5afe5448318905731`.
+
+ADR 0006 now defines the tenant-preserving relationship between organizations, properties, orders, payment operations and immutable ledger postings, including the staged additive migration and rollback approach. It is a design decision only: order and finance attribution, event producers/projections, and consolidated statements remain gated on #57, #10 and #87. No historical attribution is inferred, and no billing or money movement is enabled.
+
+## 2026-11-22 PR #108 — stale property delegation QA fix merged
+
+PR [#108](https://github.com/mojtaba-arvin/ai-service-marketplace/pull/108) was squash-merged as `9ea0e1c9938c6b2b262a33bf8c3f2f3481b87d03`.
+
+Agent-led QA found that changing an organization member/viewer to an ineligible role could leave property delegations active; demoting the identity later could restore visibility without an explicit grant. The fix now revokes active delegations transactionally whenever a role transition crosses into or out of the member/viewer eligibility set. Each revoked property grant receives an append-only audit entry and canonical outbox event. Member<->viewer changes preserve explicit grants; demotion does not reactivate a revoked grant. The delegation list filters ineligible targets.
+
+Regression coverage verifies member/viewer preservation, promotion revocation, no resurrection after demotion, loss of property visibility, and explicit regrant restoring access. The same full CI run also verifies the existing scheduled-order market-negative test now selects a market code confirmed absent from shared fixtures rather than assuming US is unconfigured.
+
+QA evidence on exact PR #108 head `249d0eb68f991c34e5d138e8f7c0de97c5dcf266`:
+- CI [#45022503345](https://github.com/mojtaba-arvin/ai-service-marketplace/actions/runs/45022503345): success — PostgreSQL-backed Go race tests, HTTP/browser E2E, Compose validation and production API/Web image builds.
+- Security [#45022503484](https://github.com/mojtaba-arvin/ai-service-marketplace/actions/runs/45022503484): success — Dependency Review, Security Detect and CodeQL Go/Python/JavaScript-TypeScript.
+- Agent Guard [#45022503404](https://github.com/mojtaba-arvin/ai-service-marketplace/actions/runs/45022503404): success.
+
+This is agent-led QA, not independent third-party sign-off. Feature inventory remains `passes: false`; issue #88 remains open until the gated order/finance relationship and consolidated statement work is implemented and verified.
