@@ -47,7 +47,7 @@ type DomainEvent struct {
  Metadata map[string]string `json:"metadata,omitempty"`
 }
 
-var domainEventTypePattern = regexp.MustCompile("^[a-z][a-z0-9]*(\\\\.[a-z][a-z0-9_]*)+$")
+var domainEventTypePattern = regexp.MustCompile("^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_]*)+$")
 
 var prohibitedEventFieldNames = map[string]struct{}{
  "phone": {}, "phone_number": {}, "email": {}, "address": {},
