@@ -6,6 +6,8 @@
 
 This is an open-source, reusable home-services marketplace platform. Geographic context (Armenia and the GCC countries) informs localization, configuration, and compatibility scenarios; it is not a go-to-market plan, a launch sequence, or permission to enable regulated production integrations.
 
+The long-term engineering stages and exit gates are documented in [the engineering roadmap](ROADMAP.md). This file records the evidence-backed current state; the roadmap is not a substitute for issue-level acceptance criteria.
+
 ## Integrated on main
 
 The current main baseline is `255659317f5bf7202966c79fe2aa4e65b3253010`.
