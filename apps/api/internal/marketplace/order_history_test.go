@@ -112,11 +112,11 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 func TestNormalizeOrderHistoryEventCompatibility(t *testing.T) {
  legacy:=OrderHistoryEvent{Type:"order.state_changed",Payload:json.RawMessage(`{"from":"requested","to":"accepted"}`)}
  original:=string(legacy.Payload)
- if err:=normalizeOrderHistoryEvent(&legacy);err!=nil {t.Fatal(err)}
+ if err:=normalizeOrderHistoryEvent(&legacy,"order-1");err!=nil {t.Fatal(err)}
  if string(legacy.Payload)!=original || len(legacy.DomainEvent)!=0 {t.Fatalf("legacy payload must remain unchanged: %#v",legacy)}
  domain:=outbox.DomainEvent{ID:"evt-1",Type:"order.created",Version:1,OccurredAt:time.Date(2026,11,22,12,0,0,0,time.UTC),TenantID:"tenant-1",Aggregate:outbox.EventAggregate{Type:"order",ID:"order-1"},Data:json.RawMessage(`{"order_id":"order-1","status":"requested"}`)}
  encoded,err:=json.Marshal(domain);if err!=nil{t.Fatal(err)}
  canonical:=OrderHistoryEvent{Type:"order.created",Payload:encoded}
- if err=normalizeOrderHistoryEvent(&canonical);err!=nil{t.Fatal(err)}
+ if err=normalizeOrderHistoryEvent(&canonical,"order-1");err!=nil{t.Fatal(err)}
  if string(canonical.Payload)!=string(domain.Data)||string(canonical.DomainEvent)!=string(encoded){t.Fatalf("canonical event should expose both compatible payload and envelope: %#v",canonical)}
 }
