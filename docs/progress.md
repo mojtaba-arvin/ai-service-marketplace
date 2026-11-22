@@ -77,3 +77,8 @@ M12 analytics/event adoption (#87), M13 organization/property registry (#88), an
 ## 2026-11-22 PR #98 — tenant-scoped B2B schema foundation
 
 Migration `024_organizations_properties.sql` adds tenant-scoped organizations, organization memberships, properties, property delegations and append-only organization audit events. Composite foreign keys bind creator, inviter, delegate and audit actor identities to memberships in the same tenant and organization. PostgreSQL negative-path coverage rejects cross-tenant organization creators, inviters, property creators, delegation creators, members and audit actors. This is schema groundwork only: service/API authorization, invitation delivery, immediate revocation behavior, property handlers and consolidated statements remain open in #88. CI passing is not independent QA; no feature inventory item is marked independently passing.
+
+
+## 2026-11-22 — Property-level membership access in progress
+
+PR #104 (`agent/88-property-membership-access`) adds tenant-scoped property delegation APIs and transactional Audit/Outbox behavior. This work is not yet integrated on `main` and must not be treated as independently QA-passing. The remaining #88 scope includes property archive/history semantics, broader API/event acceptance and independent negative-path verification.
