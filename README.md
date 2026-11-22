@@ -1,12 +1,14 @@
 # AI Service Marketplace
 
-An open-source, multi-market home-services marketplace connecting customers with vetted independent professionals. The platform is designed around managed service quality, trusted transactions, recurring services, and auditable operations.
+An open-source, multi-market home-services marketplace platform connecting customers with vetted independent professionals. It is designed as a reusable, self-hostable software foundation for trusted service discovery, scheduling, dispatch, and auditable operations.
 
 ## Project status
 
-The Go/PostgreSQL backend, one-shot migration runner, customer-to-professional browser MVP, browser-level E2E journey, and repository-side backup/restore rehearsal are integrated into `main`. This is a validated repository/deployment foundation, not a live production service.
+The Go/PostgreSQL backend, one-shot migration runner, customer-to-professional browser MVP, browser-level E2E journey, and repository-side backup/restore rehearsal are integrated into `main`. This is a validated repository/deployment foundation, not a claim that a live production service is operating.
 
-The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/53). Public release remains blocked on real-host provisioning, real OTP delivery credentials, production smoke and backup/restore validation, external event-sink configuration, and independent release QA.
+The project is developed as open-source infrastructure and a reference implementation. Regional context (Armenia and the GCC countries) is used to guide localization and market-configuration design; it does not represent a market-entry plan, launch commitment, or approval for regulated production integrations.
+
+The current MVP vertical-slice scope is tracked in [MVP Release #53](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/53). Public deployment and independent release QA remain blocked on real-host provisioning, real OTP delivery credentials, production smoke and backup/restore validation, external event-sink configuration where needed, and independent QA.
 
 ### Integrated backend capabilities
 
@@ -45,7 +47,7 @@ See the [deployment guide](infra/DEPLOYMENT.md) for the current container topolo
 - **Async and realtime infrastructure:** transactional outbox, NATS JetStream, and Valkey where caching or ephemeral coordination is justified.
 - **Contracts:** OpenAPI and JSON Schema as versioned interface contracts.
 
-See [the business vision](docs/vision/business-plan.md), [technical plan](docs/vision/tech-plan.md), [architecture decisions](docs/adr/), and [agent instructions](AGENTS.md).
+See the [product vision](docs/vision/business-plan.md), [technical plan](docs/vision/tech-plan.md), [architecture decisions](docs/adr/), and [agent instructions](AGENTS.md).
 
 ## Development
 
