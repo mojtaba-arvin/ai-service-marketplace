@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-BASE_URL="\${BASE_URL:?Set BASE_URL to the deployed HTTPS origin}"
+BASE_URL="${BASE_URL:?Set BASE_URL to the deployed HTTPS origin}"
 case "$BASE_URL" in
   https://*) ;;
   *) echo "BASE_URL must use HTTPS" >&2; exit 2 ;;
 esac
-BASE_URL="\${BASE_URL%/}"
-CURL="\${CURL:-curl}"
+BASE_URL="${BASE_URL%/}"
+CURL="${CURL:-curl}"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -37,15 +37,15 @@ fi
 echo "==> Checking deployed web origin"
 "$CURL" --fail --silent --show-error --output /dev/null "$BASE_URL/"
 
-if [[ -n "\${HTTP_BASE_URL:-}" ]]; then
+if [[ -n "${HTTP_BASE_URL:-}" ]]; then
   case "$HTTP_BASE_URL" in
     http://*) ;;
     *) echo "HTTP_BASE_URL must use http://" >&2; exit 2 ;;
   esac
   redirect="$("$CURL" --silent --show-error --output /dev/null --max-time 15 \
-    --write-out '%{http_code} %{redirect_url}' "\${HTTP_BASE_URL%/}/healthz")"
-  code="\${redirect%% *}"
-  destination="\${redirect#* }"
+    --write-out '%{http_code} %{redirect_url}' "${HTTP_BASE_URL%/}/healthz")"
+  code="${redirect%% *}"
+  destination="${redirect#* }"
   if [[ "$code" != "301" && "$code" != "308" ]] || [[ "$destination" != https://* ]]; then
     echo "HTTP ingress did not redirect to HTTPS (received: $redirect)" >&2
     exit 1
