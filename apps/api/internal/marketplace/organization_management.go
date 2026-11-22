@@ -116,8 +116,8 @@ func (s *Store) CreatePropertyForIdentity(ctx context.Context, identityID, tenan
 		return PropertySummary{},ErrOrganizationInvalid
 	}
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return PropertySummary{},err};defer tx.Rollback(ctx)
-	var actorRole string
-	err=tx.QueryRow(ctx,`SELECT role FROM organization_memberships WHERE organization_id=$1 AND tenant_id=$2 AND identity_id=$3 AND status='active' AND role IN ('owner','admin','manager') FOR UPDATE`,organizationID,tenantID,identityID).Scan(&actorRole)
+	var actorRole,actorIdentityRole string
+	err=tx.QueryRow(ctx,`SELECT om.role,om.identity_role FROM organization_memberships om JOIN organizations o ON o.id=om.organization_id AND o.tenant_id=om.tenant_id AND o.status='active' WHERE om.organization_id=$1 AND om.tenant_id=$2 AND om.identity_id=$3 AND om.status='active' AND om.role IN ('owner','admin','manager') FOR UPDATE OF om`,organizationID,tenantID,identityID).Scan(&actorRole,&actorIdentityRole)
 	if errors.Is(err,pgx.ErrNoRows){return PropertySummary{},ErrOrganizationForbidden};if err!=nil{return PropertySummary{},err}
 	id,err:=newID();if err!=nil{return PropertySummary{},err}
 	_,err=tx.Exec(ctx,`INSERT INTO properties(id,tenant_id,organization_id,property_code,name,country_code,region_code,city_code,area_code,created_by_identity_id,created_by_identity_role)
@@ -128,16 +128,10 @@ func (s *Store) CreatePropertyForIdentity(ctx context.Context, identityID, tenan
 		if strings.Contains(strings.ToLower(err.Error()),"unique"){return PropertySummary{},ErrOrganizationConflict}
 		return PropertySummary{},err
 	}
-	if err=appendOrganizationAudit(ctx,tx,organizationID,tenantID,identityID,identityRoleForOrganization(ctx,tx,organizationID,tenantID,identityID),"property.created",map[string]string{"property_id":id,"property_code":in.Code});err!=nil{return PropertySummary{},err}
+	if err=appendOrganizationAudit(ctx,tx,organizationID,tenantID,identityID,actorIdentityRole,"property.created",map[string]string{"property_id":id,"property_code":in.Code});err!=nil{return PropertySummary{},err}
 	if err=appendOrganizationDomainEvent(ctx,tx,tenantID,organizationID,"property.created",map[string]string{"organization_id":organizationID,"property_id":id,"property_code":in.Code});err!=nil{return PropertySummary{},err}
 	if err=tx.Commit(ctx);err!=nil{return PropertySummary{},err}
 	return PropertySummary{ID:id,OrganizationID:organizationID,TenantID:tenantID,Code:in.Code,Name:in.Name,CountryCode:in.CountryCode,RegionCode:in.RegionCode,CityCode:in.CityCode,AreaCode:in.AreaCode,Status:"active",AccessRole:actorRole},nil
-}
-
-func identityRoleForOrganization(ctx context.Context,tx pgx.Tx,orgID,tenantID,identityID string) string {
-	var role string
-	_ = tx.QueryRow(ctx,`SELECT identity_role FROM organization_memberships WHERE organization_id=$1 AND tenant_id=$2 AND identity_id=$3 AND status='active'`,orgID,tenantID,identityID).Scan(&role)
-	return role
 }
 
 func (s *Store) InviteOrganizationMember(ctx context.Context, actorID, tenantID, organizationID string, in OrganizationInvitationInput) (OrganizationMembershipSummary,error) {
@@ -183,12 +177,12 @@ func (s *Store) ListPendingOrganizationInvitations(ctx context.Context, identity
 	return items,rows.Err()
 }
 
-func (s *Store) AcceptOrganizationInvitation(ctx context.Context, identityID, tenantID, membershipID string) error {
+func (s *Store) AcceptOrganizationInvitation(ctx context.Context, identityID, tenantID, organizationID, membershipID string) error {
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return err};defer tx.Rollback(ctx)
 	var orgID,identityRole string
 	err=tx.QueryRow(ctx,`UPDATE organization_memberships SET status='active',updated_at=now()
-		WHERE id=$1 AND tenant_id=$2 AND identity_id=$3 AND status='invited'
-		RETURNING organization_id,identity_role`,membershipID,tenantID,identityID).Scan(&orgID,&identityRole)
+		WHERE id=$1 AND tenant_id=$2 AND organization_id=$3 AND identity_id=$4 AND status='invited'
+		RETURNING organization_id,identity_role`,membershipID,tenantID,organizationID,identityID).Scan(&orgID,&identityRole)
 	if errors.Is(err,pgx.ErrNoRows){return ErrOrganizationForbidden};if err!=nil{return err}
 	if err=appendOrganizationAudit(ctx,tx,orgID,tenantID,identityID,identityRole,"membership.accepted",map[string]string{"membership_id":membershipID});err!=nil{return err}
 	if err=appendOrganizationDomainEvent(ctx,tx,tenantID,orgID,"organization.member_accepted",map[string]string{"organization_id":orgID,"membership_id":membershipID});err!=nil{return err}
@@ -276,7 +270,7 @@ func (h *Handler) organizationMembershipAction(w http.ResponseWriter,r *http.Req
 	tenantID:=h.organizationTenant(r)
 	switch action {
 	case "accept":
-		err=h.Store.AcceptOrganizationInvitation(r.Context(),p.IdentityID,tenantID,membershipID)
+		err=h.Store.AcceptOrganizationInvitation(r.Context(),p.IdentityID,tenantID,orgID,membershipID)
 	case "revoke":
 		err=h.Store.RevokeOrganizationMember(r.Context(),p.IdentityID,tenantID,orgID,membershipID)
 	case "role":
