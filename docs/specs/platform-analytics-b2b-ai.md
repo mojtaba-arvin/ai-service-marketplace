@@ -23,7 +23,7 @@ The API is the authorization boundary. Operator/support roles are tenant-scoped 
 
 Tracking: [#87](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/87). Architecture decision: [ADR 0005](../adr/0005-domain-event-envelope.md).
 
-The canonical event envelope is defined in `schemas/domain-event.schema.json` as a target contract. Existing outbox payloads are not yet fully migrated to this envelope. Analytics consumers must receive minimized, pseudonymized event data and must not query operational tables as an implicit cross-module API.
+The canonical event envelope is defined in `schemas/domain-event.schema.json`. The outbox package now exposes `AppendDomainEvent` to validate and persist a canonical envelope in the aggregate transaction, including required tenant attribution and a recursive prohibited-field-name guard. `Append` remains for legacy compatibility; existing producers are not yet fully migrated and analytics consumers must reject or quarantine legacy payloads rather than silently reinterpret them. Analytics consumers must receive minimized, pseudonymized event data and must not query operational tables as an implicit cross-module API.
 
 Metric definitions must specify event source, denominator, time window, timezone, deduplication and late-arrival behavior. Funnel and supply metrics are not accepted until replay, duplicate delivery and schema-version compatibility are tested.
 
