@@ -1,49 +1,76 @@
-# Business Plan — Managed Home Services Marketplace
+# Product Vision — Open-Source Managed Home Services Marketplace
 
-## Executive summary
-Build a two-sided, multi-market marketplace connecting households and organizations with vetted independent service professionals. The intended positioning is a **managed home-services marketplace**: trust, quality standards, transparent pricing, protected payments, repeat-service relationships, and operational tooling are core product capabilities—not optional add-ons.
+## Project intent
 
-The software can be architected for a complete product from the outset. Commercial rollout must remain gated by city, service category, provider density, legal readiness, and operational capacity. A complete architecture is not a reason to launch every market or service simultaneously.
+Build an open-source, production-oriented platform for operating a two-sided home-services marketplace that connects households and organizations with independent service professionals.
 
-## Business model
-Potential revenue streams:
-- Commission on completed in-platform transactions; the initial 15–25% range is a hypothesis to validate, not a committed rate.
-- Customer subscriptions and recurring maintenance/cleaning plans.
-- Professional business tools (calendar, invoicing, customer history, reporting).
-- B2B property/building maintenance contracts and consolidated billing.
-- Optional extended guarantees and other clearly priced value-added services.
+This repository is a reusable software project and reference implementation. Its purpose is to develop dependable marketplace capabilities, clear domain boundaries, integration contracts, operational tooling, and deployment practices that can be self-hosted, studied, extended, and adapted by other teams.
 
-## Core marketplace risks
-1. **Supply density:** insufficient qualified professionals in a local service area increases matching time and abandonment.
-2. **Trust and safety:** providers enter private homes; identity, credential review, incident response, evidence handling, and human escalation matter.
-3. **Disintermediation:** repeat relationships can move off-platform. Retention should come from protected payments, service guarantees, recurring plans, service history, and professional tools—not punitive dark patterns.
-4. **Pricing ambiguity:** fixed menus suit standardized jobs; uncertain work needs structured inspection and customer-approved quotes/variations.
-5. **Unit economics:** acquisition cost, repeat rate, average order value, provider earnings, refunds, payment fees, support load, and contribution margin must be measured by market/category.
-6. **Regulation:** worker classification, licenses, insurance, KYC, consumer protection, tax, and payment rules differ by jurisdiction.
+The project is **not** a market-entry plan, country launch commitment, or authorization to activate regulated services. Geographic information supplied by the project owner is engineering context for realistic configuration, localization, and compatibility testing.
 
-## Initial operating strategy
-The proposed first market should open only after local legal and operational validation. Candidate categories include recurring cleaning, HVAC servicing, basic plumbing, and electrical work. Category selection must consider frequency, job value, safety exposure, provider availability, and repeat potential.
+## Product shape
 
-Use market configuration and feature gates to limit public availability by market, region, category, and capability. This is a controlled rollout of a complete platform, not a reduction of architectural scope.
+The platform follows a managed-marketplace model. Trust, service quality, transparent pricing, reliable order handling, and auditable operations are core software capabilities.
 
-## Pricing principles
-- Fixed, versioned price menus for standardized work.
-- Structured quote workflow for unknown scope.
-- Explicit customer approval for price or scope changes.
-- Store all amounts in integer minor units with currency and pricing-version references.
-- AI may classify a request and suggest a range with confidence and provenance; deterministic rules and customer approval govern payable amounts.
+Primary actors:
+- **Customer:** discovers services, requests and schedules work, approves quotes or changes, and follows order progress.
+- **Professional:** maintains a profile, skills, service areas, availability, and accepts eligible work.
+- **Operator/support:** handles verification workflows, exceptions, disputes, and operational interventions under explicit permissions.
+- **Organization:** can later manage multiple properties, members, service requests, and consolidated records.
 
-## Trust and retention
-- Layered provider verification and skill checks, with market-specific legal review.
-- In-platform communication and privacy-preserving contact workflows where lawful.
-- Clear cancellation, refund, dispute, guarantee, and evidence policies.
-- Recurring service plans and durable service history.
-- Explainable quality signals; no opaque automated punishment.
+## Core product capabilities
 
-## North-star and health metrics
-North-star: completed orders without unresolved issues per week.
+1. Identity, authentication, sessions, and role-scoped authorization.
+2. Service taxonomy, professional skills, service areas, and availability.
+3. Versioned pricing, fixed-price services, and customer-approved quotes.
+4. Order scheduling, lifecycle transitions, dispatch candidates, expiring offers, and acceptance.
+5. Immutable financial records and provider-neutral payment contracts.
+6. Trust, verification, support, dispute, and audit workflows.
+7. Notifications, transactional events, and reliable background processing.
+8. Market configuration, localization, and provider adapters.
+9. Operational administration, analytics, and optional organization/B2B workflows.
+10. AI-assisted intake and support capabilities with deterministic policy boundaries.
 
-Track demand conversion and CAC; active qualified supply and time-to-accept; completion, lateness, cancellation, rework, disputes, and customer satisfaction; take rate and contribution margin; repeat purchase and retention; provider earnings and utilization; and suspected off-platform leakage. Define each metric's event source and denominator before reporting it.
+The feature backlog and acceptance evidence—not this vision document—define implementation status.
 
-## Research discipline
-All market sizing, competitor pricing, commission benchmarks, provider economics, and regulatory claims must be backed by dated primary or credible secondary sources and tagged with confidence. Treat values in the initial proposal as hypotheses until field research validates them. Store findings in `docs/research/` with sources and dates. R&D agents may propose changes but must never directly change live prices, compliance rules, or market availability.
+## Product principles
+
+- Make the core workflows correct, observable, secure, and testable before optimizing for scale.
+- Keep the transactional core as a modular monolith until measured evidence justifies extraction.
+- Keep module ownership and public interfaces explicit.
+- Treat PostgreSQL as the source of truth for transactional state.
+- Store money as integer minor units with explicit currency; use immutable, balanced double-entry records for financial postings.
+- Make retries and external side effects idempotent; use an outbox for reliable event delivery.
+- Enforce authorization server-side and default to least privilege.
+- Keep provider-specific behavior behind replaceable adapters with offline fakes and contract tests.
+- AI can assist with intake, classification, drafting, and support; it must not autonomously decide identity, safety, reputation, disputes, or payable amounts.
+- Preserve privacy through data minimization, redaction, retention controls, and auditable access.
+
+## Geographic and localization context
+
+The owner identified **Armenia and the six GCC countries** as useful regional context:
+- Armenia
+- Bahrain
+- Kuwait
+- Oman
+- Qatar
+- Saudi Arabia
+- United Arab Emirates
+
+Use this context to exercise country-aware configuration and identify localization dimensions such as currency, locale, language/direction, timezone, address formats, maps, messaging, and provider capabilities.
+
+This list is not a launch sequence, exclusive product scope, regulatory assessment, or instruction to enable real payments, KYC, tax, or other regulated integrations. Keep examples and fixtures clearly marked as non-production. Country-specific legal or provider requirements must not be inferred from this list.
+
+## Quality attributes
+
+- **Correctness:** explicit state machines, transactional invariants, concurrency safety, and reproducible migrations.
+- **Security:** least privilege, secure sessions, abuse controls, secret hygiene, and threat-informed tests.
+- **Reliability:** bounded retries, idempotency, health/readiness checks, backups, and recovery procedures.
+- **Extensibility:** versioned contracts, modular ownership, adapter boundaries, and documented ADRs.
+- **Portability:** reproducible local development and containerized self-hosting without mandatory proprietary services.
+- **Accessibility and localization:** responsive interfaces, semantic UI, locale-aware formatting, and support for right-to-left languages where required.
+- **Operability:** structured logs, metrics, traces, audit trails, and clear runbooks.
+
+## Non-goals of this document
+
+This document does not define revenue targets, commission rates, customer acquisition, market sizing, launch dates, country prioritization, or legal conclusions. Those topics are outside the engineering vision and must not be treated as project acceptance criteria.
