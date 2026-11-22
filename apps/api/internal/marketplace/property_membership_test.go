@@ -54,6 +54,6 @@ func TestPropertyMembershipLifecyclePostgres(t *testing.T){
  if _,err=store.AssignPropertyMembership(ctx,managerID,tenantID,org.ID,property.ID,PropertyMembershipInput{IdentityID:ownerID,Role:"viewer"});err!=ErrPropertyMembershipForbidden{t.Fatalf("organization owner delegation should be unnecessary, error=%v",err)}
  var audits,events int
  if err=pool.QueryRow(ctx,`SELECT count(*) FROM organization_audit_events WHERE organization_id=$1 AND action LIKE 'property.member.%'`,org.ID).Scan(&audits);err!=nil{t.Fatal(err)}
- if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE aggregate_type='property_membership' AND event_type LIKE 'property.member.%' AND payload->'data'->>'property_id'=$1`).Scan(&events,property.ID);err!=nil{t.Fatal(err)}
+ if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE aggregate_type='property_membership' AND event_type LIKE 'property.member.%' AND payload->'data'->>'property_id'=$1`,property.ID).Scan(&events);err!=nil{t.Fatal(err)}
  if audits!=3||events!=3{t.Fatalf("expected 3 atomic audit/outbox records, got audits=%d events=%d",audits,events)}
 }
