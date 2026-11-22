@@ -49,12 +49,23 @@ type DomainEvent struct {
 
 var domainEventTypePattern = regexp.MustCompile("^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_]*)+$")
 
-var prohibitedEventFieldNames = map[string]struct{}{
- "phone": {}, "phone_number": {}, "email": {}, "address": {},
- "full_address": {}, "access_token": {}, "refresh_token": {}, "token": {},
- "password": {}, "secret": {}, "evidence_ref": {}, "evidence_reference": {},
- "national_id": {}, "identity_document": {}, "raw_text": {},
- "latitude": {}, "longitude": {},
+// Names are stored without separators so snake_case, kebab-case, dotted and
+// camelCase variants receive the same privacy treatment.
+var prohibitedEventFieldNames = []string{
+ "phone", "phonenumber", "email", "address", "accesstoken", "refreshtoken",
+ "token", "password", "secret", "evidenceref", "evidencereference",
+ "nationalid", "identitydocument", "rawtext", "latitude", "longitude",
+}
+
+func prohibitedEventFieldName(key string) bool {
+ normalized := strings.ToLower(strings.TrimSpace(key))
+ normalized = strings.NewReplacer("_", "", "-", "", ".", "", " ", "").Replace(normalized)
+ for _, prohibited := range prohibitedEventFieldNames {
+  if strings.Contains(normalized, prohibited) {
+   return true
+  }
+ }
+ return false
 }
 
 func ValidateDomainEvent(event DomainEvent) error {
@@ -72,8 +83,7 @@ func ValidateDomainEvent(event DomainEvent) error {
  if err:=json.Unmarshal(event.Data,&data); err!=nil || data==nil { return ErrInvalidPolicy }
  if containsProhibitedEventField(data) { return ErrInvalidPolicy }
  for key:=range event.Metadata {
-  normalized:=strings.ToLower(strings.TrimSpace(key))
-  if _,blocked:=prohibitedEventFieldNames[normalized]; blocked { return ErrInvalidPolicy }
+  if prohibitedEventFieldName(key) { return ErrInvalidPolicy }
  }
  return nil
 }
@@ -82,8 +92,7 @@ func containsProhibitedEventField(value any) bool {
  switch typed:=value.(type) {
  case map[string]any:
   for key,nested:=range typed {
-   normalized:=strings.ToLower(strings.TrimSpace(key))
-   if _,blocked:=prohibitedEventFieldNames[normalized]; blocked { return true }
+   if prohibitedEventFieldName(key) { return true }
    if containsProhibitedEventField(nested) { return true }
   }
  case []any:
