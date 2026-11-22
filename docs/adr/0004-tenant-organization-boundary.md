@@ -21,7 +21,8 @@ The platform needs strict data isolation for customers, professionals, operators
 - B2B membership and property models require explicit authorization and revocation semantics.
 - A user may belong to multiple organizations, and an organization may relate to multiple properties without changing the tenant boundary.
 - Analytics and finance must preserve tenant attribution even when aggregating organization views.
-- The first tenant-scoped organization/property schema foundation is implemented in migration `024_organizations_properties.sql`; service/API authorization, invitation lifecycle, revocation behavior and independent negative-path acceptance remain tracked in #88.
+- Migration `024_organizations_properties.sql` and the tenant-scoped organization/property API implement organization reads/writes, invitation acceptance, role changes and revocation. The authenticated invitation inbox exposes only pending invitations for the current identity and selected tenant. These operations do not make the organization a tenant or grant implicit access to tenant records.
+- Membership mutations serialize on the organization row; final-owner protection, property-delegation revocation, append-only audit and transactional outbox behavior are enforced in the service/database transaction. Automated CI is not independent feature QA; acceptance remains tracked in #88.
 
 ## Alternatives considered
 
