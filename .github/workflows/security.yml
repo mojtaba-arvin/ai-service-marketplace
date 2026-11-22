@@ -72,7 +72,7 @@ jobs:
 
   dependency-review:
     # Enable the repository dependency graph, then set the Actions variable.
-    if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
