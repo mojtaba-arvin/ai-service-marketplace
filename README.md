@@ -32,7 +32,7 @@ The current MVP scope is tracked in [MVP Release #53](https://github.com/mojtaba
 - Backup/restore and outbox operations: merged via PR #74. CI rehearses a clean PostgreSQL dump/restore, checks transactional order/dispatch outbox events, and validates the optional outbox Compose profile. The external event sink is not configured.
 - Production deployment and independent acceptance: not complete. Host provisioning, real OTP credentials, production smoke/restore validation, and release QA remain tracked in [#56](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/56) and [#57](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/57).
 
-See the [deployment guide](infra/DEPLOYMENT.md) for the current container topology, configuration requirements, seed procedure, and known limitations. It is a deployment foundation, not a claim that the complete MVP is already live.
+See [contributing guidance](CONTRIBUTING.md), the [security policy](SECURITY.md), [module specifications](docs/specs/README.md), and the [API/event contract directory](packages/contracts/README.md). See the [deployment guide](infra/DEPLOYMENT.md) for the current container topology, configuration requirements, seed procedure, and known limitations. It is a deployment foundation, not a claim that the complete MVP is already live.
 
 ## Architecture at a glance
 
