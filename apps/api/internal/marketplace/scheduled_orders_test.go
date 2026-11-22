@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -63,6 +64,61 @@ func TestCustomerScheduledOrderAggregatePostgres(t *testing.T) {
 	if _,_,err=store.CreateScheduledOrder(ctx,customer,key,menu.ID,scheduled,"OM","Muscat","Seeb","Al-Khuwair"); !errors.Is(err,ErrOrderIdempotencyConflict) {
 		t.Fatalf("changed area under same key must fail: %v",err)
 	}
+
+
+	// Race two different payloads under the same tenant/customer idempotency key.
+	// Exactly one request may create the order; the loser must observe a payload
+	// conflict rather than creating a second order or outbox event.
+	raceKey := "scheduled-order-race-" + fmt.Sprint(time.Now().UnixNano())
+	type createResult struct {
+		order Order
+		created bool
+		err error
+	}
+	startRace := make(chan struct{})
+	results := make(chan createResult, 2)
+	var raceWG sync.WaitGroup
+	for _, area := range []string{"Al-Khuwair", "Ghubrah"} {
+		area := area
+		raceWG.Add(1)
+		go func() {
+			defer raceWG.Done()
+			<-startRace
+			createdOrder, wasCreated, createErr := store.CreateScheduledOrder(ctx, customer, raceKey, menu.ID, scheduled.Add(3*time.Hour), "OM", "Muscat", "Muscat", area)
+			results <- createResult{order: createdOrder, created: wasCreated, err: createErr}
+		}()
+	}
+	close(startRace)
+	raceWG.Wait()
+	close(results)
+	createdCount, conflictCount := 0, 0
+	var racedOrderID string
+	for result := range results {
+		if result.err == nil && result.created {
+			createdCount++
+			racedOrderID = result.order.ID
+			continue
+		}
+		if errors.Is(result.err, ErrOrderIdempotencyConflict) {
+			conflictCount++
+			continue
+		}
+		t.Fatalf("unexpected concurrent idempotency result: created=%v order=%+v err=%v", result.created, result.order, result.err)
+	}
+	if createdCount != 1 || conflictCount != 1 || racedOrderID == "" {
+		t.Fatalf("concurrent changed-payload requests must have one winner and one conflict: created=%d conflicts=%d id=%q", createdCount, conflictCount, racedOrderID)
+	}
+	var racedOrders, racedEvents int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM orders WHERE tenant_id=$1 AND customer_id=$2 AND idempotency_key=$3`, customer.TenantID, customer.SubjectID, raceKey).Scan(&racedOrders); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM outbox_events WHERE aggregate_type='order' AND aggregate_id=$1 AND event_type='order.created'`, racedOrderID).Scan(&racedEvents); err != nil {
+		t.Fatal(err)
+	}
+	if racedOrders != 1 || racedEvents != 1 {
+		t.Fatalf("idempotency race must persist one order and one creation event: orders=%d events=%d", racedOrders, racedEvents)
+	}
+
 	professional:=Actor{SubjectID:identityID,TenantID:"market-om",Role:RoleProfessional}
 	if _,_,err=store.CreateScheduledOrder(ctx,professional,"not-customer",menu.ID,scheduled,"OM","Muscat","Muscat","Al-Khuwair"); !errors.Is(err,ErrForbidden) {
 		t.Fatalf("non-customer cannot create customer order: %v",err)
