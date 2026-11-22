@@ -38,7 +38,7 @@ func QuerySummary(ctx context.Context,db *pgxpool.Pool,tenantID string,filter Su
     filter.MarketCode=strings.TrimSpace(filter.MarketCode)
     if db==nil || tenantID=="" || filter.From.IsZero() || filter.To.IsZero() ||
         !filter.To.After(filter.From) || filter.To.Sub(filter.From)>90*24*time.Hour ||
-        (filter.MarketCode!="" && (len(filter.MarketCode)!=2 || filter.MarketCode!=strings.ToUpper(filter.MarketCode))) {
+        (filter.MarketCode!="" && !marketCodePattern.MatchString(filter.MarketCode)) {
         return Summary{},ErrInvalidSummaryFilter
     }
     from,to:=filter.From.UTC(),filter.To.UTC()
