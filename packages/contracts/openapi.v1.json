@@ -11,7 +11,7 @@
     }
   ],
   "x-contract-status": "initial-source-snapshot",
-  "x-last-reviewed-commit": "255659317f5bf7202966c79fe2aa4e65b3253010",
+  "x-last-reviewed-commit": "0bda4d291e98e34c00dd56bd9576a373b9ad1351",
   "paths": {
     "/healthz": {
       "get": {
