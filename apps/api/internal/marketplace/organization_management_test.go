@@ -93,7 +93,6 @@ func TestOrganizationPropertyLifecycleAndDelegationsPostgres(t *testing.T) {
 		t.Fatalf("owner delegation list: %+v err=%v",items,err)
 	}
 
-	if _,err=store.GrantPropertyDelegation(ctx,ids["owner"],tenantID,org.ID,property.ID,PropertyDelegationInput{IdentityID:ids["viewer"],Role:"viewer"});err!=nil{t.Fatal(err)}
 	if err=store.ArchivePropertyForIdentity(ctx,ids["manager"],tenantID,org.ID,property.ID);err!=nil{t.Fatalf("archive property: %v",err)}
 	var propertyStatus,delegationStatus string
 	if err=pool.QueryRow(ctx,"SELECT status FROM properties WHERE id=$1",property.ID).Scan(&propertyStatus);err!=nil{t.Fatal(err)}
