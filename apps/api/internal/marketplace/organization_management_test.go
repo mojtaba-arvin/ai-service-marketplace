@@ -47,7 +47,7 @@ func TestOrganizationManagementLifecyclePostgres(t *testing.T) {
 	if invitation.Status!="invited" { t.Fatalf("invitation was not pending: %+v",invitation) }
 	pending,err:=store.ListPendingOrganizationInvitations(ctx,viewerID,tenantID)
 	if err!=nil||len(pending)!=1||pending[0].ID!=invitation.ID { t.Fatalf("pending invitation not visible to invitee: %+v %v",pending,err) }
-	if err=store.AcceptOrganizationInvitation(ctx,viewerID,tenantID,invitation.ID);err!=nil { t.Fatalf("accept invitation: %v",err) }
+	if err=store.AcceptOrganizationInvitation(ctx,viewerID,tenantID,org.ID,invitation.ID);err!=nil { t.Fatalf("accept invitation: %v",err) }
 	pending,err=store.ListPendingOrganizationInvitations(ctx,viewerID,tenantID)
 	if err!=nil||len(pending)!=0 { t.Fatalf("accepted invitation remained pending: %+v %v",pending,err) }
 	if _,err=store.CreatePropertyForIdentity(ctx,viewerID,tenantID,org.ID,PropertyCreateInput{
