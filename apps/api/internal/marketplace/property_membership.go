@@ -58,7 +58,7 @@ func lockActiveProperty(ctx context.Context,tx pgx.Tx,propertyID,organizationID,
 }
 
 func (s *Store) ListPropertyMemberships(ctx context.Context,actorID,tenantID,organizationID,propertyID string)([]PropertyMembershipResult,error){
- tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{AccessMode:pgx.ReadOnly})
+ tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{})
  if err!=nil{return nil,err}
  defer tx.Rollback(ctx)
  role,_,err:=s.propertyMembershipActor(ctx,tx,actorID,tenantID,organizationID)
