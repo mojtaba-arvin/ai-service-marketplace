@@ -74,7 +74,7 @@ func (s *Store) CreateOrganizationForIdentity(ctx context.Context, identityID, t
 	var identityRole string
 	err = tx.QueryRow(ctx, `
 		SELECT role FROM identity_memberships
-		WHERE identity_id=$1 AND tenant_id=$2
+		WHERE identity_id=$1 AND tenant_id=$2 AND role IN ('customer','professional')
 		ORDER BY CASE role WHEN 'customer' THEN 0 WHEN 'professional' THEN 1 WHEN 'operator' THEN 2 ELSE 3 END
 		LIMIT 1
 		FOR SHARE
