@@ -322,6 +322,8 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
     }
     path := r.URL.Path
     switch {
+    case r.Method == http.MethodGet && path == "/v1/organization-invitations":
+        h.organizationInvitationList(w,r); return true
     case r.Method == http.MethodPost && path == "/v1/organizations":
         h.organizationCreate(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/organizations":
@@ -777,4 +779,26 @@ func (h *Handler) verifyProvider(w http.ResponseWriter, r *http.Request) {
         return
     }
     writeJSON(w,http.StatusOK,map[string]string{"status":"verified"})
+}
+
+
+// organizationInvitationList returns invitations for the authenticated identity
+// in the selected tenant. X-Tenant-ID selects context; the store query enforces
+// both identity and tenant ownership and never trusts the header by itself.
+func (h *Handler) organizationInvitationList(w http.ResponseWriter, r *http.Request) {
+	principal, err := h.principal(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	items, err := h.Store.ListOrganizationInvitationsForIdentity(r.Context(), principal.IdentityID, h.organizationTenant(r))
+	if err != nil {
+		if errors.Is(err, ErrOrganizationAccessDenied) {
+			writeError(w, http.StatusForbidden, "tenant context is required")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "could not load organization invitations")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"invitations": items})
 }
