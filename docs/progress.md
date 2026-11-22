@@ -62,3 +62,17 @@ Use Armenia and Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, and the United Arab 
 ## Verification limitations
 
 This snapshot is based on repository files, issue records, and GitHub workflow evidence. No claim is made here that a local checkout was built in this session, that a real host was provisioned, or that independent release QA has passed.
+
+## 2026-11-22 hardening work in review
+
+PR [#86](https://github.com/mojtaba-arvin/ai-service-marketplace/pull/86) is open and not merged. It advances five engineering workstreams:
+
+- **Release QA/security:** migration `023_order_tenant_scope.sql` binds scheduled orders to a tenant; operator order listing and idempotency replay are tenant-scoped. A same-market cross-tenant regression test is included.
+- **Trust/finance:** support case access and writes require active support-agent membership; fake payment provider rejects changed request payloads under a reused idempotency key.
+- **Specifications/contracts:** module specs, an initial source-aligned OpenAPI snapshot, a canonical tenant-scoped event schema and example are added. Existing event producers still use legacy payloads; full adoption remains open.
+- **Contributor readiness:** `CONTRIBUTING.md` and `SECURITY.md` establish contribution, verification and private vulnerability-reporting guidance.
+- **Long-term modules:** #87 tracks analytics/event adoption, #88 tracks B2B organization/property modeling, and #89 tracks adversarial AI evaluation and prompt governance. ADRs 0004 and 0005 record tenant/organization separation and the canonical event envelope.
+
+CI initially caught a migration-registry drift after migration 023 was introduced. The migration runner's ordered registry has now been updated; the CI rerun is pending. A local checkout was unavailable, so no local test pass is claimed.
+
+No feature inventory item has been marked independently passing. PR #86 must pass CI and receive independent acceptance before these changes are treated as integrated.

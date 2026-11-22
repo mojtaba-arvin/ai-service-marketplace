@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mojtaba-arvin/ai-service-marketplace/blob/main/schemas/domain-event.schema.json",
+  "title": "Marketplace canonical domain event v1",
+  "description": "Versioned, tenant-scoped envelope for new domain events. Legacy outbox payloads are not yet fully migrated to this contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "type",
+    "version",
+    "occurred_at",
+    "tenant_id",
+    "aggregate",
+    "data"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Stable event identity used for idempotent delivery and consumption."
+    },
+    "type": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_]*)+$",
+      "maxLength": 160
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "correlation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "causation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "data": {
+      "type": "object"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Non-sensitive tracing and producer metadata; never include credentials or raw personal data.",
+      "additionalProperties": true
+    }
+  }
+}

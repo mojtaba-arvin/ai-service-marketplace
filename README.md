@@ -47,7 +47,7 @@ See the [deployment guide](infra/DEPLOYMENT.md) for the current container topolo
 - **Async and realtime infrastructure:** transactional outbox, NATS JetStream, and Valkey where caching or ephemeral coordination is justified.
 - **Contracts:** OpenAPI and JSON Schema as versioned interface contracts.
 
-See the [product vision](docs/vision/business-plan.md), [technical plan](docs/vision/tech-plan.md), [engineering roadmap](docs/ROADMAP.md), [architecture decisions](docs/adr/), and [agent instructions](AGENTS.md).
+See [contributing guidance](CONTRIBUTING.md), the [security policy](SECURITY.md), [module specifications](docs/specs/README.md), and [API/event contracts](packages/contracts/README.md). See the [product vision](docs/vision/business-plan.md), [technical plan](docs/vision/tech-plan.md), [engineering roadmap](docs/ROADMAP.md), [architecture decisions](docs/adr/), and [agent instructions](AGENTS.md).
 
 ## Development
 
