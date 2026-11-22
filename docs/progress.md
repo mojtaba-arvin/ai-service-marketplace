@@ -81,4 +81,4 @@ Migration `024_organizations_properties.sql` adds tenant-scoped organizations, o
 
 ## 2026-11-22 — Property-level membership access in progress
 
-PR #104 (`agent/88-property-membership-access`) adds tenant-scoped property delegation APIs and transactional Audit/Outbox behavior. This work is not yet integrated on `main` and must not be treated as independently QA-passing. The remaining #88 scope includes property archive/history semantics, broader API/event acceptance and independent negative-path verification.
+PR #105 (`agent/88-property-membership-access`) adds tenant-scoped property delegation APIs and transactional Audit/Outbox behavior. This work is not yet integrated on `main` and must not be treated as independently QA-passing. The remaining #88 scope includes property archive/history semantics, broader API/event acceptance and independent negative-path verification.
