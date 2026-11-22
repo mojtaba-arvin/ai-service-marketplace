@@ -334,7 +334,7 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
             writeError(w,http.StatusNotFound,"not found"); return true
         }
         if h.organizationPropertyManagementRoutes(w,r,parts[2]) { return true }
-    case strings.HasPrefix(path,"/v1/organizations/") && !strings.Contains(strings.TrimPrefix(path,"/v1/organizations/"),"/") && (r.Method==http.MethodPatch || r.Method==http.MethodDelete):
+    case strings.HasPrefix(path,"/v1/organizations/") && isOrganizationRootPath(path) && (r.Method==http.MethodPatch || r.Method==http.MethodDelete):
         parts:=strings.Split(strings.Trim(path,"/"),"/")
         if len(parts)!=3 || parts[0]!="v1" || parts[1]!="organizations" || parts[2]=="" || len(parts[2])>200 {
             writeError(w,http.StatusNotFound,"not found"); return true
