@@ -159,7 +159,7 @@ func TestAnalyticsProjectorStoresCanonicalFactsAndQuarantinesUnsafeEventsPostgre
     if len(storedHash)!=64 { t.Fatalf("quarantine must store only a SHA-256 fingerprint, got %q",storedHash) }
 
     var otherTenantFacts int
-    if err=pool.QueryRow(ctx,`SELECT count(*) FROM analytics_event_facts WHERE tenant_id=$3 AND event_id=$1`,domain.ID).Scan(&otherTenantFacts);err!=nil { t.Fatal(err) }
+    if err=pool.QueryRow(ctx,`SELECT count(*) FROM analytics_event_facts WHERE tenant_id=$1 AND event_id=$2`,`analytics-tenant-b-`+suffix,domain.ID).Scan(&otherTenantFacts);err!=nil { t.Fatal(err) }
     if otherTenantFacts!=0 { t.Fatalf("analytics fact crossed tenant boundary: %d",otherTenantFacts) }
     if _,err=pool.Exec(ctx,`UPDATE analytics_event_facts SET traffic_class='test' WHERE tenant_id=$1 AND event_id=$2`,domain.TenantID,domain.ID);err==nil {
         t.Fatal("analytics facts must be append-only")
