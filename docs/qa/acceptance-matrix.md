@@ -27,7 +27,7 @@ HTTP_BASE_URL=http://market.example.com \
   ./scripts/smoke-deployment.sh
 ```
 
-`BASE_URL` must be the HTTPS origin. `HTTP_BASE_URL` is optional and, when supplied, must redirect to HTTPS with status 301 or 308. The script checks API health, the server-generated request correlation ID, the web origin, and optional HTTP-to-HTTPS redirection. It does not sign in, create orders, or expose test-only OTP endpoints.
+`BASE_URL` must be the HTTPS origin. `HTTP_BASE_URL` is optional and, when supplied, must redirect to HTTPS with status 301 or 308. The script checks API health, an optional, well-formed request correlation ID when the API provides one, and the web origin, and optional HTTP-to-HTTPS redirection. It does not sign in, create orders, or expose test-only OTP endpoints.
 
 ## Evidence recording rules
 
