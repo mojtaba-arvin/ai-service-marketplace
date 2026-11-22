@@ -145,7 +145,8 @@ func (h *Handler) organizationGet(w http.ResponseWriter,r *http.Request,organiza
 	principal,err:=h.principal(r)
 	if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return }
 	item,err:=h.Store.GetOrganizationForIdentity(r.Context(),principal.IdentityID,h.organizationTenant(r),organizationID)
-	if err!=nil { writeError(w,http.StatusNotFound,"organization not found");return }
+	if errors.Is(err,ErrOrganizationAccessDenied) { writeError(w,http.StatusNotFound,"organization not found");return }
+	if err!=nil { writeError(w,http.StatusInternalServerError,"could not load organization");return }
 	writeJSON(w,http.StatusOK,map[string]any{"organization":item})
 }
 
