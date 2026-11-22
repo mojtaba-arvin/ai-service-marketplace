@@ -36,21 +36,21 @@ type Prediction struct {
 }
 
 type CaseResult struct {
-	CaseID string
-	CategoryCorrect bool
-	DetailRecall float64
-	Critical bool
+	CaseID string `json:"case_id"`
+	CategoryCorrect bool `json:"category_correct"`
+	DetailRecall float64 `json:"detail_recall"`
+	Critical bool `json:"critical"`
 }
 
 type Report struct {
-	DatasetVersion string
-	PromptID string
-	PromptVersion string
-	CategoryAccuracy float64
-	DetailRecall float64
-	Cases []CaseResult
-	CriticalFailures []string
-	Passed bool
+	DatasetVersion string `json:"dataset_version"`
+	PromptID string `json:"prompt_id"`
+	PromptVersion string `json:"prompt_version"`
+	CategoryAccuracy float64 `json:"category_accuracy"`
+	DetailRecall float64 `json:"detail_recall"`
+	Cases []CaseResult `json:"cases"`
+	CriticalFailures []string `json:"critical_failures"`
+	Passed bool `json:"passed"`
 }
 
 // Evaluate is deterministic and provider-independent. Missing predictions count
