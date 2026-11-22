@@ -148,3 +148,44 @@ func TestPromptInjectionCannotExpandTheAIIntakeAuthority(t *testing.T) {
 		t.Fatalf("model must receive only the enabled category allowlist: %+v", model.input.AllowedCategories)
 	}
 }
+
+
+type contextBlockingModel struct { called bool }
+func (m *contextBlockingModel) Generate(ctx context.Context,_ ModelInput)(ModelOutput,error) {
+    m.called=true
+    <-ctx.Done()
+    return ModelOutput{},ctx.Err()
+}
+
+func TestSuggestEnforcesModelTimeoutAndCallerCancellation(t *testing.T) {
+    for _,tc:=range []struct{name string; timeout time.Duration; cancel bool; want error}{
+        {name:"model timeout",timeout:5*time.Millisecond,want:context.DeadlineExceeded},
+        {name:"caller cancellation",timeout:time.Second,cancel:true,want:context.Canceled},
+    } {
+        t.Run(tc.name,func(t *testing.T){
+            model:=&contextBlockingModel{}
+            s:=Service{
+                Redactor:identityRedactor{},
+                Catalog:fakeCatalog{categories:[]Category{{ID:"cleaning",Label:"Cleaning"}}},
+                Model:model,Timeout:tc.timeout,
+            }
+            ctx:=context.Background()
+            if tc.cancel {
+                var cancel context.CancelFunc
+                ctx,cancel=context.WithCancel(ctx)
+                cancel()
+            }
+            _,err:=s.Suggest(ctx,Request{Market:"OM",Locale:"en",Text:"help"})
+            if !errors.Is(err,tc.want) { t.Fatalf("expected %v, got %v",tc.want,err) }
+            if !model.called { t.Fatal("model adapter must receive the bounded/cancelled context") }
+        })
+    }
+}
+
+func TestSuggestRejectsOversizedModelOutputBeforeDecoding(t *testing.T) {
+    s,model:=serviceFor(`{"category_id":"cleaning","summary":"x","required_details":[],"confidence":0.5}`)
+    model.output.JSON=[]byte(strings.Repeat(" ",16*1024+1))
+    if _,err:=s.Suggest(context.Background(),Request{Market:"OM",Locale:"en",Text:"help"});!errors.Is(err,ErrInvalidSuggestion) {
+        t.Fatalf("oversized model output must fail closed, got %v",err)
+    }
+}
