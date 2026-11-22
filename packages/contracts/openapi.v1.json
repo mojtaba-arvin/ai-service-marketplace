@@ -229,6 +229,14 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionTransport"
+          },
+          {
+            "$ref": "#/components/parameters/CSRFToken"
+          }
+        ],
+        "security": [
+          {
+            "refreshCookieAuth": []
           }
         ]
       }
@@ -1426,6 +1434,12 @@
         "in": "cookie",
         "name": "marketplace_access",
         "description": "HttpOnly access cookie. Mutating browser requests must echo marketplace_csrf in X-CSRF-Token and satisfy same-origin validation."
+      },
+      "refreshCookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "marketplace_refresh",
+        "description": "HttpOnly refresh cookie used only by the session refresh endpoint."
       }
     },
     "schemas": {
