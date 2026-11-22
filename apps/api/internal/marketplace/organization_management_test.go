@@ -81,13 +81,14 @@ func TestOrganizationPropertyLifecycleAndDelegationsPostgres(t *testing.T) {
 	if _,err=store.ChangePropertyDelegationRole(ctx,ids["manager"],tenantID,org.ID,property.ID,ids["member"],"manager");err!=ErrMembershipForbidden{
 		t.Fatalf("manager change delegation role err=%v, want forbidden",err)
 	}
-	if err=store.RevokePropertyDelegation(ctx,ids["manager"],tenantID,org.ID,property.ID,ids["member"]);err!=nil{
+	if err=store.RevokePropertyDelegation(ctx,ids["manager"],tenantID,org.ID,property.ID,ids["viewer"]);err!=nil{
 		t.Fatalf("manager revoke viewer delegation: %v",err)
 	}
 	changed,err:=store.ChangePropertyDelegationRole(ctx,ids["owner"],tenantID,org.ID,property.ID,ids["member"],"manager")
 	if err!=nil||changed.Role!="manager"{t.Fatalf("owner change delegation role: %+v err=%v",changed,err)}
 	if err=store.RevokePropertyDelegation(ctx,ids["manager"],tenantID,org.ID,property.ID,ids["member"]);err!=ErrMembershipForbidden{t.Fatalf("manager revoke manager delegation err=%v, want forbidden",err)}
 	if err=store.RevokePropertyDelegation(ctx,ids["owner"],tenantID,org.ID,property.ID,ids["member"]);err!=nil{t.Fatalf("owner revoke delegation: %v",err)}
+	if _,err=store.GrantPropertyDelegation(ctx,ids["owner"],tenantID,org.ID,property.ID,PropertyDelegationInput{IdentityID:ids["viewer"],Role:"viewer"});err!=nil{t.Fatalf("owner regrant viewer delegation: %v",err)}
 	if _,err=store.ListPropertyDelegationsForIdentity(ctx,ids["viewer"],tenantID,org.ID,property.ID);err!=ErrMembershipForbidden{
 		t.Fatalf("ordinary member listed property delegations: %v",err)
 	}
