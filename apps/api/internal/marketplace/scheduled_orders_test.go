@@ -2,6 +2,7 @@ package marketplace
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 func TestCustomerScheduledOrderAggregatePostgres(t *testing.T) {
@@ -46,6 +48,27 @@ func TestCustomerScheduledOrderAggregatePostgres(t *testing.T) {
 	var simulatedJournalCount int
 	if err=pool.QueryRow(ctx,`SELECT count(*) FROM ledger_journals WHERE id=$1`,order.ID).Scan(&simulatedJournalCount);err!=nil { t.Fatal(err) }
 	if simulatedJournalCount!=0 { t.Fatalf("booking creation must not create a simulated payment journal, got %d",simulatedJournalCount) }
+	var eventType string
+	var eventPayload []byte
+	if err=pool.QueryRow(ctx,`SELECT event_type,payload FROM outbox_events WHERE aggregate_type='order' AND aggregate_id=$1`,order.ID).Scan(&eventType,&eventPayload); err!=nil { t.Fatal(err) }
+	var event outbox.DomainEvent
+	if err=json.Unmarshal(eventPayload,&event); err!=nil { t.Fatalf("decode canonical order event: %v",err) }
+	if eventType!="order.created" || event.Type!="order.created" || event.Version!=1 ||
+		event.TenantID!=customer.TenantID || event.Aggregate.Type!="order" || event.Aggregate.ID!=order.ID {
+		t.Fatalf("order event must use canonical tenant-scoped envelope: type=%q event=%#v",eventType,event)
+	}
+	if err=outbox.ValidateDomainEvent(event); err!=nil { t.Fatalf("canonical order event rejected: %v",err) }
+	var eventData map[string]any
+	if err=json.Unmarshal(event.Data,&eventData); err!=nil { t.Fatal(err) }
+	for _,key:=range []string{"country_code","region_code","city_code","area_code"} {
+		if _,present:=eventData[key]; present { t.Fatalf("canonical order event leaked service-area field %q: %#v",key,eventData) }
+	}
+	if eventData["order_id"]!=order.ID || eventData["status"]!="requested" || eventData["price_version_id"]!=*order.PriceVersionID {
+		t.Fatalf("canonical order event data incomplete: %#v",eventData)
+	}
+	var eventCount int
+	if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE aggregate_type='order' AND aggregate_id=$1 AND event_type='order.created'`,order.ID).Scan(&eventCount); err!=nil { t.Fatal(err) }
+	if eventCount!=1 { t.Fatalf("idempotent replay must not duplicate order.created event, got %d",eventCount) }
 	if order.CustomerID!=identityID || order.AmountMinor!=4500 || order.Currency!="OMR" ||
 		order.ScheduledAt==nil || !order.ScheduledAt.Equal(scheduled) ||
 		order.CountryCode==nil || *order.CountryCode!="OM" ||
