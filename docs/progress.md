@@ -89,6 +89,6 @@ The tenant-scoped organization/property API and membership lifecycle are now int
 - PR #102 was closed without merge because its overlapping implementation was superseded by #101 and #103. It must not be merged or treated as a separate API implementation.
 - CI, Security (including Dependency Review and CodeQL) and Agent Guard completed successfully for PR #103's exact head. This is automated verification, not independent feature QA.
 
-A focused follow-up is being prepared to add an authenticated pending-invitation inbox, add PostgreSQL lifecycle coverage, and align the B2B module specification and OpenAPI contract with the implemented routes. The inbox is tenant- and identity-scoped, bounded to 100 newest pending invitations, and does not imply email/SMS delivery.
+PR #104 adds an authenticated pending-invitation inbox, PostgreSQL lifecycle coverage, and alignment of the B2B module specification and OpenAPI contract with the implemented routes. The inbox is tenant- and identity-scoped, bounded to 100 newest pending invitations, and does not imply email/SMS delivery.
 
 The feature inventory remains `passes: false` pending independent acceptance. Property delegation management, property update/archive, invitation expiry/re-send/delivery, order/ledger aggregation and consolidated billing remain deferred. No production billing or money movement is enabled.
