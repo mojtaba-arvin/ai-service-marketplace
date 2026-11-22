@@ -10,24 +10,29 @@ permissions:
 
 jobs:
   guard:
-    if: startsWith(github.head_ref, 'agent/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Reject protected-path changes from implementation agents
+      - name: Enforce protected paths for implementation-agent branches
         env:
           BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
+          if [[ "$HEAD_REF" != agent/* ]]; then
+            echo "Branch '$HEAD_REF' is not agent-managed; protected-path restrictions do not apply."
+            exit 0
+          fi
+
           git fetch origin "$BASE_REF"
           changed="$(git diff --name-only "origin/$BASE_REF...HEAD")"
-          printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)'; then
+          printf '%s\\n' "$changed"
+          if printf '%s\\n' "$changed" | grep -E '^(\\.github/|tests/spec/)'; then
             echo "Implementation agent branches may not modify protected policy or spec-test paths."
             exit 1
           fi
-          if printf '%s\n' "$changed" | grep -qx 'feature_list.json'; then
+          if printf '%s\\n' "$changed" | grep -qx 'feature_list.json'; then
             echo "feature_list.json status changes require independent QA; direct edits are forbidden."
             exit 1
           fi
