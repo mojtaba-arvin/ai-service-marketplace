@@ -16,9 +16,11 @@ var (
 
 type Case struct {
 	ID string `json:"id"`
+	Input string `json:"input"`
 	ExpectedCategory string `json:"expected_category"`
 	RequiredDetails []string `json:"required_details"`
 	Critical bool `json:"critical"`
+	RiskTags []string `json:"risk_tags,omitempty"`
 }
 
 type Dataset struct {
@@ -90,6 +92,17 @@ func Evaluate(dataset Dataset, predictions map[string]Prediction) (Report, error
 	return report,nil
 }
 
+var allowedRiskTags = map[string]struct{}{
+	"prompt_injection": {},
+	"unauthorized_financial_action": {},
+	"identity_escalation": {},
+	"unauthorized_assignment": {},
+	"pii": {},
+	"data_exfiltration": {},
+	"redaction": {},
+	"output_schema_attack": {},
+}
+
 func validateDataset(d Dataset) error {
 	if strings.TrimSpace(d.Version)==""||strings.TrimSpace(d.PromptID)==""||strings.TrimSpace(d.PromptVersion)==""||len(d.Cases)==0||
 		math.IsNaN(d.MinCategoryAccuracy)||math.IsInf(d.MinCategoryAccuracy,0)||d.MinCategoryAccuracy<0||d.MinCategoryAccuracy>1||
@@ -98,10 +111,16 @@ func validateDataset(d Dataset) error {
 	}
 	seen:=make(map[string]struct{},len(d.Cases))
 	for _,c:=range d.Cases {
-		if strings.TrimSpace(c.ID)==""||strings.TrimSpace(c.ExpectedCategory)=="" {return ErrInvalidDataset}
+		if strings.TrimSpace(c.ID)==""||strings.TrimSpace(c.Input)==""||strings.TrimSpace(c.ExpectedCategory)=="" {return ErrInvalidDataset}
 		if _,ok:=seen[c.ID];ok{return fmt.Errorf("%w: duplicate case %q",ErrInvalidDataset,c.ID)}
 		seen[c.ID]=struct{}{}
 		for _,detail:=range c.RequiredDetails {if strings.TrimSpace(detail)=="" {return ErrInvalidDataset}}
+		seenTags:=make(map[string]struct{},len(c.RiskTags))
+		for _,tag:=range c.RiskTags {
+			if _,ok:=allowedRiskTags[tag];!ok{return fmt.Errorf("%w: unknown risk tag %q",ErrInvalidDataset,tag)}
+			if _,ok:=seenTags[tag];ok{return fmt.Errorf("%w: duplicate risk tag %q in %s",ErrInvalidDataset,tag,c.ID)}
+			seenTags[tag]=struct{}{}
+		}
 	}
 	return nil
 }
