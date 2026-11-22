@@ -49,6 +49,14 @@ func TestOrganizationPropertySchemaEnforcesTenantBoundariesPostgres(t *testing.T
  propertyCode:="HQ-"+propertyID[:8]
  if _,err=pool.Exec(ctx,`INSERT INTO properties(id,tenant_id,organization_id,property_code,name,country_code,region_code,city_code,area_code,created_by_identity_id) VALUES($1,'tenant-a',$2,$3,'Headquarters','OM','muscat','muscat','al-khuwair',$4)`,propertyID,orgA,propertyCode,identityA);err!=nil{t.Fatal(err)}
 
+ crossTenantDelegationID,err:=newID();if err!=nil{t.Fatal(err)}
+ if _,err=pool.Exec(ctx,`INSERT INTO property_memberships(id,property_id,organization_id,tenant_id,identity_id,identity_role,role,created_by_identity_id) VALUES($1,$2,$3,'tenant-a',$4,'customer','viewer',$5)`,crossTenantDelegationID,propertyID,orgA,identityB,identityA);err==nil {
+  t.Fatal("cross-tenant identity was accepted as a property delegate")
+ }
+ delegationID,err:=newID();if err!=nil{t.Fatal(err)}
+ if _,err=pool.Exec(ctx,`INSERT INTO property_memberships(id,property_id,organization_id,tenant_id,identity_id,identity_role,role,created_by_identity_id) VALUES($1,$2,$3,'tenant-a',$4,'customer','viewer',$5)`,delegationID,propertyID,orgA,identityA,identityA);err!=nil{t.Fatal(err)}
+ if _,err=pool.Exec(ctx,`UPDATE property_memberships SET status='revoked',revoked_at=now() WHERE id=$1`,delegationID);err!=nil{t.Fatal(err)}
+
  crossTenantPropertyID,err:=newID();if err!=nil{t.Fatal(err)}
  if _,err=pool.Exec(ctx,`INSERT INTO properties(id,tenant_id,organization_id,property_code,name,country_code,region_code,city_code,area_code,created_by_identity_id) VALUES($1,'tenant-b',$2,'FOREIGN','Foreign property','OM','muscat','muscat','al-khuwair',$3)`,crossTenantPropertyID,orgA,identityB);err==nil {
   t.Fatal("cross-tenant property reference was accepted")
