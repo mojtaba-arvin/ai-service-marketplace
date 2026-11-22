@@ -125,16 +125,16 @@ func (s *Store) CreatePropertyForIdentity(ctx context.Context, identityID, tenan
 	if err != nil { return PropertySummary{}, err }
 	defer tx.Rollback(ctx)
 
-	var identityRole string
+	var identityRole, organizationRole string
 	err = tx.QueryRow(ctx, `
-		SELECT om.identity_role
+		SELECT om.identity_role,om.role
 		FROM organization_memberships om
 		JOIN organizations o ON o.id=om.organization_id AND o.tenant_id=om.tenant_id
 		WHERE om.identity_id=$1 AND om.tenant_id=$2 AND om.organization_id=$3
 		  AND om.status='active' AND o.status='active'
 		  AND om.role IN ('owner','admin','manager')
 		FOR SHARE OF om,o
-	`, identityID, tenantID, organizationID).Scan(&identityRole)
+	`, identityID, tenantID, organizationID).Scan(&identityRole, &organizationRole)
 	if errors.Is(err, pgx.ErrNoRows) { return PropertySummary{}, ErrOrganizationWriteForbidden }
 	if err != nil { return PropertySummary{}, err }
 
@@ -153,7 +153,7 @@ func (s *Store) CreatePropertyForIdentity(ctx context.Context, identityID, tenan
 		return PropertySummary{}, err
 	}
 	if err = tx.Commit(ctx); err != nil { return PropertySummary{}, err }
-	return PropertySummary{ID: propertyID, OrganizationID: organizationID, TenantID: tenantID, Code: in.Code, Name: in.Name, CountryCode: in.CountryCode, RegionCode: in.RegionCode, CityCode: in.CityCode, AreaCode: in.AreaCode, Status: "active", AccessRole: "owner"}, nil
+	return PropertySummary{ID: propertyID, OrganizationID: organizationID, TenantID: tenantID, Code: in.Code, Name: in.Name, CountryCode: in.CountryCode, RegionCode: in.RegionCode, CityCode: in.CityCode, AreaCode: in.AreaCode, Status: "active", AccessRole: organizationRole}, nil
 }
 
 func appendOrganizationAudit(ctx context.Context, tx pgx.Tx, organizationID, tenantID, actorID, actorRole, action string, details map[string]string) error {
