@@ -102,3 +102,12 @@ func writeOrganizationManagementError(w http.ResponseWriter,err error) {
 		writeError(w,http.StatusInternalServerError,"organization or property operation failed")
 	}
 }
+
+func isOrganizationRootPath(path string) bool {
+	const prefix = "/v1/organizations/"
+	if !strings.HasPrefix(path,prefix) {
+		return false
+	}
+	organizationID := strings.TrimPrefix(path,prefix)
+	return organizationID != "" && !strings.Contains(organizationID,"/")
+}
