@@ -2,7 +2,9 @@
 
 ## Write-side contract
 
-Call `outbox.Append(ctx, tx, ...)` using the same PostgreSQL transaction that mutates the aggregate. If that transaction rolls back, the event rolls back too. Event IDs are stable publication idempotency keys.
+Call `outbox.AppendDomainEvent(ctx, tx, event)` for new tenant-scoped domain events using the same PostgreSQL transaction that mutates the aggregate. It validates the canonical v1 envelope, requires tenant and aggregate identity, and rejects prohibited sensitive field names recursively. If the transaction rolls back, the event rolls back too. The envelope's string `id` is the domain-event identity; the outbox row ID remains the transport/publication identity.
+
+`outbox.Append` remains available only for staged legacy compatibility. Existing producers are not considered migrated until they derive tenant context from the authorized aggregate and emit the canonical envelope. The field-name guard is defense in depth, not a substitute for producer-specific data minimization or privacy review.
 
 ## Publisher
 
