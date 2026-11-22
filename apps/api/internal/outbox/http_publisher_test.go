@@ -51,3 +51,17 @@ func TestHTTPPublisherKeepsCanonicalEnvelopeAdditive(t *testing.T) {
  if err=json.Unmarshal(received["domain_event"],&got);err!=nil{t.Fatalf("canonical envelope missing: %v",err)}
  if got.ID!="evt-1"||got.TenantID!="tenant-1"||got.Aggregate.ID!="order-1" {t.Fatalf("wrong canonical envelope: %#v",got)}
 }
+
+func TestHTTPPublisherPreservesLegacyPayload(t *testing.T) {
+ var received map[string]json.RawMessage
+ server:=httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
+  if err:=json.NewDecoder(r.Body).Decode(&received);err!=nil { t.Error(err) }
+  w.WriteHeader(http.StatusAccepted)
+ }))
+ defer server.Close()
+ publisher,err:=NewHTTPPublisher(server.URL,"publisher-secret",server.Client());if err!=nil{t.Fatal(err)}
+ legacy:=json.RawMessage(`{"order_id":"order-legacy","status":"requested","version":7}`)
+ if err=publisher.Publish(context.Background(),Event{ID:732,AggregateType:"order",AggregateID:"order-legacy",EventType:"order.created",Payload:legacy},"732");err!=nil{t.Fatal(err)}
+ if string(received["payload"])!=string(legacy) {t.Fatalf("legacy payload changed: got %s want %s",received["payload"],legacy)}
+ if _,exists:=received["domain_event"];exists {t.Fatalf("legacy event must not gain domain_event: %s",received["domain_event"])}
+}
