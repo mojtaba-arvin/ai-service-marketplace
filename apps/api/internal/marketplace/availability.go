@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 var (
@@ -117,20 +118,23 @@ func (s *Store) CreateProviderBooking(ctx context.Context,actor Actor,providerID
 	if err!=nil { return ProviderBooking{},err }
 	defer tx.Rollback(ctx)
 	var active,verified bool
-	err=tx.QueryRow(ctx,`SELECT active,verified_at IS NOT NULL FROM provider_profiles WHERE id=$1 FOR UPDATE`,providerID).Scan(&active,&verified)
+	var providerTenantID string
+	err=tx.QueryRow(ctx,`SELECT active,verified_at IS NOT NULL,tenant_id FROM provider_profiles WHERE id=$1 FOR UPDATE`,providerID).Scan(&active,&verified,&providerTenantID)
 	if errors.Is(err,pgx.ErrNoRows) { return ProviderBooking{},ErrProviderNotEligible }
 	if err!=nil { return ProviderBooking{},err }
 	if !active || !verified { return ProviderBooking{},ErrProviderNotEligible }
+	if providerTenantID != actor.TenantID { return ProviderBooking{},ErrForbidden }
 
-	var orderStatus,country,region,city,area string
+	var orderStatus,country,region,city,area,orderTenantID string
 	var scheduledAt *time.Time
 	var priceVersionID *string
 	err=tx.QueryRow(ctx,`
-		SELECT status,scheduled_at,price_version_id,country_code,region_code,city_code,area_code
+		SELECT status,scheduled_at,price_version_id,country_code,region_code,city_code,area_code,tenant_id
 		FROM orders WHERE id=$1 FOR UPDATE
-	`,orderID).Scan(&orderStatus,&scheduledAt,&priceVersionID,&country,&region,&city,&area)
+	`,orderID).Scan(&orderStatus,&scheduledAt,&priceVersionID,&country,&region,&city,&area,&orderTenantID)
 	if errors.Is(err,pgx.ErrNoRows) { return ProviderBooking{},ErrOrderNotFound }
 	if err!=nil { return ProviderBooking{},err }
+	if orderTenantID != actor.TenantID { return ProviderBooking{},ErrForbidden }
 	if orderStatus!="requested" || scheduledAt==nil || priceVersionID==nil ||
 		scheduledAt.Before(startAt) || !scheduledAt.Before(endAt) {
 		return ProviderBooking{},ErrProviderUnavailable
@@ -184,8 +188,14 @@ func (s *Store) CreateProviderBooking(ctx context.Context,actor Actor,providerID
 		}
 		return ProviderBooking{},err
 	}
-	payload,_:=json.Marshal(map[string]any{"booking_id":booking.ID,"provider_id":providerID,"order_id":orderID,"start_at":startAt,"end_at":endAt})
-	if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('provider_booking',$1,'provider.booking_reserved',$2::jsonb)`,booking.ID,payload); err!=nil {
+	eventID,err:=newID()
+	if err!=nil { return ProviderBooking{},err }
+	payload,err:=json.Marshal(map[string]any{"booking_id":booking.ID,"provider_id":providerID,"order_id":orderID,"start_at":startAt.UTC(),"end_at":endAt.UTC()})
+	if err!=nil { return ProviderBooking{},err }
+	if _,err=outbox.AppendDomainEvent(ctx,tx,outbox.DomainEvent{
+		ID:eventID,Type:"provider.booking_reserved",Version:1,OccurredAt:time.Now().UTC(),
+		TenantID:actor.TenantID,Aggregate:outbox.EventAggregate{Type:"provider_booking",ID:booking.ID},Data:payload,
+	}); err!=nil {
 		return ProviderBooking{},err
 	}
 	if err=tx.Commit(ctx); err!=nil { return ProviderBooking{},err }
