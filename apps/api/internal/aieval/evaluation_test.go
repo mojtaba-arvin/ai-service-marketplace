@@ -6,34 +6,38 @@ import (
 	"testing"
 	"encoding/json"
 	"bytes"
+	"strings"
 )
 
 func loadGolden(t *testing.T) Dataset {
 	t.Helper()
-	raw,err:=os.ReadFile("golden/v1/intake.json");if err!=nil{t.Fatal(err)}
+	raw,err:=os.ReadFile("golden/v2/intake.json");if err!=nil{t.Fatal(err)}
 	var d Dataset
 	if err:=json.Unmarshal(raw,&d);err!=nil{t.Fatal(err)}
 	return d
 }
 
+
+func perfectPredictions(d Dataset) map[string]Prediction {
+    predictions:=make(map[string]Prediction,len(d.Cases))
+    for _,c:=range d.Cases {
+        predictions[c.ID]=Prediction{CategoryID:c.ExpectedCategory,RequiredDetails:append([]string(nil),c.RequiredDetails...)}
+    }
+    return predictions
+}
+
 func TestGoldenDatasetPassesDeterministicEvaluation(t *testing.T) {
 	d:=loadGolden(t)
-	predictions:=map[string]Prediction{
-		"om-ac-not-cooling":{CategoryID:"ac-repair",RequiredDetails:[]string{"Unit model","Last service date"}},
-		"om-water-leak":{CategoryID:"plumbing",RequiredDetails:[]string{"Leak location","When it started"}},
-		"de-cleaning":{CategoryID:"home-cleaning",RequiredDetails:[]string{"Property size"}},
-	}
+	predictions:=perfectPredictions(d)
 	report,err:=Evaluate(d,predictions);if err!=nil{t.Fatal(err)}
 	if !report.Passed||report.CategoryAccuracy!=1||report.DetailRecall!=1{t.Fatalf("unexpected report: %+v",report)}
 }
 
 func TestCriticalCaseRegressionFailsEvenWhenAggregateThresholdPasses(t *testing.T) {
 	d:=loadGolden(t)
-	predictions:=map[string]Prediction{
-		"om-ac-not-cooling":{CategoryID:"cleaning",RequiredDetails:[]string{"Unit model","Last service date"}},
-		"om-water-leak":{CategoryID:"plumbing",RequiredDetails:[]string{"Leak location","When it started"}},
-		"de-cleaning":{CategoryID:"home-cleaning",RequiredDetails:[]string{"Property size"}},
-	}
+	d.MinCategoryAccuracy=0.8
+	predictions:=perfectPredictions(d)
+	predictions["om-ac-not-cooling"]=Prediction{CategoryID:"cleaning",RequiredDetails:[]string{"Unit model","Last service date"}}
 	report,err:=Evaluate(d,predictions)
 	if !errors.Is(err,ErrRegression){t.Fatalf("expected regression, got %v",err)}
 	if len(report.CriticalFailures)!=1||report.CriticalFailures[0]!="om-ac-not-cooling"{t.Fatalf("critical failure not reported: %+v",report)}
@@ -41,13 +45,30 @@ func TestCriticalCaseRegressionFailsEvenWhenAggregateThresholdPasses(t *testing.
 
 func TestMissingPredictionAndDetailRegressionFail(t *testing.T) {
 	d:=loadGolden(t)
-	predictions:=map[string]Prediction{
-		"om-ac-not-cooling":{CategoryID:"ac-repair",RequiredDetails:[]string{"Unit model"}},
-		"om-water-leak":{CategoryID:"plumbing",RequiredDetails:[]string{"Leak location","When it started"}},
-	}
+	predictions:=perfectPredictions(d)
+	delete(predictions,"om-ac-not-cooling")
+	predictions["de-cleaning"]=Prediction{CategoryID:"home-cleaning"}
 	report,err:=Evaluate(d,predictions)
 	if !errors.Is(err,ErrRegression){t.Fatalf("expected regression, got %v",err)}
 	if report.DetailRecall>=d.MinDetailRecall{t.Fatalf("expected detail recall regression: %+v",report)}
+}
+
+
+func TestGoldenDatasetIncludesAdversarialCoverage(t *testing.T) {
+    dataset:=loadGolden(t)
+    required:=map[string]bool{
+        "prompt_injection":false,
+        "unauthorized_financial_action":false,
+        "identity_escalation":false,
+        "pii":false,
+        "data_exfiltration":false,
+        "output_schema_attack":false,
+    }
+    for _,c:=range dataset.Cases {
+        if strings.TrimSpace(c.Input)=="" { t.Fatalf("golden case %s has no input",c.ID) }
+        for _,tag:=range c.RiskTags { if _,ok:=required[tag];ok { required[tag]=true } }
+    }
+    for tag,covered:=range required { if !covered { t.Errorf("golden dataset missing adversarial risk tag %q",tag) } }
 }
 
 func TestInvalidDatasetRejected(t *testing.T) {
@@ -55,6 +76,10 @@ func TestInvalidDatasetRejected(t *testing.T) {
 	if _,err:=Evaluate(d,map[string]Prediction{});!errors.Is(err,ErrInvalidDataset){t.Fatalf("got %v",err)}
 	d=loadGolden(t);d.Cases=append(d.Cases,d.Cases[0])
 	if _,err:=Evaluate(d,map[string]Prediction{});!errors.Is(err,ErrInvalidDataset){t.Fatalf("got %v",err)}
+	d=loadGolden(t);d.Cases[0].RiskTags=[]string{"unknown-risk"}
+	if _,err:=Evaluate(d,perfectPredictions(d));!errors.Is(err,ErrInvalidDataset){t.Fatalf("unknown risk tag must fail: %v",err)}
+	d=loadGolden(t);d.Cases[0].Input=""
+	if _,err:=Evaluate(d,perfectPredictions(d));!errors.Is(err,ErrInvalidDataset){t.Fatalf("missing input must fail: %v",err)}
 }
 
 
@@ -75,7 +100,7 @@ func TestPromptManifestPinsTheGoldenDatasetAndOutputSchema(t *testing.T) {
 		t.Fatalf("prompt/dataset version drift: manifest=%s@%s dataset=%s@%s",
 			manifest.PromptID, manifest.Version, dataset.PromptID, dataset.PromptVersion)
 	}
-	if manifest.Dataset != "apps/api/internal/aieval/golden/v1/intake.json" ||
+	if manifest.Dataset != "apps/api/internal/aieval/golden/v2/intake.json" ||
 		manifest.OutputSchema != "apps/api/internal/aiintake/suggestion.schema.json" {
 		t.Fatalf("manifest points to unexpected contract files: %+v", manifest)
 	}
@@ -83,11 +108,7 @@ func TestPromptManifestPinsTheGoldenDatasetAndOutputSchema(t *testing.T) {
 
 func TestEvaluationReportIsDeterministicAndMachineReadable(t *testing.T) {
 	dataset := loadGolden(t)
-	predictions := map[string]Prediction{
-		"om-ac-not-cooling": {CategoryID:"ac-repair", RequiredDetails:[]string{"Unit model","Last service date"}},
-		"om-water-leak": {CategoryID:"plumbing", RequiredDetails:[]string{"Leak location","When it started"}},
-		"de-cleaning": {CategoryID:"home-cleaning", RequiredDetails:[]string{"Property size"}},
-	}
+	predictions := perfectPredictions(dataset)
 	first, err := Evaluate(dataset, predictions)
 	if err != nil { t.Fatal(err) }
 	second, err := Evaluate(dataset, predictions)
