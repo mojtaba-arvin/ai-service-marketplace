@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "status": "candidate",
   "output_schema": "apps/api/internal/aiintake/suggestion.schema.json",
-  "dataset": "apps/api/internal/aieval/golden/v1/intake.json",
+  "dataset": "apps/api/internal/aieval/golden/v2/intake.json",
   "model_policy": {
     "temperature": 0,
     "top_p": 1,
