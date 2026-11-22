@@ -91,8 +91,10 @@ func (s *Store) GetOrganizationForIdentity(ctx context.Context, identityID, tena
 // explicitly delegated to them. Both paths require a currently active
 // organization membership, so revocation takes effect on the next request.
 func (s *Store) ListPropertiesForIdentity(ctx context.Context, identityID, tenantID, organizationID string) ([]PropertySummary,error) {
-	if _,err:=s.GetOrganizationForIdentity(ctx,identityID,tenantID,organizationID);err!=nil {
+	if _,err:=s.GetOrganizationForIdentity(ctx,identityID,tenantID,organizationID);errors.Is(err,ErrOrganizationAccessDenied) {
 		return nil,ErrOrganizationAccessDenied
+	} else if err!=nil {
+		return nil,err
 	}
 	rows,err:=s.DB.Query(ctx,`
 		SELECT p.id,p.organization_id,p.tenant_id,p.property_code,p.name,
