@@ -111,18 +111,18 @@ func (s Service) Suggest(ctx context.Context, request Request) (Suggestion, erro
 	categories, err := s.Catalog.EnabledCategories(ctx, request.Market, request.Locale)
 	if err != nil { return Suggestion{}, fmt.Errorf("load enabled catalog categories: %w", err) }
 	if len(categories) == 0 { return Suggestion{}, ErrInvalidRequest }
-\tallowed := make(map[string]struct{}, len(categories))
-\tfor _, category := range categories {
-\t\tid := strings.TrimSpace(category.ID)
-\t\tif id == "" || id != category.ID || len(id) > 128 ||
-\t\t\tstrings.TrimSpace(category.Label) == "" || len(category.Label) > 160 {
-\t\t\treturn Suggestion{}, ErrInvalidRequest
-\t\t}
-\t\tif _, exists := allowed[id]; exists {
-\t\t\treturn Suggestion{}, ErrInvalidRequest
-\t\t}
-\t\tallowed[id] = struct{}{}
-\t}
+	allowed := make(map[string]struct{}, len(categories))
+	for _, category := range categories {
+		id := strings.TrimSpace(category.ID)
+		if id == "" || id != category.ID || len(id) > 128 ||
+			strings.TrimSpace(category.Label) == "" || len(category.Label) > 160 {
+			return Suggestion{}, ErrInvalidRequest
+		}
+		if _, exists := allowed[id]; exists {
+			return Suggestion{}, ErrInvalidRequest
+		}
+		allowed[id] = struct{}{}
+	}
 
 	modelCtx, cancel := context.WithTimeout(ctx, s.Timeout)
 	defer cancel()
