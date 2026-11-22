@@ -21,6 +21,9 @@ type Summary struct {
     WindowFrom time.Time `json:"window_from"`
     WindowTo time.Time `json:"window_to"`
     MarketCode string `json:"market_code,omitempty"`
+    DataReady bool `json:"data_ready"`
+    EligibleEvents int64 `json:"eligible_events"`
+    ExcludedEvents int64 `json:"excluded_events"`
     OrdersCreated int64 `json:"orders_created"`
     OffersCreated int64 `json:"offers_created"`
     OffersAccepted int64 `json:"offers_accepted"`
@@ -103,12 +106,19 @@ SELECT
           AND c.occurred_at>=o.created_at
     )),
     COALESCE((SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY seconds) FROM assignment_durations),0),
-    COALESCE((SELECT percentile_cont(0.9) WITHIN GROUP (ORDER BY seconds) FROM assignment_durations),0)
+    COALESCE((SELECT percentile_cont(0.9) WITHIN GROUP (ORDER BY seconds) FROM assignment_durations),0),
+    (SELECT count(*) FROM analytics_event_facts WHERE tenant_id=$1 AND occurred_at >= $2 AND occurred_at < $3
+       AND traffic_class='production' AND market_code IS NOT NULL AND ($4='' OR market_code=$4)),
+    (SELECT count(*) FROM analytics_event_facts WHERE tenant_id=$1 AND occurred_at >= $2 AND occurred_at < $3
+       AND (traffic_class IS DISTINCT FROM 'production' OR market_code IS NULL)
+       AND ($4='' OR market_code=$4 OR market_code IS NULL))
 `,tenantID,from,to,filter.MarketCode).Scan(
         &result.OrdersCreated,&result.OffersCreated,&result.OffersAccepted,
         &result.OrdersCancelled,&result.OrdersCompleted,
-        &result.MedianAssignmentSeconds,&result.P90AssignmentSeconds)
+        &result.MedianAssignmentSeconds,&result.P90AssignmentSeconds,
+        &result.EligibleEvents,&result.ExcludedEvents)
     if err!=nil { return Summary{},err }
+    result.DataReady=result.EligibleEvents>0
     if result.OffersCreated>0 { result.OfferAcceptanceRate=float64(result.OffersAccepted)/float64(result.OffersCreated) }
     if result.OrdersCreated>0 {
         result.CancellationRate=float64(result.OrdersCancelled)/float64(result.OrdersCreated)
