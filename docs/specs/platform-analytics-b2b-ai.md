@@ -21,15 +21,21 @@ The API is the authorization boundary. Operator/support roles are tenant-scoped 
 
 ## Analytics (M12)
 
+Tracking: [#87](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/87). Architecture decision: [ADR 0005](../adr/0005-domain-event-envelope.md).
+
 The canonical event envelope is defined in `schemas/domain-event.schema.json` as a target contract. Existing outbox payloads are not yet fully migrated to this envelope. Analytics consumers must receive minimized, pseudonymized event data and must not query operational tables as an implicit cross-module API.
 
 Metric definitions must specify event source, denominator, time window, timezone, deduplication and late-arrival behavior. Funnel and supply metrics are not accepted until replay, duplicate delivery and schema-version compatibility are tested.
 
 ## B2B (M13)
 
+Tracking: [#88](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/88). Architecture decision: [ADR 0004](../adr/0004-tenant-organization-boundary.md).
+
 Organization membership, property registry and consolidated statements are backlog capabilities, not current MVP functionality. The future model must distinguish tenant (security/data boundary) from organization (business grouping). An organization may not bypass identity membership or tenant isolation. Property/location records need explicit ownership, access delegation, archival and audit rules. Consolidated billing is a read model over immutable financial postings, not a mutable balance field.
 
 ## AI intake and evaluation (M14)
+
+Tracking: [#89](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/89).
 
 AI intake is a non-authoritative suggestion boundary. It receives redacted text, market/locale and allowed catalog categories; validates strict structured output; records model/version/input hash; and must not create orders or decide money, safety, identity, reputation or disputes. Implementation: `internal/aiintake`, `internal/aieval`, `internal/aiintake`.
 
