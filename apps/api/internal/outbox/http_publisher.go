@@ -31,6 +31,11 @@ func canonicalDomainEvent(event Event) (*DomainEvent, error) {
  if _, versioned := fields["version"]; !versioned {
   return nil, nil
  }
+ if _, tenantScoped := fields["tenant_id"]; !tenantScoped {
+  if _, aggregate := fields["aggregate"]; !aggregate {
+   if _, data := fields["data"]; !data { return nil, nil }
+  }
+ }
  var domain DomainEvent
  if err := json.Unmarshal(event.Payload, &domain); err != nil || ValidateDomainEvent(domain) != nil ||
   domain.ID == "" || domain.Type != event.EventType ||
