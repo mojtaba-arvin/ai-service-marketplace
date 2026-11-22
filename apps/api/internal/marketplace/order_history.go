@@ -46,7 +46,7 @@ func authorizeOrderHistory(actor Actor) error {
 // normalizeOrderHistoryEvent preserves the historical business-data payload
 // while exposing the canonical envelope separately. Legacy payloads remain
 // byte-for-byte compatible; malformed envelope-shaped payloads fail closed.
-func normalizeOrderHistoryEvent(event *OrderHistoryEvent) error {
+func normalizeOrderHistoryEvent(event *OrderHistoryEvent, orderID string) error {
  var fields map[string]json.RawMessage
  if err:=json.Unmarshal(event.Payload,&fields); err!=nil || fields==nil { return nil }
  if _,versioned:=fields["version"]; !versioned { return nil }
@@ -57,7 +57,7 @@ func normalizeOrderHistoryEvent(event *OrderHistoryEvent) error {
  }
  var domain outbox.DomainEvent
  if err:=json.Unmarshal(event.Payload,&domain); err!=nil || outbox.ValidateDomainEvent(domain)!=nil ||
-  domain.Type!=event.Type {
+  domain.Type!=event.Type || domain.Aggregate.Type!="order" || domain.Aggregate.ID!=orderID {
   return outbox.ErrInvalidPolicy
  }
  event.DomainEvent=append(json.RawMessage(nil),event.Payload...)
@@ -76,7 +76,7 @@ func loadOrderHistoryEvents(ctx context.Context,tx pgx.Tx,orderID string) ([]Ord
 	for rows.Next() {
 		var event OrderHistoryEvent
 		if err=rows.Scan(&event.ID,&event.Type,&event.Payload,&event.CreatedAt); err!=nil { return nil,err }
-		if err=normalizeOrderHistoryEvent(&event); err!=nil { return nil,err }
+		if err=normalizeOrderHistoryEvent(&event,orderID); err!=nil { return nil,err }
 		events=append(events,event)
 	}
 	if err=rows.Err(); err!=nil { return nil,err }
