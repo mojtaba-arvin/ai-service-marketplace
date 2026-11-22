@@ -187,8 +187,10 @@ func (s *Store) GrantPropertyDelegation(ctx context.Context,actorID,tenantID,org
 	details:=map[string]string{"property_id":propertyID,"identity_id":in.IdentityID,"role":in.Role}
 	if err=appendOrganizationAudit(ctx,tx,organizationID,tenantID,actorID,actorIdentityRole,"property.member.granted",details);err!=nil{return PropertyDelegationSummary{},err}
 	if err=appendOrganizationDomainEvent(ctx,tx,tenantID,"property",propertyID,"property.member.granted",details);err!=nil{return PropertyDelegationSummary{},err}
+	var createdAt time.Time
+	if err=tx.QueryRow(ctx,"SELECT created_at FROM property_memberships WHERE id=$1",id).Scan(&createdAt);err!=nil{return PropertyDelegationSummary{},err}
 	if err=tx.Commit(ctx);err!=nil{return PropertyDelegationSummary{},err}
-	return PropertyDelegationSummary{ID:id,PropertyID:propertyID,OrganizationID:organizationID,IdentityID:in.IdentityID,Role:in.Role,Status:"active"},nil
+	return PropertyDelegationSummary{ID:id,PropertyID:propertyID,OrganizationID:organizationID,IdentityID:in.IdentityID,Role:in.Role,Status:"active",CreatedAt:createdAt},nil
 }
 
 func (s *Store) ChangePropertyDelegationRole(ctx context.Context,actorID,tenantID,organizationID,propertyID,targetID,nextRole string)(PropertyDelegationSummary,error){
