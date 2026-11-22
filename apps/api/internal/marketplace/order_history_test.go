@@ -79,7 +79,7 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	if !types["order.created"] || !types["order.state_changed"] {
 		t.Fatalf("timeline missing order lifecycle events: %#v",timeline.Events)
 	}
-	if _,err=store.GetOrderTimeline(ctx,other,first.ID); !errors.Is(err,ErrForbidden) {
+	if _,err=store.GetOrderTimeline(ctx,other,first.ID); !errors.Is(err,ErrOrderNotFound) {
 		t.Fatalf("another customer cannot read order timeline: %v",err)
 	}
 	if _,err=store.GetOrderTimeline(ctx,secondTenant,secondTenantOrder.ID); !errors.Is(err,ErrOrderNotFound) {
