@@ -31,7 +31,31 @@ Metric definitions must specify event source, denominator, time window, timezone
 
 Tracking: [#88](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/88). Architecture decision: [ADR 0004](../adr/0004-tenant-organization-boundary.md).
 
-Migration `024_organizations_properties.sql` provides the first tenant-scoped schema foundation for organizations, organization memberships, properties, property delegations and append-only organization audit events. Composite foreign keys bind actor attribution to membership in the same tenant and organization. This is schema groundwork only: service/API authorization, invitation delivery, revocation behavior, property access handlers and consolidated statements remain unimplemented and must be tested before the module is considered usable. The model distinguishes tenant (security/data boundary) from organization (business grouping). An organization may not bypass identity membership or tenant isolation. Consolidated billing is a read model over immutable financial postings, not a mutable balance field.
+### Implemented on `main`
+
+Migration `024_organizations_properties.sql` and the organization API provide a tenant-scoped B2B foundation:
+
+- Create an organization for an authenticated customer/professional identity in the selected tenant; create the initial owner membership in the same transaction.
+- Read organizations and active properties only after checking current organization membership. Owners/admins/managers see all active properties; members/viewers see only explicitly delegated properties.
+- Create properties only for active owner/admin/manager memberships.
+- Invite identities already registered as customer/professional in the same tenant; invitations are pending memberships and are surfaced through `GET /v1/organization-invitations` (maximum 100, newest first) for the authenticated identity and selected tenant.
+- The invitee alone can accept its pending invitation. Membership role changes enforce owner/admin/manager policy. Revocation atomically revokes the organization membership and that identity's active property delegations.
+- Organization writes and membership lifecycle mutations persist append-only audit records and canonical tenant-scoped outbox events in the same database transaction.
+- The API contract is maintained in `packages/contracts/openapi.v1.json`; tenant selection through `X-Tenant-ID` is a context selector, never proof of authorization.
+
+### Authorization invariants
+
+- Tenant is the security/data-isolation boundary; organization is only a business grouping inside that tenant.
+- Every operation resolves the authenticated identity against the selected tenant and current organization membership in the database. Token claims and client-supplied tenant IDs are not sufficient authorization.
+- Authorization is deny-by-default. Owners may manage all organization roles; admins cannot grant/manage owners; managers may manage only members/viewers and assign only member/viewer. Other roles cannot manage membership.
+- The last active owner cannot be demoted or revoked. Membership mutation transactions serialize on the organization row to prevent concurrent last-owner races.
+- Cross-tenant organization, member, property, delegation and audit-actor references are rejected by composite database constraints.
+
+### Explicit limits
+
+Invitation delivery is in-app only: no email/SMS, no invitation to identities that do not yet exist in the tenant, and no invitation expiry/re-send workflow. Property delegation management endpoints, property update/archive, pending-invitation pagination beyond the bounded first 100, order/ledger aggregation and consolidated billing remain deferred. No payment capture, money movement or production billing is introduced.
+
+Merged implementation and passing CI are not independent QA. The feature inventory remains `passes: false` until independent negative-path and acceptance evidence is recorded.
 
 ## AI intake and evaluation (M14)
 
