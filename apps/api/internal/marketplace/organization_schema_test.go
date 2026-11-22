@@ -71,7 +71,7 @@ func TestOrganizationPropertySchemaEnforcesTenantBoundariesPostgres(t *testing.T
   t.Fatal("cross-tenant property delegation creator was accepted")
  }
  delegationID,err:=newID();if err!=nil{t.Fatal(err)}
- if _,err=pool.Exec(ctx,`INSERT INTO property_memberships(id,property_id,organization_id,tenant_id,identity_id,identity_role,role,created_by_identity_id) VALUES($1,$2,$3,'tenant-a',$4,'customer','viewer',$5)`,delegationID,propertyID,orgA,identityA,identityA);err!=nil{t.Fatal(err)}
+ if _,err=pool.Exec(ctx,`INSERT INTO property_memberships(id,property_id,organization_id,tenant_id,identity_id,identity_role,role,created_by_identity_id,created_by_identity_role) VALUES($1,$2,$3,'tenant-a',$4,'customer','viewer',$5,'customer')`,delegationID,propertyID,orgA,identityA,identityA);err!=nil{t.Fatal(err)}
  if _,err=pool.Exec(ctx,`UPDATE property_memberships SET status='revoked',revoked_at=now() WHERE id=$1`,delegationID);err!=nil{t.Fatal(err)}
 
  crossTenantPropertyID,err:=newID();if err!=nil{t.Fatal(err)}
