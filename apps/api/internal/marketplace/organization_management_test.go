@@ -138,3 +138,19 @@ func TestOrganizationPropertyPatchValidation(t *testing.T) {
 }
 
 func stringPointer(value string)*string{return &value}
+
+func TestIsOrganizationRootPath(t *testing.T) {
+	cases:=[]struct{path string;want bool}{
+		{"/v1/organizations/org-1",true},
+		{"/v1/organizations/org-1/",false},
+		{"/v1/organizations/org-1/memberships/member-1/role",false},
+		{"/v1/organizations/org-1/properties/property-1",false},
+		{"/v1/organizations/",false},
+		{"/v1/other/org-1",false},
+	}
+	for _,tc:=range cases {
+		if got:=isOrganizationRootPath(tc.path);got!=tc.want {
+			t.Errorf("isOrganizationRootPath(%q)=%v want %v",tc.path,got,tc.want)
+		}
+	}
+}
