@@ -22,6 +22,7 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conname = 'orders_tenant_id_nonempty'
+          AND conrelid = 'orders'::regclass
     ) THEN
         ALTER TABLE orders
             ADD CONSTRAINT orders_tenant_id_nonempty
