@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 var ErrInvalidOrderRequest = errors.New("invalid scheduled order request")
@@ -135,11 +136,18 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 
 	// Booking creation does not represent a payment authorization or funds hold.
 	// Financial postings are created only by an explicit payment workflow.
-	payload,_:=json.Marshal(map[string]any{
-		"order_id":id,"status":"requested","price_version_id":version.ID,
-		"scheduled_at":scheduledAt,"country_code":country,"region_code":region,"city_code":city,"area_code":area,
+	// Canonical events carry only the minimum order facts needed downstream;
+	// service-area fields remain in the operational order, not analytics payloads.
+	eventID,err:=newID()
+	if err!=nil { return Order{},false,err }
+	payload,err:=json.Marshal(map[string]any{
+		"order_id":id,"status":"requested","price_version_id":version.ID,"scheduled_at":scheduledAt,
 	})
-	if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('order',$1,'order.created',$2::jsonb)`,id,payload); err!=nil {
+	if err!=nil { return Order{},false,err }
+	if _,err=outbox.AppendDomainEvent(ctx,tx,outbox.DomainEvent{
+		ID:eventID,Type:"order.created",Version:1,OccurredAt:now,TenantID:actor.TenantID,
+		Aggregate:outbox.EventAggregate{Type:"order",ID:id},Data:payload,
+	}); err!=nil {
 		return Order{},false,err
 	}
 	if err=tx.Commit(ctx); err!=nil { return Order{},false,err }
