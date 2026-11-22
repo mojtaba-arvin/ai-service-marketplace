@@ -98,17 +98,28 @@ func ValidateDomainEvent(event DomainEvent) error {
   len(event.Data)==0 || len(event.Data)>256*1024 || !json.Valid(event.Data) {
   return ErrInvalidPolicy
  }
- var data map[string]json.RawMessage
+ var data any
  if err:=json.Unmarshal(event.Data,&data); err!=nil || data==nil { return ErrInvalidPolicy }
- for key:=range data {
-  normalized:=strings.ToLower(strings.TrimSpace(key))
-  if _,blocked:=prohibitedEventFieldNames[normalized]; blocked { return ErrInvalidPolicy }
- }
+ if containsProhibitedEventField(data) { return ErrInvalidPolicy }
  for key:=range event.Metadata {
   normalized:=strings.ToLower(strings.TrimSpace(key))
   if _,blocked:=prohibitedEventFieldNames[normalized]; blocked { return ErrInvalidPolicy }
  }
  return nil
+}
+
+func containsProhibitedEventField(value any) bool {
+ switch typed:=value.(type) {
+ case map[string]any:
+  for key,nested:=range typed {
+   normalized:=strings.ToLower(strings.TrimSpace(key))
+   if _,blocked:=prohibitedEventFieldNames[normalized]; blocked { return true }
+   if containsProhibitedEventField(nested) { return true }
+  }
+ case []any:
+  for _,nested:=range typed { if containsProhibitedEventField(nested) { return true } }
+ }
+ return false
 }
 
 // AppendDomainEvent writes a validated canonical envelope in the caller's
