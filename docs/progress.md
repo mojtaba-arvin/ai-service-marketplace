@@ -63,9 +63,9 @@ Use Armenia and Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, and the United Arab 
 
 This snapshot is based on repository files, issue records, and GitHub workflow evidence. No claim is made here that a local checkout was built in this session, that a real host was provisioned, or that independent release QA has passed.
 
-## 2026-11-22 hardening work in review
+## 2026-11-22 hardening merged and follow-up work
 
-PR [#86](https://github.com/mojtaba-arvin/ai-service-marketplace/pull/86) is open and not merged. It advances five engineering workstreams:
+PR [#86](https://github.com/mojtaba-arvin/ai-service-marketplace/pull/86) was squash-merged to `main` as `e3ff27c09104a63c7ab79b243dddbd127b0f4c7f`. CI, Security (including CodeQL and Dependency Review), and Agent Guard passed. It advanced the following workstreams:
 
 - **Release QA/security:** migration `023_order_tenant_scope.sql` binds scheduled orders to a tenant; operator order listing and idempotency replay are tenant-scoped. A same-market cross-tenant regression test is included.
 - **Trust/finance:** support case access and writes require active support-agent membership; fake payment provider rejects changed request payloads under a reused idempotency key.
@@ -73,6 +73,6 @@ PR [#86](https://github.com/mojtaba-arvin/ai-service-marketplace/pull/86) is ope
 - **Contributor readiness:** `CONTRIBUTING.md` and `SECURITY.md` establish contribution, verification and private vulnerability-reporting guidance.
 - **Long-term modules:** #87 tracks analytics/event adoption, #88 tracks B2B organization/property modeling, and #89 tracks adversarial AI evaluation and prompt governance. ADRs 0004 and 0005 record tenant/organization separation and the canonical event envelope.
 
-CI initially caught a migration-registry drift after migration 023 was introduced. The migration runner's ordered registry has now been updated; the CI rerun is pending. A local checkout was unavailable, so no local test pass is claimed.
+Post-merge tenant-access audit identified additional order history, timeline, professional-order and cancellation paths requiring explicit tenant checks; follow-up PR #90 is under CI verification. M14 prompt-governance regression work is tracked in PR #91, and the first canonical event-writer primitive is tracked in PR #92. The initial B2B schema foundation is tracked in PR #93. These follow-ups are not considered complete until their CI and acceptance criteria pass.
 
-No feature inventory item has been marked independently passing. PR #86 must pass CI and receive independent acceptance before these changes are treated as integrated.
+No feature inventory item has been marked independently passing. M12 producer/consumer adoption, M13 service/API authorization and M14 adversarial evaluation gates remain incomplete until their focused follow-up work is accepted.
