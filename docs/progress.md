@@ -91,4 +91,8 @@ The tenant-scoped organization/property API and membership lifecycle are now int
 
 PR #104 adds an authenticated pending-invitation inbox, PostgreSQL lifecycle coverage, and alignment of the B2B module specification and OpenAPI contract with the implemented routes. The inbox is tenant- and identity-scoped, bounded to 100 newest pending invitations, and does not imply email/SMS delivery.
 
-The feature inventory remains `passes: false` pending independent acceptance. Property delegation management, property update/archive, invitation expiry/re-send/delivery, order/ledger aggregation and consolidated billing remain deferred. No production billing or money movement is enabled.
+The feature inventory remains `passes: false` pending independent acceptance. Property update/archive, invitation expiry/re-send/delivery, order/ledger aggregation and consolidated billing remain deferred. No production billing or money movement is enabled.
+
+## 2026-11-22 — Property-level membership access
+
+PR #105 (`agent/88-property-membership-access`) implements tenant-scoped property delegation APIs: listing active delegations, assigning active organization members, changing delegated roles and revoking access. Mutations serialize on organization/property rows and write audit plus canonical outbox events transactionally. Owner/admin/manager organization access remains inherited. This implementation is proposed in PR #105; automated CI is not independent feature QA. Property archive/history, order and financial history behavior, consolidated statements and independent negative-path acceptance remain open in #88.

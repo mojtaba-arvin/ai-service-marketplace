@@ -41,6 +41,7 @@ Migration `024_organizations_properties.sql` and the organization API provide a 
 - Invite identities already registered as customer/professional in the same tenant; invitations are pending memberships and are surfaced through `GET /v1/organization-invitations` (maximum 100, newest first) for the authenticated identity and selected tenant.
 - The invitee alone can accept its pending invitation. Membership role changes enforce owner/admin/manager policy. Revocation atomically revokes the organization membership and that identity's active property delegations.
 - Organization writes and membership lifecycle mutations persist append-only audit records and canonical tenant-scoped outbox events in the same database transaction.
+- Property delegation endpoints list active assignments, assign active organization members with `manager`/`viewer` property roles, change delegated roles and revoke access. Only organization owner/admin/manager can manage delegations; organization-level owner/admin/manager access remains inherited. Mutations lock organization/property rows and persist audit plus canonical outbox events atomically.
 - The API contract is maintained in `packages/contracts/openapi.v1.json`; tenant selection through `X-Tenant-ID` is a context selector, never proof of authorization.
 
 ### Authorization invariants
@@ -53,7 +54,7 @@ Migration `024_organizations_properties.sql` and the organization API provide a 
 
 ### Explicit limits
 
-Invitation delivery is in-app only: no email/SMS, no invitation to identities that do not yet exist in the tenant, and no invitation expiry/re-send workflow. Property delegation management endpoints, property update/archive, pending-invitation pagination beyond the bounded first 100, order/ledger aggregation and consolidated billing remain deferred. No payment capture, money movement or production billing is introduced.
+Invitation delivery is in-app only: no email/SMS, no invitation to identities that do not yet exist in the tenant, and no invitation expiry/re-send workflow. Property update/archive, pending-invitation pagination beyond the bounded first 100, order/ledger aggregation and consolidated billing remain deferred. No payment capture, money movement or production billing is introduced.
 
 Merged implementation and passing CI are not independent QA. The feature inventory remains `passes: false` until independent negative-path and acceptance evidence is recorded.
 

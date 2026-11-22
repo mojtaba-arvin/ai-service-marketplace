@@ -328,6 +328,13 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.organizationCreate(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/organizations":
         h.organizationList(w,r); return true
+    case strings.HasPrefix(path,"/v1/organizations/") && strings.Contains(path,"/properties/") && strings.Contains(path,"/memberships"):
+        parts:=strings.Split(strings.Trim(path,"/"),"/")
+        if len(parts)<6 || parts[0]!="v1" || parts[1]!="organizations" || parts[2]=="" || parts[3]!="properties" || parts[4]=="" || parts[5]!="memberships" {
+            writeError(w,http.StatusNotFound,"not found"); return true
+        }
+        if h.propertyMembershipRoutes(w,r,parts[2],parts[4]) { return true }
+        writeError(w,http.StatusNotFound,"not found"); return true
     case strings.HasPrefix(path,"/v1/organizations/") && (strings.Contains(path,"/memberships/") || strings.HasSuffix(path,"/invitations/accept")):
         parts:=strings.Split(strings.Trim(path,"/"),"/")
         if len(parts)<5 || parts[0]!="v1" || parts[1]!="organizations" || parts[2]=="" {
@@ -780,7 +787,6 @@ func (h *Handler) verifyProvider(w http.ResponseWriter, r *http.Request) {
     }
     writeJSON(w,http.StatusOK,map[string]string{"status":"verified"})
 }
-
 
 // organizationInvitationList returns invitations for the authenticated identity
 // in the selected tenant. X-Tenant-ID selects context; the store query enforces

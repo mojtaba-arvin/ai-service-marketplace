@@ -22,7 +22,7 @@ The platform needs strict data isolation for customers, professionals, operators
 - A user may belong to multiple organizations, and an organization may relate to multiple properties without changing the tenant boundary.
 - Analytics and finance must preserve tenant attribution even when aggregating organization views.
 - Migration `024_organizations_properties.sql` and the tenant-scoped organization/property API implement organization reads/writes, invitation acceptance, role changes and revocation. The authenticated invitation inbox exposes only pending invitations for the current identity and selected tenant. These operations do not make the organization a tenant or grant implicit access to tenant records.
-- Membership mutations serialize on the organization row; final-owner protection, property-delegation revocation, append-only audit and transactional outbox behavior are enforced in the service/database transaction. Automated CI is not independent feature QA; acceptance remains tracked in #88.
+- Organization membership mutations serialize on the organization row; final-owner protection, property-delegation revocation, append-only audit and transactional outbox behavior are enforced in the service/database transaction. Property delegation mutations additionally lock the organization and property rows; only owner/admin/manager can manage active member/viewer delegations, with manager/viewer property roles. Automated CI is not independent feature QA; acceptance remains tracked in #88.
 
 ## Alternatives considered
 
