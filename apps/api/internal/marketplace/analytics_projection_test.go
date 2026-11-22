@@ -34,7 +34,7 @@ func TestAnalyticsProjectorStoresCanonicalFactsAndQuarantinesUnsafeEventsPostgre
     aggregateID:="analytics-order-"+suffix
     domain:=outbox.DomainEvent{
         ID:"analytics-event-"+suffix,Type:"order.created",Version:1,
-        OccurredAt:time.Date(2026,11,22,12,0,0,0,time.UTC),TenantID:"analytics-tenant-a",
+        OccurredAt:time.Date(2026,11,22,12,0,0,0,time.UTC),TenantID:"analytics-tenant-a-"+suffix,
         Aggregate:outbox.EventAggregate{Type:"order",ID:aggregateID},
         Metadata:map[string]string{"market_code":"OM","traffic_class":"production"},
         Data:json.RawMessage(`{"order_id":"`+aggregateID+`","status":"requested","price_version_id":"price-v1","scheduled_at":"2026-11-23T10:00:00Z"}`),
@@ -131,7 +131,7 @@ func TestAnalyticsProjectorStoresCanonicalFactsAndQuarantinesUnsafeEventsPostgre
         !summary.DataReady || summary.EligibleEvents!=3 || summary.ExcludedEvents!=1 {
         t.Fatalf("unexpected tenant analytics summary: %+v",summary)
     }
-    otherSummary,err:=analytics.QuerySummary(ctx,pool,"analytics-tenant-b",analytics.SummaryFilter{
+    otherSummary,err:=analytics.QuerySummary(ctx,pool,"analytics-tenant-b-"+suffix,analytics.SummaryFilter{
         From:time.Date(2026,11,22,11,0,0,0,time.UTC),To:time.Date(2026,11,22,13,0,0,0,time.UTC),MarketCode:"OM",
     })
     if err!=nil || otherSummary.OrdersCreated!=0 || otherSummary.OffersCreated!=0 || otherSummary.DataReady {
@@ -159,7 +159,7 @@ func TestAnalyticsProjectorStoresCanonicalFactsAndQuarantinesUnsafeEventsPostgre
     if len(storedHash)!=64 { t.Fatalf("quarantine must store only a SHA-256 fingerprint, got %q",storedHash) }
 
     var otherTenantFacts int
-    if err=pool.QueryRow(ctx,`SELECT count(*) FROM analytics_event_facts WHERE tenant_id='analytics-tenant-b' AND event_id=$1`,domain.ID).Scan(&otherTenantFacts);err!=nil { t.Fatal(err) }
+    if err=pool.QueryRow(ctx,`SELECT count(*) FROM analytics_event_facts WHERE tenant_id=$3 AND event_id=$1`,domain.ID).Scan(&otherTenantFacts);err!=nil { t.Fatal(err) }
     if otherTenantFacts!=0 { t.Fatalf("analytics fact crossed tenant boundary: %d",otherTenantFacts) }
     if _,err=pool.Exec(ctx,`UPDATE analytics_event_facts SET traffic_class='test' WHERE tenant_id=$1 AND event_id=$2`,domain.TenantID,domain.ID);err==nil {
         t.Fatal("analytics facts must be append-only")
