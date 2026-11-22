@@ -11,7 +11,7 @@
     }
   ],
   "x-contract-status": "initial-source-snapshot",
-  "x-last-reviewed-commit": "be2c768679ae15587ea62f33ea9eb951a1e50d08",
+  "x-last-reviewed-commit": "8c5162bbfa375757ceb477cbae02e088874dccd4",
   "paths": {
     "/healthz": {
       "get": {
@@ -1650,6 +1650,138 @@
             "$ref": "#/components/parameters/TenantID"
           }
         ]
+      },
+      "patch": {
+        "summary": "Update an organization",
+        "operationId": "update_organization",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Updates the name and/or slug. Only active owners and admins may update an active organization.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updates the name and/or slug. Only active owners and admins may update an active organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Archive an organization",
+        "operationId": "archive_organization",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Soft-archives the organization. Only the active owner may archive it. Child properties are archived and all organization memberships and property delegations are revoked atomically; historical rows and downstream order/ledger records are retained.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Soft-archives the organization. Only the active owner may archive it. All organization memberships and property delegations are revoked atomically; properties and downstream order/ledger history are retained.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
       }
     },
     "/v1/organizations/{organization_id}/properties": {
@@ -2071,6 +2203,490 @@
           }
         ]
       }
+    },
+    "/v1/organizations/{organization_id}/properties/{property_id}": {
+      "patch": {
+        "summary": "Update an organization property",
+        "operationId": "update_organization_property",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Updates supplied property fields. Active owners, admins and organization managers may update an active property.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updates supplied property fields. Active owners, admins and organization managers may update an active property.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Archive an organization property",
+        "operationId": "archive_organization_property",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Soft-archives a property and revokes its active property delegations in the same transaction. Historical records are retained.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Soft-archives a property and revokes its active property delegations in the same transaction. Historical records are retained.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/organizations/{organization_id}/properties/{property_id}/memberships": {
+      "get": {
+        "summary": "List active property delegations",
+        "operationId": "list_property_delegations",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Lists active delegations for an active property. Only active organization owners, admins and managers may list them.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lists active delegations for an active property. Only active organization owners, admins and managers may list them.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyMembershipsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      },
+      "post": {
+        "summary": "Grant property access",
+        "operationId": "grant_property_delegation",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Grants visibility to an existing active organization member. Owners/admins may grant manager or viewer; organization managers may grant viewer only. Delegation roles grant visibility only and do not confer property-write authority.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyMembershipCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Grants visibility to an existing active organization member. Owners/admins may grant manager or viewer; organization managers may grant viewer only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyMembershipResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/organizations/{organization_id}/properties/{property_id}/memberships/{identity_id}": {
+      "delete": {
+        "summary": "Revoke property access",
+        "operationId": "revoke_property_delegation",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Revokes an active property delegation. Owners/admins may revoke either role; organization managers may revoke viewer delegations only.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "identity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revokes an active property delegation. Owners/admins may revoke either role; organization managers may revoke viewer delegations only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/organizations/{organization_id}/properties/{property_id}/memberships/{identity_id}/role": {
+      "patch": {
+        "summary": "Change property access role",
+        "operationId": "change_property_delegation_role",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Changes an active delegation between manager and viewer. Only organization owners and admins may change delegation roles. Delegation roles grant visibility only and do not confer property-write authority.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "identity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyMembershipRoleChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Changes an active delegation between manager and viewer. Only organization owners and admins may change delegation roles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyMembershipResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2432,6 +3048,324 @@
               "manager",
               "member",
               "viewer"
+            ]
+          }
+        }
+      },
+      "OrganizationUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-z0-9]+([a-z0-9-]*[a-z0-9])?$"
+          }
+        }
+      },
+      "PropertyUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "property_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "country_code": {
+            "type": "string",
+            "pattern": "^[A-Za-z]{2}$"
+          },
+          "region_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "city_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "area_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        }
+      },
+      "PropertyMembershipCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "identity_id",
+          "role"
+        ],
+        "properties": {
+          "identity_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "viewer"
+            ]
+          }
+        }
+      },
+      "PropertyMembershipRoleChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "viewer"
+            ]
+          }
+        }
+      },
+      "PropertyMembership": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "property_id",
+          "organization_id",
+          "identity_id",
+          "role",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "property_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organization_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "identity_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "viewer"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "revoked"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OrganizationSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "tenant_id",
+          "name",
+          "slug",
+          "status",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "manager",
+              "member",
+              "viewer"
+            ]
+          }
+        }
+      },
+      "PropertySummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "organization_id",
+          "tenant_id",
+          "property_code",
+          "name",
+          "country_code",
+          "region_code",
+          "city_code",
+          "area_code",
+          "status",
+          "access_role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "property_code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "region_code": {
+            "type": "string"
+          },
+          "city_code": {
+            "type": "string"
+          },
+          "area_code": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ]
+          },
+          "access_role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "manager",
+              "member",
+              "viewer"
+            ]
+          }
+        }
+      },
+      "OrganizationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "organization"
+        ],
+        "properties": {
+          "organization": {
+            "$ref": "#/components/schemas/OrganizationSummary"
+          }
+        }
+      },
+      "PropertyResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "property"
+        ],
+        "properties": {
+          "property": {
+            "$ref": "#/components/schemas/PropertySummary"
+          }
+        }
+      },
+      "PropertyMembershipResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "membership"
+        ],
+        "properties": {
+          "membership": {
+            "$ref": "#/components/schemas/PropertyMembership"
+          }
+        }
+      },
+      "PropertyMembershipsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "memberships"
+        ],
+        "properties": {
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PropertyMembership"
+            }
+          }
+        }
+      },
+      "StatusResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "archived",
+              "revoked"
             ]
           }
         }

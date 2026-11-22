@@ -22,7 +22,10 @@ The platform needs strict data isolation for customers, professionals, operators
 - A user may belong to multiple organizations, and an organization may relate to multiple properties without changing the tenant boundary.
 - Analytics and finance must preserve tenant attribution even when aggregating organization views.
 - Migration `024_organizations_properties.sql` and the tenant-scoped organization/property API implement organization reads/writes, invitation acceptance, role changes and revocation. The authenticated invitation inbox exposes only pending invitations for the current identity and selected tenant. These operations do not make the organization a tenant or grant implicit access to tenant records.
-- Membership mutations serialize on the organization row; final-owner protection, property-delegation revocation, append-only audit and transactional outbox behavior are enforced in the service/database transaction. Automated CI is not independent feature QA; acceptance remains tracked in #88.
+- Membership mutations serialize on the organization row; final-owner protection, property-delegation revocation, append-only audit and transactional outbox behavior are enforced in the service/database transaction.
+- Organization and property archival are soft, non-destructive operations. Organization archive is owner-only and terminal in the API; it archives child properties and revokes all memberships/delegations. Property archive is available to owner/admin/manager and revokes that property's delegations. Historical organization/property rows and downstream order/ledger records are retained.
+- Property delegation targets must be active member/viewer organization memberships. Owners/admins may grant manager/viewer and change either delegation role; organization managers may grant/revoke viewer only. Delegation roles currently control property visibility, not property-write or organization-management authority.
+- Automated CI is not independent feature QA; acceptance remains tracked in #88.
 
 ## Alternatives considered
 
