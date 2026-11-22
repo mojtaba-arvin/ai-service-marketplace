@@ -10,7 +10,7 @@ The long-term engineering stages and exit gates are documented in [the engineeri
 
 ## Integrated on main
 
-The current main baseline includes the merged tenant-isolation and open-source-readiness changes from PR #86 (merge commit `e3ff27c09104a63c7ab79b243dddbd127b0f4c7f`).
+The current main baseline includes PR #86 (`e3ff27c09104a63c7ab79b243dddbd127b0f4c7f`) and PR #90 (`9db26f97306747bb020a2110ed43060b8622b635`).
 
 - Go modular-monolith API and PostgreSQL persistence.
 - Customer/professional/operator API vertical slice and responsive Next.js browser application.
@@ -63,12 +63,16 @@ Use Armenia and Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, and the United Arab 
 
 This snapshot is based on repository files, issue records, and GitHub workflow evidence. No claim is made here that a local checkout was built in this session, that a real host was provisioned, or that independent release QA has passed.
 
-## 2026-11-22 hardening merged and follow-up audit
+## 2026-11-22 hardening merged and follow-up work
 
-PR [#86](https://github.com/mojtaba-arvin/ai-service-marketplace/pull/86) was squash-merged to `main` as `e3ff27c09104a63c7ab79b243dddbd127b0f4c7f`. Its CI, Security (including CodeQL and Dependency Review), and Agent Guard workflows completed successfully. No independent review submissions or inline review threads were present; the merge did not change feature-level QA status.
+PR [#86](https://github.com/mojtaba-arvin/ai-service-marketplace/pull/86) was squash-merged to `main` as `e3ff27c09104a63c7ab79b243dddbd127b0f4c7f`. CI, Security (including CodeQL and Dependency Review), and Agent Guard passed. It advanced the following workstreams:
 
-Merged work includes migration `023_order_tenant_scope.sql`, tenant-scoped operator order listing and scheduled-order idempotency replay, active support-agent membership enforcement, fake-payment idempotency conflict detection, module specs, an initial OpenAPI snapshot, the canonical event-envelope schema, ADRs 0004/0005, and contributor/security guidance.
+- **Release QA/security:** migration `023_order_tenant_scope.sql` binds scheduled orders to a tenant; operator order listing and idempotency replay are tenant-scoped. A same-market cross-tenant regression test is included.
+- **Trust/finance:** support case access and writes require active support-agent membership; fake payment provider rejects changed request payloads under a reused idempotency key.
+- **Specifications/contracts:** module specs, an initial source-aligned OpenAPI snapshot, a canonical tenant-scoped event schema and example are added. Existing event producers still use legacy payloads; full adoption remains open.
+- **Contributor readiness:** `CONTRIBUTING.md` and `SECURITY.md` establish contribution, verification and private vulnerability-reporting guidance.
+- **Long-term modules:** #87 tracks analytics/event adoption, #88 tracks B2B organization/property modeling, and #89 tracks adversarial AI evaluation and prompt governance. ADRs 0004 and 0005 record tenant/organization separation and the canonical event envelope.
 
-A post-merge code audit identified additional tenant-boundary gaps outside the original operator queue: customer order history/timeline and professional order/transition paths need to bind the order's tenant as well as the identity/provider membership. Follow-up hardening is being prepared in PR #90. Until that audit passes, tenant isolation must not be described as comprehensively complete.
+PR #90 is now merged after CI, Security and Agent Guard passed. It scopes customer history/timeline, professional order reads/transitions and cancellation idempotency to the order tenant, with a same-identity cross-tenant regression. M14 prompt-governance regression work is in PR #91 (CI, Security and Agent Guard passed). The canonical event-writer primitive is in PR #92 (CI verification pending after a validation fix). The B2B schema foundation is in PR #93 (CI/Security pending; Agent Guard passed after removing a prohibited feature-inventory edit). These follow-ups are not considered complete until their current CI and acceptance criteria pass.
 
-M12 analytics/event adoption (#87), M13 organization/property registry (#88), and M14 AI safety evaluation/prompt governance (#89) remain implementation work. Their issues and ADR/spec foundations are not evidence that those capabilities are implemented. The feature inventory remains `passes: false` pending independent QA evidence.
+No feature inventory item has been marked independently passing. M12 producer/consumer adoption, M13 service/API authorization and M14 adversarial evaluation gates remain incomplete until their focused follow-up work is accepted.
