@@ -77,3 +77,18 @@ M12 analytics/event adoption (#87), M13 organization/property registry (#88), an
 ## 2026-11-22 PR #98 — tenant-scoped B2B schema foundation
 
 Migration `024_organizations_properties.sql` adds tenant-scoped organizations, organization memberships, properties, property delegations and append-only organization audit events. Composite foreign keys bind creator, inviter, delegate and audit actor identities to memberships in the same tenant and organization. PostgreSQL negative-path coverage rejects cross-tenant organization creators, inviters, property creators, delegation creators, members and audit actors. This is schema groundwork only: service/API authorization, invitation delivery, immediate revocation behavior, property handlers and consolidated statements remain open in #88. CI passing is not independent QA; no feature inventory item is marked independently passing.
+
+
+## 2026-11-22 M13 organization and membership implementation
+
+The tenant-scoped organization/property API and membership lifecycle are now integrated on `main`:
+
+- PR #100: membership-checked organization reads and role-scoped property visibility.
+- PR #101: transactional organization and property creation with initial owner membership, audit and outbox writes.
+- PR #103: invitation, acceptance, role changes and revocation; membership changes serialize on the organization row, protect the final active owner, and revoke property delegations in the same transaction.
+- PR #102 was closed without merge because its overlapping implementation was superseded by #101 and #103. It must not be merged or treated as a separate API implementation.
+- CI, Security (including Dependency Review and CodeQL) and Agent Guard completed successfully for PR #103's exact head. This is automated verification, not independent feature QA.
+
+A focused follow-up is being prepared to add an authenticated pending-invitation inbox, add PostgreSQL lifecycle coverage, and align the B2B module specification and OpenAPI contract with the implemented routes. The inbox is tenant- and identity-scoped, bounded to 100 newest pending invitations, and does not imply email/SMS delivery.
+
+The feature inventory remains `passes: false` pending independent acceptance. Property delegation management, property update/archive, invitation expiry/re-send/delivery, order/ledger aggregation and consolidated billing remain deferred. No production billing or money movement is enabled.
