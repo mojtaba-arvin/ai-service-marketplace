@@ -145,7 +145,7 @@ func (s *Store) InviteOrganizationMember(ctx context.Context, actorID, tenantID,
 	err=tx.QueryRow(ctx,`SELECT role,identity_role FROM organization_memberships WHERE organization_id=$1 AND tenant_id=$2 AND identity_id=$3 AND status='active' FOR UPDATE`,organizationID,tenantID,actorID).Scan(&actorRole,&actorIdentityRole)
 	if errors.Is(err,pgx.ErrNoRows){return OrganizationMembershipSummary{},ErrOrganizationForbidden};if err!=nil{return OrganizationMembershipSummary{},err}
 	if actorRole!="owner"&&actorRole!="admin"&&actorRole!="manager"{return OrganizationMembershipSummary{},ErrOrganizationForbidden}
-	if actorRole=="manager"&&(in.Role!="member"&&in.Role!="viewer"){return OrganizationMembershipSummary{},ErrOrganizationForbidden}
+	if actorRole=="manager"&&(in.Role!="member"&&in.Role!="viewer")||actorRole=="admin"&&in.Role=="admin"{return OrganizationMembershipSummary{},ErrOrganizationForbidden}
 	var targetExists bool
 	err=tx.QueryRow(ctx,`SELECT EXISTS(SELECT 1 FROM identity_memberships WHERE identity_id=$1 AND tenant_id=$2 AND role=$3)`,in.IdentityID,tenantID,in.IdentityRole).Scan(&targetExists)
 	if err!=nil{return OrganizationMembershipSummary{},err};if !targetExists{return OrganizationMembershipSummary{},ErrOrganizationInvalid}
@@ -295,7 +295,7 @@ func parseOrganizationManagementPath(path string)(orgID,resourceID,action string
 	if len(parts)==3&&parts[0]=="v1"&&parts[1]=="organizations"&&parts[2]!=""{return parts[2],"","",true}
 	if len(parts)==4&&parts[0]=="v1"&&parts[1]=="organizations"&&parts[2]!=""&&parts[3]=="properties"{return parts[2],"","properties",true}
 	if len(parts)==4&&parts[0]=="v1"&&parts[1]=="organizations"&&parts[2]!=""&&parts[3]=="invitations"{return parts[2],"","invitations",true}
-	if len(parts)==6&&parts[0]=="v1"&&parts[1]=="organizations"&&parts[2]!=""&&parts[3]=="members"&&parts[4]!=""{return parts[2],parts[4],parts[5],true}
+	if len(parts)==6&&parts[0]=="v1"&&parts[1]=="organizations"&&parts[2]!=""&&parts[3]=="members"&&parts[4]!=""&&(parts[5]=="accept"||parts[5]=="revoke"||parts[5]=="role"){return parts[2],parts[4],parts[5],true}
 	return "","","",false
 }
 
