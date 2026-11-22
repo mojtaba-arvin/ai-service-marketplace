@@ -68,7 +68,7 @@ func ValidateDomainEvent(event DomainEvent) error {
   len(event.Data)==0 || len(event.Data)>256*1024 || !json.Valid(event.Data) {
   return ErrInvalidPolicy
  }
- var data any
+ var data map[string]any
  if err:=json.Unmarshal(event.Data,&data); err!=nil || data==nil { return ErrInvalidPolicy }
  if containsProhibitedEventField(data) { return ErrInvalidPolicy }
  for key:=range event.Metadata {
