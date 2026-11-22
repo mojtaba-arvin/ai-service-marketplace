@@ -4,7 +4,7 @@
 
 ## Current phase
 
-The API and first responsive browser MVP are integrated into `main` for one configured market. Production image builds and CI/CodeQL passed. The project is not yet deployed to a live host, browser-level E2E acceptance is not complete, and independent release QA is not claimed.
+The API, responsive browser MVP, browser-level E2E journey, and disposable PostgreSQL backup/restore rehearsal are integrated into `main` for one configured market. CI and CodeQL passed on the post-merge commit. The project is not deployed to a live host; production smoke/restore and independent release QA remain open.
 
 ## Completed foundation
 
@@ -19,8 +19,8 @@ The API and first responsive browser MVP are integrated into `main` for one conf
 
 ## Current MVP delivery
 
-- API: merged to `main` via PR #61. CI and CodeQL passed on the PR head; dependency-review was skipped because the repository dependency graph is not enabled.
-- Web: merged via PR #62 (merge commit `58678ae2b3c03b066e574e40afc1f2c79afaa80c`). Production web image build passed with Next.js 15.5.29 and React/React DOM 19.1.10.
+- API: merged to `main` via PR #61. CI and CodeQL passed; dependency-review was skipped because the repository dependency graph is not enabled.
+- Web: merged via PR #62 (merge commit `58678ae2b3c03b066e574e40afc1f2c79afaa80c`). Production web image build passed with Next.js 15.5.29 and React/React DOM 19.1.10. `apps/web/package-lock.json` is still absent; the Docker build currently uses `npm install`, not `npm ci`.
 - Web security boundary: sessionStorage token storage is temporary. Move to Secure, HttpOnly, SameSite cookies and add reviewed CSRF protection before broad public launch.
 - Deployment: production Compose, non-root API/worker image, Caddy HTTPS ingress, and deployment/backup/restore instructions are merged. Actual host, DNS, OTP provider credentials, peppers, smoke test, and backup/restore validation remain external deployment work in #56.
 - Release QA: independent end-to-end and negative-path validation remains open in #57. No public release or independent QA sign-off is claimed.
@@ -29,12 +29,14 @@ The API and first responsive browser MVP are integrated into `main` for one conf
 
 - PR #61: Go formatting/tests, repository verification, PostgreSQL integration, HTTP E2E, Compose validation, production API image build, CodeQL Go/Python passed. Dependency-review skipped pending dependency-graph enablement.
 - PR #62: corrected customer JSX grouping and strict TypeScript nullability errors (currency fraction metadata and market timezone); production web image build passed on Next.js 15.5.29. CI, CodeQL Go, Python, and JavaScript/TypeScript passed. Dependency-review skipped pending dependency-graph enablement.
+- PR #72: aligned Go CI/API image toolchain with Go 1.25, upgraded `golang.org/x/crypto` to `0.52.0`, and integrated browser journey plus disposable PostgreSQL backup/restore/outbox rehearsal. PR CI and CodeQL passed before merge.
+- Post-merge commit `406c2f968c5c0e24d2ccb9fe75d12546d08385a5`: CI run `44994610354` passed; Security run `44994610357` passed for `detect` and all three CodeQL jobs, while `dependency-review` was skipped; Dependabot Go module graph update run `44994614747` succeeded.
 - Security language detection now scans Go, Python, and JavaScript/TypeScript.
 - No local checkout/test execution or real-host deployment was available in this session.
 
 ## Owner decisions and repository settings
 
-- Enable the repository dependency graph and set `DEPENDENCY_GRAPH_ENABLED=true`.
+- Enable the repository dependency graph and set `DEPENDENCY_GRAPH_ENABLED=true`; the post-merge Dependabot Go module graph update succeeded, but this does not prove the repository-wide dependency graph setting or the Actions variable is enabled.
 - An active `protect main` ruleset blocks deletion and non-fast-forward updates; required PR/CI/Security checks and Actions permissions still need configuration.
 - Enable Dependabot alerts/security updates and secret scanning/push protection where available.
 - `.github/CODEOWNERS` now assigns the verified repository owner `@mojtaba-arvin`; mandatory code-owner approval is not enabled.
@@ -43,7 +45,7 @@ The API and first responsive browser MVP are integrated into `main` for one conf
 
 ## Remaining release work
 
-1. Add browser-level E2E covering customer booking → eligible professional offer → single acceptance → customer-visible order timeline; track in #55.
+1. Extend and independently review the integrated browser-level E2E journey; automated CI rehearsal is present, but independent release QA remains open in #57.
 2. Replace temporary sessionStorage tokens with Secure, HttpOnly, SameSite cookies and add reviewed CSRF protection before broad public exposure.
 3. Provision the actual host, DNS, OTP delivery provider, and production secrets through #56.
 4. Run independent authorization, idempotency, expiry, concurrency, failure, backup/restore, and deployed smoke tests through #57.
