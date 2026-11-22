@@ -52,6 +52,13 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	first:=create(customer,"history-first-"+fmt.Sprint(time.Now().UnixNano()))
 	second:=create(customer,"history-second-"+fmt.Sprint(time.Now().UnixNano()))
 	third:=create(customer,"history-third-"+fmt.Sprint(time.Now().UnixNano()))
+	if _,err=store.TransitionOrderAsActor(ctx,customer,third.ID,"cancelled"); !errors.Is(err,ErrInvalidTransition) {
+		t.Fatalf("customer must use the versioned cancellation workflow, not generic state transition: %v",err)
+	}
+	var thirdStatus string
+	if err=pool.QueryRow(ctx,`SELECT status FROM orders WHERE id=$1`,third.ID).Scan(&thirdStatus); err!=nil || thirdStatus!="requested" {
+		t.Fatalf("rejected direct cancellation must not mutate order state: status=%s err=%v",thirdStatus,err)
+	}
 	otherOrder:=create(other,"history-other-"+fmt.Sprint(time.Now().UnixNano()))
 	// The same identity may have memberships in multiple tenants. Its order
 	// history and timeline must remain scoped to the active tenant context.
