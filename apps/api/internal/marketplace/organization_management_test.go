@@ -71,7 +71,8 @@ func TestOrganizationPropertyLifecycleAndDelegationsPostgres(t *testing.T) {
 	}
 
 	granted,err:=store.GrantPropertyDelegation(ctx,ids["owner"],tenantID,org.ID,property.ID,PropertyDelegationInput{IdentityID:ids["member"],Role:"viewer"})
-	if err!=nil||granted.Status!="active"{t.Fatalf("grant viewer delegation: %+v err=%v",granted,err)}
+	if err!=nil||granted.Status!="active"||granted.CreatedAt.IsZero(){t.Fatalf("grant viewer delegation: %+v err=%v",granted,err)}
+	if _,err=store.GrantPropertyDelegation(ctx,ids["owner"],tenantID,org.ID,property.ID,PropertyDelegationInput{IdentityID:ids["outsider"],Role:"viewer"});err!=ErrMembershipNotFound{t.Fatalf("cross-tenant delegation target err=%v, want not found",err)}
 	if _,err=store.GrantPropertyDelegation(ctx,ids["manager"],tenantID,org.ID,property.ID,PropertyDelegationInput{IdentityID:ids["viewer"],Role:"manager"});err!=ErrMembershipForbidden{
 		t.Fatalf("manager grant manager role err=%v, want forbidden",err)
 	}
@@ -85,6 +86,7 @@ func TestOrganizationPropertyLifecycleAndDelegationsPostgres(t *testing.T) {
 	}
 	changed,err:=store.ChangePropertyDelegationRole(ctx,ids["owner"],tenantID,org.ID,property.ID,ids["member"],"manager")
 	if err!=nil||changed.Role!="manager"{t.Fatalf("owner change delegation role: %+v err=%v",changed,err)}
+	if err=store.RevokePropertyDelegation(ctx,ids["manager"],tenantID,org.ID,property.ID,ids["member"]);err!=ErrMembershipForbidden{t.Fatalf("manager revoke manager delegation err=%v, want forbidden",err)}
 	if err=store.RevokePropertyDelegation(ctx,ids["owner"],tenantID,org.ID,property.ID,ids["member"]);err!=nil{t.Fatalf("owner revoke delegation: %v",err)}
 	if _,err=store.ListPropertyDelegationsForIdentity(ctx,ids["viewer"],tenantID,org.ID,property.ID);err!=ErrMembershipForbidden{
 		t.Fatalf("ordinary member listed property delegations: %v",err)
@@ -116,8 +118,10 @@ func TestOrganizationPropertyLifecycleAndDelegationsPostgres(t *testing.T) {
 	if err=pool.QueryRow(ctx,"SELECT status FROM organizations WHERE id=$1",orgToArchive.ID).Scan(&orgStatus);err!=nil{t.Fatal(err)}
 	if err=pool.QueryRow(ctx,"SELECT status FROM properties WHERE id=$1",archiveProperty.ID).Scan(&archivedPropertyStatus);err!=nil{t.Fatal(err)}
 	if err=pool.QueryRow(ctx,"SELECT status FROM property_memberships WHERE property_id=$1 AND identity_id=$2",archiveProperty.ID,ids["viewer"]).Scan(&revokedMembershipStatus);err!=nil{t.Fatal(err)}
-	if orgStatus!="archived"||archivedPropertyStatus!="archived"||revokedMembershipStatus!="revoked"{
-		t.Fatalf("organization archive did not preserve records and revoke access: org=%s property=%s delegation=%s",orgStatus,archivedPropertyStatus,revokedMembershipStatus)
+	var activeMemberships int
+	if err=pool.QueryRow(ctx,"SELECT count(*) FROM organization_memberships WHERE organization_id=$1 AND status='active'",orgToArchive.ID).Scan(&activeMemberships);err!=nil{t.Fatal(err)}
+	if orgStatus!="archived"||archivedPropertyStatus!="archived"||revokedMembershipStatus!="revoked"||activeMemberships!=0{
+		t.Fatalf("organization archive did not preserve records and revoke access: org=%s property=%s delegation=%s active_memberships=%d",orgStatus,archivedPropertyStatus,revokedMembershipStatus,activeMemberships)
 	}
 	if _,err=store.GetOrganizationForIdentity(ctx,ids["owner"],tenantID,orgToArchive.ID);err==nil{
 		t.Fatal("archived organization remained readable")
