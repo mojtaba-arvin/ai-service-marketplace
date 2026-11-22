@@ -2,6 +2,7 @@ package marketplace
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
@@ -79,6 +81,13 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	if !types["order.created"] || !types["order.state_changed"] {
 		t.Fatalf("timeline missing order lifecycle events: %#v",timeline.Events)
 	}
+	var createdEvent *OrderHistoryEvent
+	for i:=range timeline.Events { if timeline.Events[i].Type=="order.created" { createdEvent=&timeline.Events[i]; break } }
+	if createdEvent==nil || len(createdEvent.DomainEvent)==0 { t.Fatalf("canonical envelope must be exposed separately: %#v",timeline.Events) }
+	var legacyPayload map[string]any
+	if err=json.Unmarshal(createdEvent.Payload,&legacyPayload); err!=nil { t.Fatal(err) }
+	if legacyPayload["order_id"]!=first.ID || legacyPayload["status"]!="requested" { t.Fatalf("timeline business payload shape changed: %#v",legacyPayload) }
+
 	if _,err=store.GetOrderTimeline(ctx,other,first.ID); !errors.Is(err,ErrOrderNotFound) {
 		t.Fatalf("another customer cannot read order timeline: %v",err)
 	}
@@ -98,4 +107,16 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	if _,err=store.ListOrderHistory(ctx,customer,20,&OrderHistoryCursor{}); !errors.Is(err,ErrInvalidHistoryCursor) {
 		t.Fatalf("malformed cursor must fail: %v",err)
 	}
+}
+
+func TestNormalizeOrderHistoryEventCompatibility(t *testing.T) {
+ legacy:=OrderHistoryEvent{Type:"order.state_changed",Payload:json.RawMessage(`{"from":"requested","to":"accepted"}`)}
+ original:=string(legacy.Payload)
+ if err:=normalizeOrderHistoryEvent(&legacy);err!=nil {t.Fatal(err)}
+ if string(legacy.Payload)!=original || len(legacy.DomainEvent)!=0 {t.Fatalf("legacy payload must remain unchanged: %#v",legacy)}
+ domain:=outbox.DomainEvent{ID:"evt-1",Type:"order.created",Version:1,OccurredAt:time.Date(2026,11,22,12,0,0,0,time.UTC),TenantID:"tenant-1",Aggregate:outbox.EventAggregate{Type:"order",ID:"order-1"},Data:json.RawMessage(`{"order_id":"order-1","status":"requested"}`)}
+ encoded,err:=json.Marshal(domain);if err!=nil{t.Fatal(err)}
+ canonical:=OrderHistoryEvent{Type:"order.created",Payload:encoded}
+ if err=normalizeOrderHistoryEvent(&canonical);err!=nil{t.Fatal(err)}
+ if string(canonical.Payload)!=string(domain.Data)||string(canonical.DomainEvent)!=string(encoded){t.Fatalf("canonical event should expose both compatible payload and envelope: %#v",canonical)}
 }
