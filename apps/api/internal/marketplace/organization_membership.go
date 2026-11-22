@@ -159,11 +159,11 @@ func (s *Store) ChangeOrganizationMemberRole(ctx context.Context, actorID, tenan
 	`, organizationID, tenantID, actorID).Scan(&actorRole, &actorIdentityRole)
 	if errors.Is(err, pgx.ErrNoRows) { return OrganizationMembershipResult{}, ErrMembershipForbidden }
 	if err != nil { return OrganizationMembershipResult{}, err }
-	var targetRole, targetIdentityRole, status, membershipID string
+	var targetRole, status, membershipID string
 	err = tx.QueryRow(ctx, `
-		SELECT id,role,identity_role,status FROM organization_memberships
+		SELECT id,role,status FROM organization_memberships
 		WHERE organization_id=$1 AND tenant_id=$2 AND identity_id=$3 FOR UPDATE
-	`, organizationID, tenantID, targetID).Scan(&membershipID,&targetRole,&targetIdentityRole,&status)
+	`, organizationID, tenantID, targetID).Scan(&membershipID,&targetRole,&status)
 	if errors.Is(err, pgx.ErrNoRows) { return OrganizationMembershipResult{}, ErrMembershipNotFound }
 	if err != nil { return OrganizationMembershipResult{}, err }
 	if status != "active" || !membershipManagerCanManage(actorRole,targetRole,nextRole) { return OrganizationMembershipResult{}, ErrMembershipForbidden }
