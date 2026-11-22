@@ -11,7 +11,7 @@
     }
   ],
   "x-contract-status": "initial-source-snapshot",
-  "x-last-reviewed-commit": "97fc33bec5c9b0d283ef5172eb1a236bcbfa71a5",
+  "x-last-reviewed-commit": "c1650e21570da394ca7ddc545bb57f4014273a95",
   "paths": {
     "/healthz": {
       "get": {
@@ -2441,7 +2441,7 @@
         "tags": [
           "B2B"
         ],
-        "description": "Grants visibility to an existing active organization member. Owners/admins may grant manager or viewer; organization managers may grant viewer only.",
+        "description": "Grants visibility to an existing active organization member. Owners/admins may grant manager or viewer; organization managers may grant viewer only. Delegation roles grant visibility only and do not confer property-write authority.",
         "security": [
           {
             "bearerAuth": []
@@ -2607,7 +2607,7 @@
         "tags": [
           "B2B"
         ],
-        "description": "Changes an active delegation between manager and viewer. Only organization owners and admins may change delegation roles.",
+        "description": "Changes an active delegation between manager and viewer. Only organization owners and admins may change delegation roles. Delegation roles grant visibility only and do not confer property-write authority.",
         "security": [
           {
             "bearerAuth": []
