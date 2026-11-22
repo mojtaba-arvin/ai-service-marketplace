@@ -112,6 +112,7 @@ func (s *Store) ListPropertiesForIdentity(ctx context.Context, identityID, tenan
 		  ON pm.property_id=p.id AND pm.organization_id=p.organization_id
 		 AND pm.tenant_id=p.tenant_id AND pm.identity_id=om.identity_id
 		 AND pm.identity_role=om.identity_role AND pm.status='active'
+		 AND om.role IN ('member','viewer')
 		WHERE p.organization_id=$2 AND p.tenant_id=$3 AND p.status='active'
 		  AND (om.role IN ('owner','admin','manager') OR pm.id IS NOT NULL)
 		ORDER BY p.property_code,p.id
