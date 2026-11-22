@@ -37,13 +37,13 @@ jobs:
           if find . -name '*.go' -not -path './.git/*' -print -quit | grep -q .; then
             languages+=('"go"')
           fi
-          if find . \\( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \\) -not -path './.git/*' -print -quit | grep -q .; then
+          if find . \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) -not -path './.git/*' -print -quit | grep -q .; then
             languages+=('"javascript-typescript"')
           fi
           if [ "${#languages[@]}" -eq 0 ]; then
             languages+=('"python"')
           fi
-          printf 'languages=[%s]\\n' "$(IFS=,; echo "${languages[*]}")" >> "$GITHUB_OUTPUT"
+          printf 'languages=[%s]\n' "$(IFS=,; echo "${languages[*]}")" >> "$GITHUB_OUTPUT"
 
   codeql:
     # Preserve the exact required-check context configured in the main ruleset:
