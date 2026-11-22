@@ -1,0 +1,23 @@
+{
+  "id": "evt_01JORDERCREATED0000000000001",
+  "type": "order.created",
+  "version": 1,
+  "occurred_at": "2026-11-22T10:00:00Z",
+  "tenant_id": "demo-tenant",
+  "aggregate": {
+    "type": "order",
+    "id": "ord_demo_001"
+  },
+  "correlation_id": "req_demo_001",
+  "data": {
+    "order_id": "ord_demo_001",
+    "status": "requested",
+    "market_code": "AM",
+    "currency": "EUR",
+    "amount_minor": 12500
+  },
+  "metadata": {
+    "producer": "marketplace.orders",
+    "schema_version": "1"
+  }
+}
