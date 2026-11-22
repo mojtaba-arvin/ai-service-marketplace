@@ -50,6 +50,11 @@ func normalizeOrderHistoryEvent(event *OrderHistoryEvent) error {
  var fields map[string]json.RawMessage
  if err:=json.Unmarshal(event.Payload,&fields); err!=nil || fields==nil { return nil }
  if _,versioned:=fields["version"]; !versioned { return nil }
+ if _,tenantScoped:=fields["tenant_id"]; !tenantScoped {
+  if _,aggregate:=fields["aggregate"]; !aggregate {
+   if _,data:=fields["data"]; !data { return nil }
+  }
+ }
  var domain outbox.DomainEvent
  if err:=json.Unmarshal(event.Payload,&domain); err!=nil || outbox.ValidateDomainEvent(domain)!=nil ||
   domain.Type!=event.Type {
