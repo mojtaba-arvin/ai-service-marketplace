@@ -60,7 +60,7 @@ func (s *Store) CreateScheduledOrder(ctx context.Context,actor Actor,idempotency
 		WHERE o.customer_id=$1 AND o.idempotency_key=$2 AND o.tenant_id=$3
 	`,actor.SubjectID,idempotencyKey).Scan(&prior.ID,&prior.CustomerID,&prior.AmountMinor,&prior.Currency,
 		&prior.Status,&prior.PriceVersionID,&priorMenuID,&prior.ScheduledAt,&prior.CountryCode,
-		&prior.RegionCode,&prior.CityCode,&prior.AreaCode,actor.TenantID)
+		&prior.RegionCode,&prior.CityCode,&prior.AreaCode)
 	if err==nil {
 		if !sameScheduledOrder(prior,menuID,scheduledAt,country,region,city,area,priorMenuID) {
 			return Order{},false,ErrOrderIdempotencyConflict
