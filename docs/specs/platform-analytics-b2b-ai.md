@@ -56,6 +56,21 @@ Migration `024_organizations_properties.sql` and the organization API provide a 
 - Archiving is non-destructive: archived organizations and properties remain stored; organization archive revokes all memberships and archives child properties, while property archive revokes only that property's delegations. No order or ledger rows are deleted.
 - Cross-tenant organization, member, property, delegation and audit-actor references are rejected by composite database constraints.
 
+
+### Order and financial relationship — designed, not yet implemented
+
+The organization/property registry is not yet linked to order or finance records. The current order schema has tenant ownership but no organization/property IDs; the current payment operations and ledger journals do not carry a reliable order/tenant attribution key. It is unsafe to infer that relationship from customer identity, service-area text, amount, timestamps or journal descriptions.
+
+[ADR 0006](../adr/0006-b2b-order-finance-attribution.md) defines the staged contract:
+
+- A consumer order has neither B2B reference; a B2B order has both organization and property references, constrained to the same tenant and organization.
+- The order's tenant remains the security boundary. The actor must hold a separately authorized `service_order.create` capability; property visibility delegation alone is insufficient.
+- Attribution is fixed at order creation and the service-location display data is snapshotted. Property rename/archive never rewrites historical orders.
+- Order-linked payment operations must carry validated tenant/order references. Existing `payment_ledger_links` then provides the explicit payment-to-journal bridge. Unattributed journals are excluded from organization statements.
+- Consolidated statements are replayable read models over eligible immutable postings, partitioned by tenant, organization, property, currency and period; reversals are included and currencies are never combined. No mutable organization balance is introduced.
+
+No association columns, historical backfill, financial read model or billing operation is included in the current implementation. Implementation is gated on independent order tenant-isolation QA (#57), finance invariant QA (#10), and canonical event producer/consumer readiness (#87). Legacy rows remain unassigned unless explicitly reconciled with auditable evidence.
+
 ### Explicit limits
 
 Invitation delivery is in-app only: no email/SMS, no invitation to identities that do not yet exist in the tenant, and no invitation expiry/re-send workflow. Pending-invitation pagination beyond the bounded first 100, order/ledger aggregation and consolidated billing remain deferred. No payment capture, money movement or production billing is introduced.
