@@ -25,7 +25,9 @@ Tracking: [#87](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/8
 
 The canonical event envelope is defined in `schemas/domain-event.schema.json`. The outbox package now exposes `AppendDomainEvent` to validate and persist a canonical envelope in the aggregate transaction, including required tenant attribution and a recursive prohibited-field-name guard. `Append` remains for legacy compatibility; existing producers are not yet fully migrated and analytics consumers must reject or quarantine legacy payloads rather than silently reinterpret them. Analytics consumers must receive minimized, pseudonymized event data and must not query operational tables as an implicit cross-module API.
 
-Metric definitions must specify event source, denominator, time window, timezone, deduplication and late-arrival behavior. Funnel and supply metrics are not accepted until replay, duplicate delivery and schema-version compatibility are tested.
+Metric definitions are now recorded in [the v1 machine-readable contract](../analytics/metrics-v1.json) and [its implementation notes](../analytics/metrics-v1.md). The contract defines numerator, denominator, event source, cohort window, market timezone, tenant partitioning, production-traffic filtering, deduplication, replay order and late-arrival handling. It is explicitly contract-only: every metric remains blocked until its canonical producers and metadata are adopted. The current event set does not support request conversion or verified-provider supply without additional canonical lifecycle events.
+
+Funnel and supply metrics are not accepted until replay, duplicate delivery, schema-version compatibility and source reconciliation are tested. Analytics read models must consume canonical events and must not query operational tables as an implicit cross-module API.
 
 ## B2B (M13)
 

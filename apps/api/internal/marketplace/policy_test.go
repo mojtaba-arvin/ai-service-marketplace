@@ -24,6 +24,8 @@ func TestAuthorizeRolePermissions(t *testing.T) {
 		{"operator can assign within tenant", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionOrderAssign, true},
 		{"operator can configure market", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionMarketConfigure, true},
 		{"operator can manage catalog", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionCatalogManage, true},
+		{"operator can read analytics within tenant", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionAnalyticsRead, true},
+		{"support cannot read operator analytics", Actor{"support-1", "tenant-a", RoleSupport}, Resource{TenantID: "tenant-a"}, ActionAnalyticsRead, false},
 		{"support cannot configure market", Actor{"support-1", "tenant-a", RoleSupport}, Resource{TenantID: "tenant-a"}, ActionMarketConfigure, false},
 		{"operator cannot post ledger", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionLedgerPost, false},
 		{"support can read support case", Actor{"support-1", "tenant-a", RoleSupport}, Resource{TenantID: "tenant-a"}, ActionSupportCaseRead, true},
