@@ -1497,6 +1497,51 @@
             "description": "Unexpected server error."
           }
         }
+      },
+      "get": {
+        "summary": "List organizations visible to the authenticated identity",
+        "operationId": "list_organizations",
+        "tags": [
+          "Organizations"
+        ],
+        "parameters": [
+          {
+            "name": "X-Tenant-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional tenant selector; active membership is still required."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Membership or role does not permit this operation."
+          },
+          "404": {
+            "description": "Resource not found."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
       }
     },
     "/v1/organizations/{organization_id}/properties": {
@@ -1594,6 +1639,59 @@
           },
           "409": {
             "description": "Conflicting organization or property identifier."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      },
+      "get": {
+        "summary": "List visible properties in an organization",
+        "operationId": "list_organization_properties",
+        "tags": [
+          "Organizations"
+        ],
+        "parameters": [
+          {
+            "name": "X-Tenant-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional tenant selector; active membership is still required."
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Membership or role does not permit this operation."
+          },
+          "404": {
+            "description": "Resource not found."
           },
           "500": {
             "description": "Unexpected server error."
@@ -1964,6 +2062,61 @@
           },
           "409": {
             "description": "Conflicting organization or property identifier."
+          },
+          "500": {
+            "description": "Unexpected server error."
+          }
+        }
+      }
+    },
+    "/v1/organizations/{organization_id}": {
+      "get": {
+        "summary": "Read an organization",
+        "operationId": "get_organization",
+        "tags": [
+          "Organizations"
+        ],
+        "parameters": [
+          {
+            "name": "X-Tenant-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional tenant selector; active membership is still required."
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Membership or role does not permit this operation."
+          },
+          "404": {
+            "description": "Resource not found."
           },
           "500": {
             "description": "Unexpected server error."
