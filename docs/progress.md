@@ -72,3 +72,8 @@ Merged work includes migration `023_order_tenant_scope.sql`, tenant-scoped opera
 A post-merge code audit identified additional tenant-boundary gaps outside the original operator queue: customer order history/timeline and professional order/transition paths need to bind the order's tenant as well as the identity/provider membership. Follow-up hardening is being prepared in PR #90. Until that audit passes, tenant isolation must not be described as comprehensively complete.
 
 M12 analytics/event adoption (#87), M13 organization/property registry (#88), and M14 AI safety evaluation/prompt governance (#89) remain implementation work. Their issues and ADR/spec foundations are not evidence that those capabilities are implemented. The feature inventory remains `passes: false` pending independent QA evidence.
+
+
+## 2026-11-22 PR #98 — tenant-scoped B2B schema foundation
+
+Migration `024_organizations_properties.sql` adds tenant-scoped organizations, organization memberships, properties, property delegations and append-only organization audit events. Composite foreign keys bind creator, inviter, delegate and audit actor identities to memberships in the same tenant and organization. PostgreSQL negative-path coverage rejects cross-tenant organization creators, inviters, property creators, delegation creators, members and audit actors. This is schema groundwork only: service/API authorization, invitation delivery, immediate revocation behavior, property handlers and consolidated statements remain open in #88. CI passing is not independent QA; no feature inventory item is marked independently passing.
