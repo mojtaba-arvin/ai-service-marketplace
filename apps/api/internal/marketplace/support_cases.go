@@ -67,6 +67,9 @@ func (s *Store) GetSupportCase(ctx context.Context,actor Actor,caseID string)(Su
  if actor.SubjectID==""||actor.TenantID!=result.TenantID{return SupportCase{},ErrForbidden}
  if actor.Role==RoleSupport{
   if err=Authorize(actor,Resource{TenantID:result.TenantID},ActionSupportCaseRead);err!=nil{return SupportCase{},err}
+  var active bool
+  if err=s.DB.QueryRow(ctx,`SELECT EXISTS(SELECT 1 FROM support_agents WHERE tenant_id=$1 AND identity_id=$2 AND active=true)`,actor.TenantID,actor.SubjectID).Scan(&active);err!=nil{return SupportCase{},err}
+  if !active{return SupportCase{},ErrForbidden}
  }else if (actor.Role!=RoleCustomer&&actor.Role!=RoleProfessional)||actor.SubjectID!=result.RequesterIdentityID{return SupportCase{},ErrForbidden}
  return result,nil
 }
@@ -83,6 +86,9 @@ func (s *Store) AssignSupportCase(ctx context.Context,actor Actor,caseID,assigne
  if errors.Is(err,pgx.ErrNoRows){return SupportCase{},ErrSupportCaseNotFound};if err!=nil{return SupportCase{},err}
  if result.TenantID!=actor.TenantID{return SupportCase{},ErrForbidden}
  if err=Authorize(actor,Resource{TenantID:result.TenantID},ActionSupportCaseComment);err!=nil{return SupportCase{},err}
+ var actorActive bool
+ if err=tx.QueryRow(ctx,`SELECT EXISTS(SELECT 1 FROM support_agents WHERE tenant_id=$1 AND identity_id=$2 AND active=true)`,actor.TenantID,actor.SubjectID).Scan(&actorActive);err!=nil{return SupportCase{},err}
+ if !actorActive{return SupportCase{},ErrForbidden}
  var active bool
  if err=tx.QueryRow(ctx,`SELECT EXISTS(SELECT 1 FROM support_agents WHERE tenant_id=$1 AND identity_id=$2 AND active=true)`,actor.TenantID,assigneeID).Scan(&active);err!=nil{return SupportCase{},err}
  if !active{return SupportCase{},ErrForbidden}
@@ -105,6 +111,9 @@ func (s *Store) TransitionSupportCase(ctx context.Context,actor Actor,caseID,tar
  if errors.Is(err,pgx.ErrNoRows){return SupportCase{},ErrSupportCaseNotFound};if err!=nil{return SupportCase{},err}
  if result.TenantID!=actor.TenantID{return SupportCase{},ErrForbidden}
  if err=Authorize(actor,Resource{TenantID:result.TenantID},ActionSupportCaseComment);err!=nil{return SupportCase{},err}
+ var actorActive bool
+ if err=tx.QueryRow(ctx,`SELECT EXISTS(SELECT 1 FROM support_agents WHERE tenant_id=$1 AND identity_id=$2 AND active=true)`,actor.TenantID,actor.SubjectID).Scan(&actorActive);err!=nil{return SupportCase{},err}
+ if !actorActive{return SupportCase{},ErrForbidden}
  allowed:=false
  switch result.Status{
  case "open":allowed=target=="in_progress"
