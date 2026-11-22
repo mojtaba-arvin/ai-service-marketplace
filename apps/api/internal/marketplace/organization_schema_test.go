@@ -35,7 +35,8 @@ func TestOrganizationPropertySchemaEnforcesTenantBoundariesPostgres(t *testing.T
  membershipB,err:=newID();if err!=nil{t.Fatal(err)}
  if _,err=pool.Exec(ctx,`INSERT INTO identity_memberships(id,identity_id,tenant_id,role) VALUES($1,$2,'tenant-a','customer'),($3,$4,'tenant-b','customer')`,membershipA,identityA,membershipB,identityB);err!=nil{t.Fatal(err)}
  orgA,err:=newID();if err!=nil{t.Fatal(err)}
- if _,err=pool.Exec(ctx,`INSERT INTO organizations(id,tenant_id,name,slug,created_by_identity_id) VALUES($1,'tenant-a','Tenant A Org','tenant-a-org',$2)`,orgA,identityA);err!=nil{t.Fatal(err)}
+ orgSlug:="tenant-a-org-"+orgA[:8]
+ if _,err=pool.Exec(ctx,`INSERT INTO organizations(id,tenant_id,name,slug,created_by_identity_id) VALUES($1,'tenant-a','Tenant A Org',$3,$2)`,orgA,identityA,orgSlug);err!=nil{t.Fatal(err)}
 
  crossTenantMemberID,err:=newID();if err!=nil{t.Fatal(err)}
  if _,err=pool.Exec(ctx,`INSERT INTO organization_memberships(id,organization_id,tenant_id,identity_id,identity_role,role) VALUES($1,$2,'tenant-a',$3,'customer','member')`,crossTenantMemberID,orgA,identityB);err==nil {
@@ -45,7 +46,8 @@ func TestOrganizationPropertySchemaEnforcesTenantBoundariesPostgres(t *testing.T
  ownerMembershipID,err:=newID();if err!=nil{t.Fatal(err)}
  if _,err=pool.Exec(ctx,`INSERT INTO organization_memberships(id,organization_id,tenant_id,identity_id,identity_role,role) VALUES($1,$2,'tenant-a',$3,'customer','owner')`,ownerMembershipID,orgA,identityA);err!=nil{t.Fatal(err)}
  propertyID,err:=newID();if err!=nil{t.Fatal(err)}
- if _,err=pool.Exec(ctx,`INSERT INTO properties(id,tenant_id,organization_id,property_code,name,country_code,region_code,city_code,area_code,created_by_identity_id) VALUES($1,'tenant-a',$2,'HQ','Headquarters','OM','muscat','muscat','al-khuwair',$3)`,propertyID,orgA,identityA);err!=nil{t.Fatal(err)}
+ propertyCode:="HQ-"+propertyID[:8]
+ if _,err=pool.Exec(ctx,`INSERT INTO properties(id,tenant_id,organization_id,property_code,name,country_code,region_code,city_code,area_code,created_by_identity_id) VALUES($1,'tenant-a',$2,$3,'Headquarters','OM','muscat','muscat','al-khuwair',$4)`,propertyID,orgA,propertyCode,identityA);err!=nil{t.Fatal(err)}
 
  crossTenantPropertyID,err:=newID();if err!=nil{t.Fatal(err)}
  if _,err=pool.Exec(ctx,`INSERT INTO properties(id,tenant_id,organization_id,property_code,name,country_code,region_code,city_code,area_code,created_by_identity_id) VALUES($1,'tenant-b',$2,'FOREIGN','Foreign property','OM','muscat','muscat','al-khuwair',$3)`,crossTenantPropertyID,orgA,identityB);err==nil {
