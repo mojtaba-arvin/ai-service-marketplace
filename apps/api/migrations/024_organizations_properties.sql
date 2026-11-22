@@ -7,11 +7,14 @@ CREATE TABLE IF NOT EXISTS organizations (
     name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 160),
     slug text NOT NULL CHECK (slug ~ '^[a-z0-9]+([a-z0-9-]*[a-z0-9])?$'),
     status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','archived')),
-    created_by_identity_id text NOT NULL REFERENCES phone_identities(id),
+    created_by_identity_id text NOT NULL,
+    created_by_identity_role text NOT NULL CHECK (created_by_identity_role IN ('customer','professional','operator','support')),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (id, tenant_id),
-    UNIQUE (tenant_id, slug)
+    UNIQUE (tenant_id, slug),
+    FOREIGN KEY (created_by_identity_id, tenant_id, created_by_identity_role)
+        REFERENCES identity_memberships(identity_id, tenant_id, role) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS organization_memberships (
@@ -22,7 +25,8 @@ CREATE TABLE IF NOT EXISTS organization_memberships (
     identity_role text NOT NULL CHECK (identity_role IN ('customer','professional','operator','support')),
     role text NOT NULL CHECK (role IN ('owner','admin','manager','member','viewer')),
     status text NOT NULL DEFAULT 'active' CHECK (status IN ('invited','active','revoked')),
-    invited_by_identity_id text REFERENCES phone_identities(id),
+    invited_by_identity_id text,
+    invited_by_identity_role text CHECK (invited_by_identity_role IN ('customer','professional','operator','support')),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     revoked_at timestamptz,
@@ -31,6 +35,9 @@ CREATE TABLE IF NOT EXISTS organization_memberships (
         REFERENCES organizations(id, tenant_id) ON DELETE RESTRICT,
     FOREIGN KEY (identity_id, tenant_id, identity_role)
         REFERENCES identity_memberships(identity_id, tenant_id, role) ON DELETE RESTRICT,
+    FOREIGN KEY (invited_by_identity_id, tenant_id, invited_by_identity_role)
+        REFERENCES identity_memberships(identity_id, tenant_id, role) ON DELETE RESTRICT,
+    CHECK ((invited_by_identity_id IS NULL) = (invited_by_identity_role IS NULL)),
     CHECK ((status = 'revoked') = (revoked_at IS NOT NULL))
 );
 
@@ -49,13 +56,16 @@ CREATE TABLE IF NOT EXISTS properties (
     city_code text NOT NULL CHECK (length(btrim(city_code)) BETWEEN 1 AND 100),
     area_code text NOT NULL CHECK (length(btrim(area_code)) BETWEEN 1 AND 100),
     status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','archived')),
-    created_by_identity_id text NOT NULL REFERENCES phone_identities(id),
+    created_by_identity_id text NOT NULL,
+    created_by_identity_role text NOT NULL CHECK (created_by_identity_role IN ('customer','professional','operator','support')),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (id, tenant_id, organization_id),
     UNIQUE (organization_id, tenant_id, property_code),
     FOREIGN KEY (organization_id, tenant_id)
-        REFERENCES organizations(id, tenant_id) ON DELETE RESTRICT
+        REFERENCES organizations(id, tenant_id) ON DELETE RESTRICT,
+    FOREIGN KEY (organization_id, tenant_id, created_by_identity_id, created_by_identity_role)
+        REFERENCES organization_memberships(organization_id, tenant_id, identity_id, identity_role) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS properties_tenant_org_status_idx
@@ -70,13 +80,16 @@ CREATE TABLE IF NOT EXISTS property_memberships (
     identity_role text NOT NULL CHECK (identity_role IN ('customer','professional','operator','support')),
     role text NOT NULL CHECK (role IN ('manager','viewer')),
     status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked')),
-    created_by_identity_id text NOT NULL REFERENCES phone_identities(id),
+    created_by_identity_id text NOT NULL,
+    created_by_identity_role text NOT NULL CHECK (created_by_identity_role IN ('customer','professional','operator','support')),
     created_at timestamptz NOT NULL DEFAULT now(),
     revoked_at timestamptz,
     UNIQUE (property_id, tenant_id, identity_id, identity_role),
     FOREIGN KEY (property_id, tenant_id, organization_id)
         REFERENCES properties(id, tenant_id, organization_id) ON DELETE RESTRICT,
     FOREIGN KEY (organization_id, tenant_id, identity_id, identity_role)
+        REFERENCES organization_memberships(organization_id, tenant_id, identity_id, identity_role) ON DELETE RESTRICT,
+    FOREIGN KEY (organization_id, tenant_id, created_by_identity_id, created_by_identity_role)
         REFERENCES organization_memberships(organization_id, tenant_id, identity_id, identity_role) ON DELETE RESTRICT,
     CHECK ((status = 'revoked') = (revoked_at IS NOT NULL))
 );
@@ -89,12 +102,15 @@ CREATE TABLE IF NOT EXISTS organization_audit_events (
     id text PRIMARY KEY,
     organization_id text NOT NULL,
     tenant_id text NOT NULL,
-    actor_identity_id text NOT NULL REFERENCES phone_identities(id),
+    actor_identity_id text NOT NULL,
+    actor_identity_role text NOT NULL CHECK (actor_identity_role IN ('customer','professional','operator','support')),
     action text NOT NULL CHECK (length(btrim(action)) BETWEEN 1 AND 100),
     details jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(details) = 'object'),
     created_at timestamptz NOT NULL DEFAULT now(),
     FOREIGN KEY (organization_id, tenant_id)
-        REFERENCES organizations(id, tenant_id) ON DELETE RESTRICT
+        REFERENCES organizations(id, tenant_id) ON DELETE RESTRICT,
+    FOREIGN KEY (organization_id, tenant_id, actor_identity_id, actor_identity_role)
+        REFERENCES organization_memberships(organization_id, tenant_id, identity_id, identity_role) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS organization_audit_events_scope_idx
