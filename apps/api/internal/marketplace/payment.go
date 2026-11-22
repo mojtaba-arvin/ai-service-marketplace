@@ -83,6 +83,8 @@ func (p *FakePaymentProvider) execute(ctx context.Context,operation string,reque
 	requestHash:=sha256.Sum256([]byte(fmt.Sprintf("%d\x00%s\x00%s",request.AmountMinor,request.Currency,request.Reference)))
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.results==nil { p.results=make(map[string]ProviderResult) }
+	if p.requestHashes==nil { p.requestHashes=make(map[string][32]byte) }
 	if result,ok:=p.results[key]; ok {
 		if p.requestHashes[key]!=requestHash { return ProviderResult{},ErrPaymentIdempotencyConflict }
 		return result,nil
