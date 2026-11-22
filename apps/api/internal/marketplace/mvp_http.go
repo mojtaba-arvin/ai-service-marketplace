@@ -178,6 +178,7 @@ func (s *Store) ListProfessionalOrders(ctx context.Context, actor Actor) ([]Prof
         FROM orders o
         JOIN provider_profiles p ON p.id=o.assigned_provider_id
         WHERE p.identity_id=$1 AND p.tenant_id=$2
+          AND o.tenant_id=p.tenant_id
           AND o.status IN ('accepted','in_progress')
         ORDER BY o.scheduled_at,o.created_at
         LIMIT 100
@@ -237,13 +238,14 @@ func (s *Store) TransitionOrderAsActor(ctx context.Context, actor Actor, orderID
 
     var current Order
     var assignedProviderID *string
+    var orderTenantID *string
     err = tx.QueryRow(ctx, `
         SELECT id,customer_id,amount_minor,currency,status,price_version_id,scheduled_at,
-            country_code,region_code,city_code,area_code,assigned_provider_id
+            country_code,region_code,city_code,area_code,assigned_provider_id,tenant_id
         FROM orders WHERE id=$1 FOR UPDATE
     `, orderID).Scan(&current.ID,&current.CustomerID,&current.AmountMinor,&current.Currency,
         &current.Status,&current.PriceVersionID,&current.ScheduledAt,&current.CountryCode,
-        &current.RegionCode,&current.CityCode,&current.AreaCode,&assignedProviderID)
+        &current.RegionCode,&current.CityCode,&current.AreaCode,&assignedProviderID,&orderTenantID)
     if errors.Is(err, pgx.ErrNoRows) {
         return Order{}, ErrOrderNotFound
     }
@@ -253,7 +255,7 @@ func (s *Store) TransitionOrderAsActor(ctx context.Context, actor Actor, orderID
 
     switch actor.Role {
     case RoleCustomer:
-        if target != "cancelled" || Authorize(actor, Resource{TenantID:actor.TenantID,OwnerID:current.CustomerID}, ActionOrderCancel) != nil {
+        if target != "cancelled" || orderTenantID == nil || Authorize(actor, Resource{TenantID:*orderTenantID,OwnerID:current.CustomerID}, ActionOrderCancel) != nil {
             return Order{}, ErrForbidden
         }
     case RoleProfessional:
@@ -263,7 +265,7 @@ func (s *Store) TransitionOrderAsActor(ctx context.Context, actor Actor, orderID
         var identityID, tenantID string
         err = tx.QueryRow(ctx, `SELECT identity_id,tenant_id FROM provider_profiles WHERE id=$1`,
             *assignedProviderID).Scan(&identityID,&tenantID)
-        if err != nil {
+        if err != nil || orderTenantID == nil || tenantID != *orderTenantID || tenantID != actor.TenantID {
             return Order{}, ErrForbidden
         }
         action := ActionOrderStart

@@ -106,9 +106,10 @@ func (s *Store) CancelOrder(ctx context.Context,actor Actor,orderID,idempotencyK
 	defer tx.Rollback(ctx)
 
 	existing,storedHash,err:=scanOrderCancellation(tx.QueryRow(ctx,`
-		SELECT id,order_id,actor_identity_id,policy_version,from_status,currency,amount_minor,fee_minor,refund_minor,reason,created_at,request_hash
-		FROM order_cancellations WHERE actor_identity_id=$1 AND idempotency_key=$2
-	`,actor.SubjectID,idempotencyKey))
+		SELECT c.id,c.order_id,c.actor_identity_id,c.policy_version,c.from_status,c.currency,c.amount_minor,c.fee_minor,c.refund_minor,c.reason,c.created_at,c.request_hash
+		FROM order_cancellations c JOIN orders o ON o.id=c.order_id
+		WHERE c.actor_identity_id=$1 AND c.idempotency_key=$2 AND o.tenant_id=$3
+	`,actor.SubjectID,idempotencyKey,actor.TenantID))
 	if err==nil {
 		if len(storedHash)!=32 || subtle.ConstantTimeCompare(storedHash,hash)!=1 { return OrderCancellation{},ErrCancellationIdempotencyConflict }
 		if err=tx.Commit(ctx); err!=nil { return OrderCancellation{},err }
@@ -116,17 +117,17 @@ func (s *Store) CancelOrder(ctx context.Context,actor Actor,orderID,idempotencyK
 	}
 	if !errors.Is(err,pgx.ErrNoRows) { return OrderCancellation{},err }
 
-	var customerID,status,currency string
+	var customerID,status,currency,orderTenantID string
 	var amount int64
 	var scheduledAt *time.Time
 	var countryCode *string
 	err=tx.QueryRow(ctx,`
-		SELECT customer_id,status,currency,amount_minor,scheduled_at,country_code
+		SELECT customer_id,status,currency,amount_minor,scheduled_at,country_code,tenant_id
 		FROM orders WHERE id=$1 FOR UPDATE
-	`,orderID).Scan(&customerID,&status,&currency,&amount,&scheduledAt,&countryCode)
+	`,orderID).Scan(&customerID,&status,&currency,&amount,&scheduledAt,&countryCode,&orderTenantID)
 	if errors.Is(err,pgx.ErrNoRows) { return OrderCancellation{},ErrOrderNotFound }
 	if err!=nil { return OrderCancellation{},err }
-	if customerID!=actor.SubjectID { return OrderCancellation{},ErrForbidden }
+	if customerID!=actor.SubjectID || orderTenantID!=actor.TenantID { return OrderCancellation{},ErrForbidden }
 
 	already,_,err:=scanOrderCancellation(tx.QueryRow(ctx,`
 		SELECT id,order_id,actor_identity_id,policy_version,from_status,currency,amount_minor,fee_minor,refund_minor,reason,created_at,request_hash

@@ -53,6 +53,10 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	second:=create(customer,"history-second-"+fmt.Sprint(time.Now().UnixNano()))
 	third:=create(customer,"history-third-"+fmt.Sprint(time.Now().UnixNano()))
 	otherOrder:=create(other,"history-other-"+fmt.Sprint(time.Now().UnixNano()))
+	// The same identity may have memberships in multiple tenants. Its order
+	// history and timeline must remain scoped to the active tenant context.
+	secondTenant := Actor{SubjectID:customer.SubjectID,TenantID:"market-history-secondary",Role:RoleCustomer}
+	secondTenantOrder := create(secondTenant,"history-secondary-"+fmt.Sprint(time.Now().UnixNano()))
 	if _,err=store.TransitionOrder(ctx,first.ID,"accepted"); err!=nil { t.Fatal(err) }
 
 	page1,err:=store.ListOrderHistory(ctx,customer,2,nil)
@@ -65,7 +69,7 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	if len(page2.Items)!=1 || page2.HasMore { t.Fatalf("second page should contain remaining customer order: %#v",page2) }
 	seen:=map[string]bool{}
 	for _,item:=range append(page1.Items,page2.Items...) { seen[item.Order.ID]=true }
-	if !seen[first.ID] || !seen[second.ID] || !seen[third.ID] || seen[otherOrder.ID] {
+	if !seen[first.ID] || !seen[second.ID] || !seen[third.ID] || seen[otherOrder.ID] || seen[secondTenantOrder.ID] {
 		t.Fatalf("history leaked or omitted orders: %#v",seen)
 	}
 	timeline,err:=store.GetOrderTimeline(ctx,customer,first.ID)
@@ -75,8 +79,14 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	if !types["order.created"] || !types["order.state_changed"] {
 		t.Fatalf("timeline missing order lifecycle events: %#v",timeline.Events)
 	}
-	if _,err=store.GetOrderTimeline(ctx,other,first.ID); !errors.Is(err,ErrForbidden) {
+	if _,err=store.GetOrderTimeline(ctx,other,first.ID); !errors.Is(err,ErrOrderNotFound) {
 		t.Fatalf("another customer cannot read order timeline: %v",err)
+	}
+	if _,err=store.GetOrderTimeline(ctx,customer,secondTenantOrder.ID); !errors.Is(err,ErrOrderNotFound) {
+		t.Fatalf("same identity in another tenant cannot read timeline: %v",err)
+	}
+	if _,err=store.TransitionOrderAsActor(ctx,customer,secondTenantOrder.ID,"cancelled"); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("same identity in another tenant cannot transition order: %v",err)
 	}
 	otherPage,err:=store.ListOrderHistory(ctx,other,20,nil)
 	if err!=nil || len(otherPage.Items)!=1 || otherPage.Items[0].Order.ID!=otherOrder.ID {

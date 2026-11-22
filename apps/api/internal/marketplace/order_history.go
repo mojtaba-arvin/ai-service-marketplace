@@ -78,14 +78,14 @@ func (s *Store) ListOrderHistory(ctx context.Context,actor Actor,limit int,curso
 	if cursor==nil {
 		rows,err=tx.Query(ctx,`
 			SELECT id,customer_id,amount_minor,currency,status,price_version_id,scheduled_at,country_code,region_code,city_code,area_code,created_at,updated_at
-			FROM orders WHERE customer_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2
-		`,actor.SubjectID,limit+1)
+			FROM orders WHERE customer_id=$1 AND tenant_id=$2 ORDER BY created_at DESC,id DESC LIMIT $3
+		`,actor.SubjectID,actor.TenantID,limit+1)
 	} else {
 		rows,err=tx.Query(ctx,`
 			SELECT id,customer_id,amount_minor,currency,status,price_version_id,scheduled_at,country_code,region_code,city_code,area_code,created_at,updated_at
-			FROM orders WHERE customer_id=$1 AND (created_at,id)<($2,$3)
-			ORDER BY created_at DESC,id DESC LIMIT $4
-		`,actor.SubjectID,cursor.CreatedAt,cursor.OrderID,limit+1)
+			FROM orders WHERE customer_id=$1 AND tenant_id=$2 AND (created_at,id)<($3,$4)
+			ORDER BY created_at DESC,id DESC LIMIT $5
+		`,actor.SubjectID,actor.TenantID,cursor.CreatedAt,cursor.OrderID,limit+1)
 	}
 	if err!=nil { return OrderHistoryPage{},err }
 	items:=make([]OrderHistoryItem,0,limit+1)
@@ -118,11 +118,10 @@ func (s *Store) GetOrderTimeline(ctx context.Context,actor Actor,orderID string)
 	defer tx.Rollback(ctx)
 	item,err:=scanOrderHistoryItem(tx.QueryRow(ctx,`
 		SELECT id,customer_id,amount_minor,currency,status,price_version_id,scheduled_at,country_code,region_code,city_code,area_code,created_at,updated_at
-		FROM orders WHERE id=$1
-	`,orderID))
+		FROM orders WHERE id=$1 AND customer_id=$2 AND tenant_id=$3
+	`,orderID,actor.SubjectID,actor.TenantID))
 	if errors.Is(err,pgx.ErrNoRows) { return OrderHistoryItem{},ErrOrderNotFound }
 	if err!=nil { return OrderHistoryItem{},err }
-	if item.Order.CustomerID!=actor.SubjectID { return OrderHistoryItem{},ErrForbidden }
 	item.Events,err=loadOrderHistoryEvents(ctx,tx,orderID)
 	if err!=nil { return OrderHistoryItem{},err }
 	if err=tx.Commit(ctx); err!=nil { return OrderHistoryItem{},err }
