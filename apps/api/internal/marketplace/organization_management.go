@@ -116,6 +116,7 @@ func (s *Store) ArchiveOrganizationForIdentity(ctx context.Context,actorID,tenan
 	details:=map[string]string{"organization_id":organizationID,"status":"archived"}
 	if err=appendOrganizationAudit(ctx,tx,organizationID,tenantID,actorID,identityRole,"organization.archived",details);err!=nil{return err}
 	if err=appendOrganizationDomainEvent(ctx,tx,tenantID,"organization",organizationID,"organization.archived",details);err!=nil{return err}
+	if _,err=tx.Exec(ctx,"UPDATE properties SET status='archived',updated_at=now() WHERE organization_id=$1 AND tenant_id=$2 AND status='active'",organizationID,tenantID);err!=nil{return err}
 	if _,err=tx.Exec(ctx,"UPDATE property_memberships SET status='revoked',revoked_at=now() WHERE organization_id=$1 AND tenant_id=$2 AND status='active'",organizationID,tenantID);err!=nil{return err}
 	if _,err=tx.Exec(ctx,"UPDATE organization_memberships SET status='revoked',revoked_at=now(),updated_at=now() WHERE organization_id=$1 AND tenant_id=$2 AND status IN ('active','invited')",organizationID,tenantID);err!=nil{return err}
 	if _,err=tx.Exec(ctx,"UPDATE organizations SET status='archived',updated_at=now() WHERE id=$1 AND tenant_id=$2 AND status='active'",organizationID,tenantID);err!=nil{return err}
