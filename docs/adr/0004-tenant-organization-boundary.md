@@ -21,7 +21,7 @@ The platform needs strict data isolation for customers, professionals, operators
 - B2B membership and property models require explicit authorization and revocation semantics.
 - A user may belong to multiple organizations, and an organization may relate to multiple properties without changing the tenant boundary.
 - Analytics and finance must preserve tenant attribution even when aggregating organization views.
-- The organization/property schema is not implemented by accepting this ADR; it is tracked in #88.
+- The first tenant-scoped organization/property schema foundation is implemented in migration `024_organizations_properties.sql`; service/API authorization, invitation lifecycle, revocation behavior and independent negative-path acceptance remain tracked in #88.
 
 ## Alternatives considered
 
