@@ -74,11 +74,12 @@ func appendOrganizationDomainEvent(ctx context.Context, tx pgx.Tx, tenantID, agg
 	if err != nil { return err }
 	id, err := newID()
 	if err != nil { return err }
-	return outbox.AppendDomainEvent(ctx,tx,outbox.DomainEvent{
+	_,err=outbox.AppendDomainEvent(ctx,tx,outbox.DomainEvent{
 		ID:id, Type:eventType, Version:1, OccurredAt:time.Now().UTC(), TenantID:tenantID,
 		Aggregate:outbox.EventAggregate{Type:"organization",ID:aggregateID}, Data:raw,
 		Metadata:map[string]string{"source":"marketplace-api"},
 	})
+	return err
 }
 
 func (s *Store) CreateOrganizationForIdentity(ctx context.Context, identityID, tenantID, name, slug string) (OrganizationSummary,error) {
