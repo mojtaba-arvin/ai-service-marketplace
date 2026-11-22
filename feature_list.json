@@ -763,7 +763,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Initial tenant-scoped organizations and membership schema is proposed in PR #93; service/API authorization, invitation lifecycle, revocation behavior, and independent negative-path QA remain incomplete. passes remains false."
   },
   {
     "id": "B2B-002",
@@ -783,7 +783,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Initial tenant-scoped property and delegated-access schema is proposed in PR #93; property APIs, membership authorization, archive behavior, and independent negative-path QA remain incomplete. passes remains false."
   },
   {
     "id": "B2B-003",
