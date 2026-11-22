@@ -255,6 +255,9 @@ func (s *Store) TransitionOrderAsActor(ctx context.Context, actor Actor, orderID
 
     switch actor.Role {
     case RoleCustomer:
+        if orderTenantID == nil || Authorize(actor, Resource{TenantID:*orderTenantID,OwnerID:current.CustomerID}, ActionOrderCancel) != nil {
+            return Order{}, ErrForbidden
+        }
         // Cancellation has a separate policy/idempotency workflow. Never allow
         // the generic state-transition endpoint to bypass its fee/refund rules.
         if target == "cancelled" {
