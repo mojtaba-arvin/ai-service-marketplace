@@ -69,9 +69,9 @@ PR [#86](https://github.com/mojtaba-arvin/ai-service-marketplace/pull/86) was sq
 
 Merged work includes migration `023_order_tenant_scope.sql`, tenant-scoped operator order listing and scheduled-order idempotency replay, active support-agent membership enforcement, fake-payment idempotency conflict detection, module specs, an initial OpenAPI snapshot, the canonical event-envelope schema, ADRs 0004/0005, and contributor/security guidance.
 
-A post-merge code audit identified additional tenant-boundary gaps outside the original operator queue: customer order history/timeline and professional order/transition paths need to bind the order's tenant as well as the identity/provider membership. Follow-up hardening is being prepared in PR #90. Until that audit passes, tenant isolation must not be described as comprehensively complete.
+PR #90 subsequently closed the identified customer order-history/timeline, professional order-list/transition, and cancellation idempotency tenant-scope gaps. Its same-identity, multi-tenant regression is merged on main. This is code/CI hardening, not completion of the public-deployment and independent release QA still required by #57.
 
-M12 analytics/event adoption (#87), M13 organization/property registry (#88), and M14 AI safety evaluation/prompt governance (#89) remain implementation work. Their issues and ADR/spec foundations are not evidence that those capabilities are implemented. The feature inventory remains `passes: false` pending independent QA evidence.
+M12 analytics/event adoption (#87) and M14 AI safety evaluation/prompt governance (#89) remain implementation work. M13 (#88) is partially implemented through tenant-scoped organization/property membership, invitation inbox, lifecycle and delegation APIs; order/financial attribution and consolidated statement read models remain gated. Issue status and ADR/spec foundations are not evidence of independent feature acceptance. The feature inventory remains `passes: false` pending independent QA evidence.
 
 
 ## 2026-11-22 PR #98 — tenant-scoped B2B schema foundation
@@ -89,9 +89,9 @@ The tenant-scoped organization/property API and membership lifecycle are now int
 - PR #102 was closed without merge because its overlapping implementation was superseded by #101 and #103. It must not be merged or treated as a separate API implementation.
 - CI, Security (including Dependency Review and CodeQL) and Agent Guard completed successfully for PR #103's exact head. This is automated verification, not independent feature QA.
 
-PR #104 adds an authenticated pending-invitation inbox, PostgreSQL lifecycle coverage, and alignment of the B2B module specification and OpenAPI contract with the implemented routes. The inbox is tenant- and identity-scoped, bounded to 100 newest pending invitations, and does not imply email/SMS delivery.
+PR #104 merged an authenticated pending-invitation inbox, PostgreSQL lifecycle coverage, and alignment of the B2B module specification and OpenAPI contract with the implemented routes. The inbox is tenant- and identity-scoped, bounded to 100 newest pending invitations, and does not imply email/SMS delivery.
 
-The feature inventory remains `passes: false` pending independent acceptance. Property delegation management, property update/archive, invitation expiry/re-send/delivery, order/ledger aggregation and consolidated billing remain deferred. No production billing or money movement is enabled.
+The feature inventory remains `passes: false` pending independent acceptance. Invitation expiry/re-send/delivery, B2B order attribution, order/ledger aggregation and consolidated billing remain deferred. No production billing or money movement is enabled.
 
 
 
