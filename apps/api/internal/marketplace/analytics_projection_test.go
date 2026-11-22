@@ -67,6 +67,51 @@ func TestAnalyticsProjectorStoresCanonicalFactsAndQuarantinesUnsafeEventsPostgre
         applied,processErr:=consumer.Process(ctx,event)
         if processErr!=nil || !applied { t.Fatalf("project event %d: applied=%v err=%v",id,applied,processErr) }
     }
+
+    offerID:="analytics-offer-"+suffix
+    offerEvent:=outbox.DomainEvent{
+        ID:"analytics-offer-event-"+suffix,Type:"dispatch.offer_created",Version:1,
+        OccurredAt:time.Date(2026,11,22,12,1,0,0,time.UTC),TenantID:domain.TenantID,
+        Aggregate:outbox.EventAggregate{Type:"dispatch_offer",ID:offerID},
+        Metadata:map[string]string{"market_code":"OM","traffic_class":"production"},
+        Data:json.RawMessage(`{"offer_id":"`+offerID+`","order_id":"`+aggregateID+`","provider_id":"provider-1","expires_at":"2026-11-22T12:30:00Z"}`),
+    }
+    assignmentEvent:=outbox.DomainEvent{
+        ID:"analytics-assignment-event-"+suffix,Type:"order.provider_assigned",Version:1,
+        OccurredAt:time.Date(2026,11,22,12,10,0,0,time.UTC),TenantID:domain.TenantID,
+        Aggregate:outbox.EventAggregate{Type:"order",ID:aggregateID},
+        Metadata:map[string]string{"market_code":"OM","traffic_class":"production"},
+        Data:json.RawMessage(`{"order_id":"`+aggregateID+`","provider_id":"provider-1","assignment_id":"assignment-1","offer_id":"`+offerID+`"}`),
+    }
+    for _,item:=range []outbox.DomainEvent{offerEvent,assignmentEvent} {
+        eventTx,beginErr:=pool.BeginTx(ctx,pgx.TxOptions{});if beginErr!=nil { t.Fatal(beginErr) }
+        id,appendErr:=outbox.AppendDomainEvent(ctx,eventTx,item)
+        if appendErr!=nil { _=eventTx.Rollback(ctx);t.Fatal(appendErr) }
+        if err=eventTx.Commit(ctx);err!=nil { t.Fatal(err) }
+        var stored outbox.Event
+        if err=pool.QueryRow(ctx,`SELECT id,aggregate_type,aggregate_id,event_type,payload,attempts FROM outbox_events WHERE id=$1`,id).
+            Scan(&stored.ID,&stored.AggregateType,&stored.AggregateID,&stored.EventType,&stored.Payload,&stored.Attempts);err!=nil { t.Fatal(err) }
+        if applied,processErr:=consumer.Process(ctx,stored);processErr!=nil || !applied {
+            t.Fatalf("project %s: applied=%v err=%v",item.Type,applied,processErr)
+        }
+    }
+    summary,err:=analytics.QuerySummary(ctx,pool,domain.TenantID,analytics.SummaryFilter{
+        From:time.Date(2026,11,22,11,0,0,0,time.UTC),To:time.Date(2026,11,22,13,0,0,0,time.UTC),MarketCode:"OM",
+    })
+    if err!=nil { t.Fatal(err) }
+    if summary.OrdersCreated!=1 || summary.OffersCreated!=1 || summary.OffersAccepted!=1 ||
+        summary.OfferAcceptanceRate!=1 || summary.MedianAssignmentSeconds!=600 || summary.P90AssignmentSeconds!=600 {
+        t.Fatalf("unexpected tenant analytics summary: %+v",summary)
+    }
+    otherSummary,err:=analytics.QuerySummary(ctx,pool,"analytics-tenant-b",analytics.SummaryFilter{
+        From:time.Date(2026,11,22,11,0,0,0,time.UTC),To:time.Date(2026,11,22,13,0,0,0,time.UTC),MarketCode:"OM",
+    })
+    if err!=nil || otherSummary.OrdersCreated!=0 || otherSummary.OffersCreated!=0 {
+        t.Fatalf("analytics summary must remain tenant-scoped: %+v err=%v",otherSummary,err)
+    }
+    if _,err=analytics.QuerySummary(ctx,pool,domain.TenantID,analytics.SummaryFilter{From:time.Now().UTC(),To:time.Now().UTC().Add(91*24*time.Hour)}); !errors.Is(err,analytics.ErrInvalidSummaryFilter) {
+        t.Fatalf("analytics query must bound time range: %v",err)
+    }
     var facts int
     var market,traffic string
     var projectedData []byte
