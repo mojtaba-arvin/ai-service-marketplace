@@ -30,6 +30,7 @@ func (h *Handler) organizationManagementRoutes(w http.ResponseWriter,r *http.Req
 func (h *Handler) organizationPropertyManagementRoutes(w http.ResponseWriter,r *http.Request,organizationID string) bool {
 	principal,err:=h.principal(r)
 	if err!=nil{writeError(w,http.StatusUnauthorized,"unauthorized");return true}
+	w.Header().Set("Cache-Control","no-store")
 	parts:=strings.Split(strings.Trim(r.URL.Path,"/"),"/")
 	if len(parts)<5||parts[0]!="v1"||parts[1]!="organizations"||parts[2]!=organizationID||parts[3]!="properties"||parts[4]==""||len(parts[4])>200{
 		writeError(w,http.StatusNotFound,"not found");return true
@@ -68,13 +69,13 @@ func (h *Handler) organizationPropertyManagementRoutes(w http.ResponseWriter,r *
 			return true
 		}
 	}
-	if len(parts)==7&&parts[5]=="memberships"&&parts[6]!=""&&r.Method==http.MethodDelete {
+	if len(parts)==7&&parts[5]=="memberships"&&parts[6]!=""&&len(parts[6])<=200&&r.Method==http.MethodDelete {
 		e:=h.Store.RevokePropertyDelegation(r.Context(),principal.IdentityID,tenantID,organizationID,propertyID,parts[6])
 		if e!=nil{writeOrganizationManagementError(w,e);return true}
 		writeJSON(w,http.StatusOK,map[string]string{"status":"revoked"})
 		return true
 	}
-	if len(parts)==8&&parts[5]=="memberships"&&parts[6]!=""&&parts[7]=="role"&&r.Method==http.MethodPatch {
+	if len(parts)==8&&parts[5]=="memberships"&&parts[6]!=""&&len(parts[6])<=200&&parts[7]=="role"&&r.Method==http.MethodPatch {
 		var in struct{Role string `json:"role"`}
 		if err=decodeOrganizationInput(r,&in);err!=nil{writeError(w,http.StatusBadRequest,"invalid role payload");return true}
 		item,e:=h.Store.ChangePropertyDelegationRole(r.Context(),principal.IdentityID,tenantID,organizationID,propertyID,parts[6],in.Role)
