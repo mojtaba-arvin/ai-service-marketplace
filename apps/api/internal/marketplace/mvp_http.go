@@ -255,9 +255,12 @@ func (s *Store) TransitionOrderAsActor(ctx context.Context, actor Actor, orderID
 
     switch actor.Role {
     case RoleCustomer:
-        if target != "cancelled" || orderTenantID == nil || Authorize(actor, Resource{TenantID:*orderTenantID,OwnerID:current.CustomerID}, ActionOrderCancel) != nil {
-            return Order{}, ErrForbidden
+        // Cancellation has a separate policy/idempotency workflow. Never allow
+        // the generic state-transition endpoint to bypass its fee/refund rules.
+        if target == "cancelled" {
+            return Order{}, ErrInvalidTransition
         }
+        return Order{}, ErrForbidden
     case RoleProfessional:
         if assignedProviderID == nil {
             return Order{}, ErrForbidden
@@ -294,8 +297,21 @@ func (s *Store) TransitionOrderAsActor(ctx context.Context, actor Actor, orderID
     if err != nil {
         return Order{}, err
     }
-    payload, _ := json.Marshal(map[string]string{"order_id":orderID,"from":current.Status,"to":target})
-    if _, err = outbox.Append(ctx, tx, "order", orderID, "order.state_changed", payload); err != nil {
+    if orderTenantID == nil || strings.TrimSpace(*orderTenantID) == "" {
+        return Order{}, ErrForbidden
+    }
+    payload, marshalErr := json.Marshal(map[string]string{"order_id":orderID,"from":current.Status,"to":target})
+    if marshalErr != nil {
+        return Order{}, marshalErr
+    }
+    eventID, err := newID()
+    if err != nil {
+        return Order{}, err
+    }
+    if _, err = outbox.AppendDomainEvent(ctx, tx, outbox.DomainEvent{
+        ID:eventID, Type:"order.state_changed", Version:1, OccurredAt:time.Now().UTC(),
+        TenantID:*orderTenantID, Aggregate:outbox.EventAggregate{Type:"order",ID:orderID}, Data:payload,
+    }); err != nil {
         return Order{}, err
     }
     current.Status = target
