@@ -3476,7 +3476,10 @@
           "cancellation_rate",
           "completion_rate",
           "median_assignment_seconds",
-          "p90_assignment_seconds"
+          "p90_assignment_seconds",
+          "data_ready",
+          "eligible_events",
+          "excluded_events"
         ],
         "properties": {
           "window_from": {
@@ -3538,6 +3541,21 @@
           "p90_assignment_seconds": {
             "type": "number",
             "minimum": 0
+          },
+          "data_ready": {
+            "type": "boolean",
+            "description": "False when no production-classified, market-attributed source events exist in the requested window."
+          },
+          "eligible_events": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "excluded_events": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Events excluded because traffic classification is not production or market attribution is missing."
           }
         }
       }
