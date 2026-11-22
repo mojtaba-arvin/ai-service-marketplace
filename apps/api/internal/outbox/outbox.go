@@ -6,6 +6,7 @@ import (
  "encoding/json"
  "errors"
  "fmt"
+ "regexp"
  "strconv"
  "strings"
  "time"
@@ -26,6 +27,98 @@ type PublishFunc func(context.Context,Event,string) error
 func (f PublishFunc) Publish(ctx context.Context,e Event,key string) error { return f(ctx,e,key) }
 
 type Transaction interface { QueryRow(context.Context,string,...any) pgx.Row }
+
+
+type EventAggregate struct {
+ Type string `json:"type"`
+ ID string `json:"id"`
+}
+
+// DomainEvent is the canonical v1 tenant-scoped envelope. Data must contain
+// only event-specific, minimized fields; raw identifiers and secrets are rejected.
+type DomainEvent struct {
+ ID string `json:"id"`
+ Type string `json:"type"`
+ Version int `json:"version"`
+ OccurredAt time.Time `json:"occurred_at"`
+ TenantID string `json:"tenant_id"`
+ Aggregate EventAggregate `json:"aggregate"`
+ CorrelationID string `json:"correlation_id,omitempty"`
+ CausationID string `json:"causation_id,omitempty"`
+ Data json.RawMessage `json:"data"`
+ Metadata map[string]string `json:"metadata,omitempty"`
+}
+
+var domainEventTypePattern = regexp.MustCompile(`^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_]*)+// Package outbox implements leased, bounded-retry publication and idempotent consumption.
+package outbox
+
+import (
+ "context"
+ "encoding/json"
+ "errors"
+ "fmt"
+ "regexp"
+ "strconv"
+ "strings"
+ "time"
+
+ "github.com/jackc/pgx/v5"
+ "github.com/jackc/pgx/v5/pgconn"
+ "github.com/jackc/pgx/v5/pgxpool"
+)
+
+var (
+ ErrInvalidPolicy=errors.New("invalid outbox policy")
+ ErrLeaseLost=errors.New("outbox event lease was lost")
+)
+
+type Event struct { ID int64; AggregateType string; AggregateID string; EventType string; Payload json.RawMessage; Attempts int }
+type Publisher interface { Publish(context.Context,Event,string) error }
+type PublishFunc func(context.Context,Event,string) error
+func (f PublishFunc) Publish(ctx context.Context,e Event,key string) error { return f(ctx,e,key) }
+
+)
+
+var prohibitedEventFieldNames = map[string]struct{}{
+ "phone": {}, "phone_number": {}, "email": {}, "address": {},
+ "full_address": {}, "access_token": {}, "refresh_token": {}, "token": {},
+ "password": {}, "secret": {}, "evidence_ref": {}, "evidence_reference": {},
+ "national_id": {}, "identity_document": {}, "raw_text": {},
+ "latitude": {}, "longitude": {},
+}
+
+func ValidateDomainEvent(event DomainEvent) error {
+ if strings.TrimSpace(event.ID)=="" || len(event.ID)>200 ||
+  !domainEventTypePattern.MatchString(event.Type) || len(event.Type)>160 ||
+  event.Version<1 || event.OccurredAt.IsZero() ||
+  strings.TrimSpace(event.TenantID)=="" || len(event.TenantID)>120 ||
+  strings.TrimSpace(event.Aggregate.Type)=="" || len(event.Aggregate.Type)>80 ||
+  strings.TrimSpace(event.Aggregate.ID)=="" || len(event.Aggregate.ID)>200 ||
+  len(event.CorrelationID)>200 || len(event.CausationID)>200 ||
+  len(event.Data)==0 || len(event.Data)>256*1024 || !json.Valid(event.Data) {
+  return ErrInvalidPolicy
+ }
+ var data map[string]json.RawMessage
+ if err:=json.Unmarshal(event.Data,&data); err!=nil || data==nil { return ErrInvalidPolicy }
+ for key:=range data {
+  normalized:=strings.ToLower(strings.TrimSpace(key))
+  if _,blocked:=prohibitedEventFieldNames[normalized]; blocked { return ErrInvalidPolicy }
+ }
+ for key:=range event.Metadata {
+  normalized:=strings.ToLower(strings.TrimSpace(key))
+  if _,blocked:=prohibitedEventFieldNames[normalized]; blocked { return ErrInvalidPolicy }
+ }
+ return nil
+}
+
+// AppendDomainEvent writes a validated canonical envelope in the caller's
+// aggregate transaction. Legacy Append remains available for staged migration.
+func AppendDomainEvent(ctx context.Context, tx Transaction, event DomainEvent) (int64,error) {
+ if err:=ValidateDomainEvent(event); err!=nil { return 0,err }
+ payload,err:=json.Marshal(event)
+ if err!=nil { return 0,err }
+ return Append(ctx,tx,event.Aggregate.Type,event.Aggregate.ID,event.Type,payload)
+}
 
 func Append(ctx context.Context,tx Transaction,aggregateType,aggregateID,eventType string,payload json.RawMessage)(int64,error) {
  if tx==nil||strings.TrimSpace(aggregateType)==""||strings.TrimSpace(aggregateID)==""||strings.TrimSpace(eventType)==""||len(payload)==0||len(payload)>256*1024||!json.Valid(payload){return 0,ErrInvalidPolicy}
