@@ -33,7 +33,7 @@ All real providers implement the provider-neutral contract through an adapter. P
 
 ## Release gates and open gaps
 
-- No production provider adapter or funds movement is enabled in the current MVP.
+- No production provider adapter or funds movement is enabled in the currently implemented API.
 - Add independent tests for concurrent same-key operation creation, duplicate/out-of-order webhooks, unknown-outcome recovery and concurrent journal reversal.
 - Define accounting policy, charge/refund lifecycle and reconciliation ownership before any real-money workflow.
 - Production enablement requires explicit provider/security/legal review and human approval; a market configuration entry is not authorization.

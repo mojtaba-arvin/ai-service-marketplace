@@ -478,7 +478,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "TRUST-004",
@@ -499,7 +499,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "MSG-001",
@@ -600,7 +600,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "ADMIN-001",
@@ -620,7 +620,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "ADMIN-002",
@@ -640,7 +640,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "ADMIN-003",
@@ -661,7 +661,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "GROW-001",
@@ -681,7 +681,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "GROW-002",
@@ -702,7 +702,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "AN-001",
@@ -722,7 +722,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "AN-002",
@@ -743,7 +743,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "B2B-001",
@@ -763,7 +763,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "B2B-002",
@@ -783,7 +783,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "B2B-003",
@@ -804,7 +804,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
   },
   {
     "id": "PLAT-001",

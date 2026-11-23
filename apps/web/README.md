@@ -1,6 +1,6 @@
 # Marketplace Web
 
-Responsive Next.js application for the single-market MVP. The app provides a shared browser experience for customers, professionals, and marketplace operators.
+Responsive Next.js customer-facing application within the complete multi-market marketplace. The shared browser client currently exposes a subset of customer and professional workflows; the full adopter-facing scope remains M1–M14 in the root product catalogue.
 
 ## Workflows
 
@@ -22,4 +22,4 @@ The API must be available through the same origin at `/v1`, or use a local rever
 
 ## Security boundary
 
-Access and refresh tokens are kept in browser session storage for this MVP. This is a deliberate temporary boundary, not the final production session design. Before broad public launch, move session handling to Secure, HttpOnly, SameSite cookies and add a reviewed CSRF strategy. No payment credentials or payment actions are exposed in this client.
+Browser sessions use Secure, HttpOnly access/refresh cookies with a separate same-origin CSRF token. The client does not persist bearer credentials in browser storage. Payment credentials and funds-moving actions are not exposed in the current browser workflow; payment integrations remain separately gated.
