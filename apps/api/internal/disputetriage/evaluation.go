@@ -8,7 +8,7 @@ func LoadEvalDataset(path string)(EvalDataset,error){raw,err:=os.ReadFile(path);
 func Evaluate(d EvalDataset,predictions map[string]Triage,minRecall float64)(EvalReport,error){
  r:=EvalReport{Version:d.Version};if len(d.Cases)==0||minRecall<0||minRecall>1{return r,errors.New("invalid evaluation config")}
  total,hit:=0,0
- for _,c:=range d.Cases{p,ok:=predictions[c.ID];citations:=map[string]struct{}{};for _,o:=range p.ResolutionOptions{for _,ref:=range o.Citations{citations[ref.EvidenceID]=struct{}{}}};caseHit:=0;for _,id:=range c.RequiredEvidence{total++;if _,ok:=citations[id];ok{hit++;caseHit++}};if c.Critical&&(!ok||caseHit!=len(c.RequiredEvidence)||!p.RequiresHumanAdjudication){r.CriticalFailures=append(r.CriticalFailures,c.ID)}}
+ for _,c:=range d.Cases{p,ok:=predictions[c.ID];citations:=map[string]struct{}{};for _,fact:=range p.EstablishedFacts{for _,ref:=range fact.Citations{citations[ref.EvidenceID]=struct{}{}}};for _,o:=range p.ResolutionOptions{for _,ref:=range o.Citations{citations[ref.EvidenceID]=struct{}{}}};caseHit:=0;for _,id:=range c.RequiredEvidence{total++;if _,ok:=citations[id];ok{hit++;caseHit++}};if c.Critical&&(!ok||caseHit!=len(c.RequiredEvidence)||!p.RequiresHumanAdjudication){r.CriticalFailures=append(r.CriticalFailures,c.ID)}}
  if total>0{r.EvidenceRecall=float64(hit)/float64(total)};r.Passed=r.EvidenceRecall>=minRecall&&len(r.CriticalFailures)==0
  if !r.Passed{return r,fmt.Errorf("%w: evidence recall %.3f critical failures %d",ErrEvaluationRegression,r.EvidenceRecall,len(r.CriticalFailures))};return r,nil
 }
