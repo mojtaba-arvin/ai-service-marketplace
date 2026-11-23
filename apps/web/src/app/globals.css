@@ -129,3 +129,17 @@ button:hover:not(:disabled) { background: var(--green-dark); transform: translat
   .field-grid { grid-template-columns: 1fr; }
   .app-footer { flex-direction: column; }
 }
+
+
+.dynamic-object, .dynamic-array { min-width: 0; margin: 8px 0 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+.dynamic-object legend, .dynamic-array legend { padding: 0 5px; color: var(--ink); font-size: 12px; font-weight: 800; }
+.dynamic-field { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+.dynamic-field label { margin-top: 0; }
+.dynamic-checkbox label { display: flex; align-items: center; gap: 9px; }
+.dynamic-checkbox input { width: auto; min-height: auto; margin: 0; }
+.field-description { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.dynamic-array-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 9px; margin: 8px 0; }
+.dynamic-array-item > button { margin: 0; }
+.service-form-fields { display: flex; flex-direction: column; gap: 9px; margin: 8px 0; padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: #fbfdfb; }
+.service-form-fields h3 { margin: 0; font-size: 14px; }
+.service-form-fields .muted { margin: 4px 0 0; }
