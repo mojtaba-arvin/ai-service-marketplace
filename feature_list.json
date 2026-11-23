@@ -1607,5 +1607,49 @@
     "passes": false,
     "verified_by": null,
     "notes": "Planned capability. Do not infer attestation method, step-up factors or risk thresholds; require an explicit ADR and provider-neutral contract."
+  },
+  {
+    "id": "CAT-005",
+    "module": "M2 Catalog & pricing",
+    "title": "Versioned service form lifecycle and publication",
+    "description": "Persist market/locale-specific service form versions and provide a guarded draft-to-published lifecycle.",
+    "acceptance": [
+      "Only platform operators can create and publish draft form versions for configured markets/locales; version numbers are serialized per menu/market/locale.",
+      "Publishing atomically retires the previous active version, emits an outbox event, and published/retired schema versions cannot be mutated or deleted."
+    ],
+    "depends_on": [
+      "CAT-004",
+      "PLAT-001"
+    ],
+    "size": "M",
+    "nature": [
+      "WF",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Implementation is in the current service-form lifecycle PR; exact-head CI and independent acceptance are pending."
+  },
+  {
+    "id": "CAT-006",
+    "module": "M3 Customer experience",
+    "title": "Order form answer validation and immutable snapshot",
+    "description": "Validate submitted customer answers against the published service form and preserve the exact form version and answer snapshot on the order.",
+    "acceptance": [
+      "Order creation validates answers against the active market/locale form version and stores its immutable version reference plus JSON answer snapshot.",
+      "Idempotent replay returns the original form snapshot; conflicting answer payloads are rejected and raw answers are excluded from outbox events."
+    ],
+    "depends_on": [
+      "CAT-005",
+      "ORDER-001"
+    ],
+    "size": "M",
+    "nature": [
+      "WF",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Planned follow-up; not implemented or independently accepted."
   }
 ]
