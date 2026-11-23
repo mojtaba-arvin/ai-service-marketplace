@@ -31,7 +31,7 @@ The new `internal/serviceforms` package validates versioned, admin-defined quest
 
 Resource limits are explicit: 32 KiB schema definitions, 16 KiB answer payloads, nesting depth 8, 64 properties per object, 128 total fields, 100 array items and 32 enum values. Answers are type-checked and unknown object properties are rejected. Definition identity includes service code, version and locale.
 
-The validation boundary is implemented; migration 027 and draft/publish/read APIs now provide the version lifecycle. Order answer snapshots, generated client forms and end-to-end customer form submission remain open and must not be marked complete.
+The validation boundary is implemented; migration 027 and draft/publish/read APIs provide the market/locale version lifecycle. Migration 028 and scheduled-order creation now validate customer answers against the active published schema and persist the exact form version plus canonical answer JSON in an immutable order snapshot. Generated client forms and end-to-end customer form submission remain open and must not be marked complete.
 
 
 ### Service form version lifecycle and publication
@@ -40,7 +40,7 @@ Migration 027 adds market/locale-specific form versions keyed by menu, market, l
 
 The new authenticated operator endpoints create drafts and publish versions; the public catalog endpoint resolves the published form for a menu/market/locale without exposing operator actor identifiers. The validator from `internal/serviceforms` is used before persistence.
 
-This PR does not yet attach the selected form version and submitted answers to an order. CAT-006 remains open: order creation must validate answers against the published schema, store the exact version and answer snapshot, preserve them on idempotent replay, and keep raw answers out of outbox events.
+The order API accepts an optional `answers` object. If a published form exists for the service, market and default locale, answers are mandatory and schema-validated before the order is inserted. The exact form version and canonical answers are written in the same transaction as the order; answer snapshots reject UPDATE, DELETE and TRUNCATE. Idempotent replay compares semantic JSON content and returns the original order without switching to a newer published form. Raw answers are deliberately excluded from outbox events. The implementation is in review; generated client rendering, order-history presentation and independent acceptance remain open.
 
 ## Invariants
 

@@ -3122,6 +3122,11 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 100
+          },
+          "answers": {
+            "type": "object",
+            "description": "Required when a published questionnaire exists for the selected service, market and default locale. Validated against that immutable schema version and stored as an order snapshot.",
+            "additionalProperties": true
           }
         }
       },
