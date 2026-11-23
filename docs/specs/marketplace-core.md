@@ -1,6 +1,6 @@
 # M2–M5 — Catalog/Pricing, Customer Experience, Professional Workspace and Matching Specification
 
-**Feature IDs:** CAT-001–CAT-006, PRICE-001–PRICE-004, ORDER-001–ORDER-006, DISP-001–DISP-005, CLIENT-001–CLIENT-002  
+**Feature IDs:** CAT-001–CAT-007, PRICE-001–PRICE-004, ORDER-001–ORDER-007, DISP-001–DISP-006, PRO-001–PRO-003, CLIENT-001–CLIENT-002  
 **Status:** repository contains foundational slices; full module scope and independent acceptance remain pending.
 
 ## Ownership and boundaries
@@ -41,6 +41,14 @@ Migration 027 adds market/locale-specific form versions keyed by menu, market, l
 The new authenticated operator endpoints create drafts and publish versions; the public catalog endpoint resolves the published form for a menu/market/locale without exposing operator actor identifiers. The validator from `internal/serviceforms` is used before persistence.
 
 This PR does not yet attach the selected form version and submitted answers to an order. CAT-006 remains open: order creation must validate answers against the published schema, store the exact version and answer snapshot, preserve them on idempotent replay, and keep raw answers out of outbox events.
+
+## Additional customer and professional capabilities
+
+- ORDER-007 owns privacy-scoped live professional location and ETA presentation for assigned orders. Location freshness and uncertainty must be explicit; no stale coordinate is represented as live.
+- PRO-001 owns versioned academy content, skill assessments and qualification expiry linked to TRUST verification.
+- PRO-002 owns professional CRM, invoices and income reporting; reports reconcile to immutable order/ledger references and cannot mutate financial records.
+- PRO-003 owns offline-first professional work capture and idempotent sync. Reconnection always revalidates assignment, expiry, order state and all financial/safety guards.
+- DISP-006 ranks only candidates that have passed deterministic eligibility gates and records ranking/fairness inputs for audit.
 
 ## Invariants
 
