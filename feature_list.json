@@ -1981,5 +1981,30 @@
     "passes": false,
     "verified_by": null,
     "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+  },
+  {
+    "id": "ADMIN-006",
+    "module": "M9 Admin & operations",
+    "title": "Operational demand supply and finance dashboards",
+    "description": "Provide role-scoped operator dashboards for order operations, regional demand/supply and financial performance using canonical, privacy-classified analytics projections.",
+    "acceptance": [
+      "Dashboards consume versioned tenant/market-scoped projections rather than querying another module's operational tables.",
+      "Each metric exposes source, numerator/denominator where applicable, time window, timezone, freshness and projection version.",
+      "Finance metrics reconcile to ledger/projection references; sensitive customer/provider details are minimized and access is audited."
+    ],
+    "depends_on": [
+      "ADMIN-001",
+      "AN-002",
+      "AN-003",
+      "FIN-004"
+    ],
+    "size": "M",
+    "nature": [
+      "DX",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted; dashboards depend on canonical analytics projections."
   }
 ]
