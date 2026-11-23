@@ -24,12 +24,14 @@ These are repository capabilities, not evidence that every domain is complete or
 
 ## Active implementation PR
 
-- #180: market/locale-specific service form version lifecycle, platform-operator draft/publish/read APIs, immutable published/retired schemas, serialized version allocation and publish outbox event. CAT-005 is under review; CAT-006 order answer snapshot remains unimplemented.
+- #180: market/locale-specific service form version lifecycle, platform-operator draft/publish/read APIs, immutable published/retired schemas, serialized version allocation and publish outbox event. CAT-005 is under review.
+- #181 (stacked on #180): scheduled order creation validates required answers against the active published form and atomically persists the exact form version plus canonical answers in an append-only snapshot table. Idempotent replay compares semantic answers; raw answers are excluded from events. CI and integration evidence are pending; CAT-004/CAT-006 remain passes=false.
+
 
 ## Product workstreams and gates
 
 1. **M1 Identity/privacy:** trusted-device attestation/step-up policy; privacy export/deletion only under approved policy.
-2. **M2 Catalog/pricing:** form version lifecycle and order answer snapshots, immutable price rules/snapshots, packages/subscriptions and localized SEO.
+2. **M2 Catalog/pricing:** form version lifecycle and immutable order answer snapshots, generated customer form rendering, immutable price rules/snapshots, packages/subscriptions and localized SEO.
 3. **M3/M4 Customer/professional:** full intake, scheduling, estimates, tracking, masked communications, completion/variations/reviews/reorder; onboarding/KYC/academy, quotes, earnings, CRM and offline-safe mobile.
 4. **M5 Matching:** broadcast/sequential/customer-choice strategies, reassignment, capacity and advisory demand/supply forecasts.
 5. **M6 Finance:** escrow/holds, payouts/refunds/chargebacks, tax/invoices/reconciliation; gated on independent Order/Ledger QA.
