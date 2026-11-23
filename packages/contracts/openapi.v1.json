@@ -2897,7 +2897,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
+            "$ref": "#/components/responses/Unprocessable"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -2963,7 +2963,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
+            "$ref": "#/components/responses/Unprocessable"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -3038,7 +3038,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
+            "$ref": "#/components/responses/Unprocessable"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
