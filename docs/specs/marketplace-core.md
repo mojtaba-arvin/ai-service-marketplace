@@ -22,7 +22,7 @@ The schema is PostgreSQL-first. Other modules must use application interfaces or
 
 ## Public HTTP surface
 
-Current browser/API surfaces provide initial catalog, customer order, professional offer and operator workflows. They are not the full customer/professional product surfaces described in Product Scope. The current route registration is `Handler.serveMVP` in `mvp_http.go`. Contract changes must update the OpenAPI artifact and E2E coverage together.
+Current browser/API surfaces provide initial catalog, customer order, professional offer and operator workflows. They are not the full customer/professional product surfaces described in Product Scope. The current route registration is split between `Handler.ServeHTTP` and marketplace route handlers. The implemented HTTP surface is an incomplete subset of the complete product contract, not a product-scope boundary. Contract changes must update the OpenAPI artifact and E2E coverage together.
 
 
 ## Dynamic service questionnaires
