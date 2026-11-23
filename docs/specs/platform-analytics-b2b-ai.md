@@ -106,7 +106,7 @@ This is an advisory backend boundary only. It does not persist a dispute, adjudi
 - Outbox: `internal/outbox/*_test.go`, `outbox_integration_test.go`.
 - Adapters: `internal/adapters/runner_test.go`.
 - Market config: `internal/marketconfig/config_test.go`.
-- AI: `internal/aieval/evaluation_test.go`, `internal/aiintake/service_test.go`, `internal/procopilot/service_test.go`, `internal/procopilot/evaluation_test.go`.
+- AI: `internal/aieval/evaluation_test.go`, `internal/aiintake/service_test.go`, `internal/procopilot/service_test.go`, `internal/procopilot/evaluation_test.go`, `internal/disputetriage/service_test.go`, `internal/disputetriage/evaluation_test.go`.
 
 ## Explicitly deferred
 
