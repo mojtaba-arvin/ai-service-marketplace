@@ -137,7 +137,7 @@
   },
   {
     "id": "PRICE-001",
-    "module": "M3 Pricing",
+    "module": "M2 Catalog & pricing",
     "title": "Versioned fixed-price menus",
     "description": "Implement versioned fixed-price menus within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -157,7 +157,7 @@
   },
   {
     "id": "PRICE-002",
-    "module": "M3 Pricing",
+    "module": "M2 Catalog & pricing",
     "title": "Structured inspection quotes",
     "description": "Implement structured inspection quotes within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -177,7 +177,7 @@
   },
   {
     "id": "PRICE-003",
-    "module": "M3 Pricing",
+    "module": "M2 Catalog & pricing",
     "title": "Customer-approved price variations",
     "description": "Implement customer-approved price variations within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -197,7 +197,7 @@
   },
   {
     "id": "ORDER-001",
-    "module": "M4 Orders",
+    "module": "M3 Customer experience",
     "title": "Order request aggregate",
     "description": "Implement order request aggregate within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -219,7 +219,7 @@
   },
   {
     "id": "ORDER-002",
-    "module": "M4 Orders",
+    "module": "M3 Customer experience",
     "title": "Guarded order state machine",
     "description": "Implement guarded order state machine within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -239,7 +239,7 @@
   },
   {
     "id": "ORDER-003",
-    "module": "M4 Orders",
+    "module": "M3 Customer experience",
     "title": "Cancellation and policy outcomes",
     "description": "Implement cancellation and policy outcomes within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -259,7 +259,7 @@
   },
   {
     "id": "ORDER-004",
-    "module": "M4 Orders",
+    "module": "M3 Customer experience",
     "title": "Order history and timeline",
     "description": "Implement order history and timeline within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -279,7 +279,7 @@
   },
   {
     "id": "DISP-001",
-    "module": "M5 Dispatch",
+    "module": "M5 Matching & dispatch",
     "title": "Provider availability calendar",
     "description": "Implement provider availability calendar within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -299,7 +299,7 @@
   },
   {
     "id": "DISP-002",
-    "module": "M5 Dispatch",
+    "module": "M5 Matching & dispatch",
     "title": "Deterministic candidate eligibility",
     "description": "Implement deterministic candidate eligibility within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -321,7 +321,7 @@
   },
   {
     "id": "DISP-003",
-    "module": "M5 Dispatch",
+    "module": "M5 Matching & dispatch",
     "title": "Offer and acceptance workflow",
     "description": "Implement offer and acceptance workflow within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -342,7 +342,7 @@
   },
   {
     "id": "FIN-001",
-    "module": "M6 Finance",
+    "module": "M6 Payments & finance",
     "title": "Double-entry ledger primitives",
     "description": "Implement double-entry ledger primitives within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -360,7 +360,7 @@
   },
   {
     "id": "FIN-002",
-    "module": "M6 Finance",
+    "module": "M6 Payments & finance",
     "title": "Ledger idempotency and immutability",
     "description": "Implement ledger idempotency and immutability within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -380,7 +380,7 @@
   },
   {
     "id": "FIN-003",
-    "module": "M6 Finance",
+    "module": "M6 Payments & finance",
     "title": "Payment provider adapter contract",
     "description": "Implement payment provider adapter contract within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -400,7 +400,7 @@
   },
   {
     "id": "FIN-004",
-    "module": "M6 Finance",
+    "module": "M6 Payments & finance",
     "title": "Settlement reconciliation",
     "description": "Implement settlement reconciliation within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -503,7 +503,7 @@
   },
   {
     "id": "MSG-001",
-    "module": "M8 Messaging",
+    "module": "M8 Communications",
     "title": "Transactional outbox",
     "description": "Implement transactional outbox within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -523,7 +523,7 @@
   },
   {
     "id": "MSG-002",
-    "module": "M8 Messaging",
+    "module": "M8 Communications",
     "title": "Idempotent publisher and consumer",
     "description": "Implement idempotent publisher and consumer within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -543,7 +543,7 @@
   },
   {
     "id": "MSG-003",
-    "module": "M8 Messaging",
+    "module": "M8 Communications",
     "title": "Notification preferences and adapters",
     "description": "Implement notification preferences and adapters within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -564,7 +564,7 @@
   },
   {
     "id": "SUP-001",
-    "module": "M9 Support",
+    "module": "M8 Communications — support",
     "title": "Support case lifecycle",
     "description": "Implement support case lifecycle within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -584,7 +584,7 @@
   },
   {
     "id": "SUP-002",
-    "module": "M9 Support",
+    "module": "M8 Communications — support",
     "title": "Support action audit trail",
     "description": "Implement support action audit trail within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -604,7 +604,7 @@
   },
   {
     "id": "ADMIN-001",
-    "module": "M10 Admin",
+    "module": "M9 Admin & operations",
     "title": "Operator scoped permissions",
     "description": "Implement operator scoped permissions within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -624,7 +624,7 @@
   },
   {
     "id": "ADMIN-002",
-    "module": "M10 Admin",
+    "module": "M9 Admin & operations",
     "title": "Market and feature-flag configuration",
     "description": "Implement market and feature-flag configuration within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -644,7 +644,7 @@
   },
   {
     "id": "ADMIN-003",
-    "module": "M10 Admin",
+    "module": "M9 Admin & operations",
     "title": "Operational audit search",
     "description": "Implement operational audit search within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -665,7 +665,7 @@
   },
   {
     "id": "GROW-001",
-    "module": "M11 Growth",
+    "module": "M10 Growth",
     "title": "Referral attribution",
     "description": "Implement referral attribution within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -685,7 +685,7 @@
   },
   {
     "id": "GROW-002",
-    "module": "M11 Growth",
+    "module": "M10 Growth",
     "title": "Recurring service plan lifecycle",
     "description": "Implement recurring service plan lifecycle within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -706,7 +706,7 @@
   },
   {
     "id": "AN-001",
-    "module": "M12 Analytics",
+    "module": "M12 Data & analytics",
     "title": "Canonical marketplace event schema",
     "description": "Implement canonical marketplace event schema within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -726,7 +726,7 @@
   },
   {
     "id": "AN-002",
-    "module": "M12 Analytics",
+    "module": "M12 Data & analytics",
     "title": "Funnel and supply metrics",
     "description": "Implement funnel and supply metrics within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -747,7 +747,7 @@
   },
   {
     "id": "B2B-001",
-    "module": "M13 B2B",
+    "module": "M11 B2B",
     "title": "Organization and membership model",
     "description": "Implement organization and membership model within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -767,7 +767,7 @@
   },
   {
     "id": "B2B-002",
-    "module": "M13 B2B",
+    "module": "M11 B2B",
     "title": "Property and location registry",
     "description": "Implement property and location registry within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -787,7 +787,7 @@
   },
   {
     "id": "B2B-003",
-    "module": "M13 B2B",
+    "module": "M11 B2B",
     "title": "Consolidated billing statement",
     "description": "Implement consolidated billing statement within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -808,7 +808,7 @@
   },
   {
     "id": "PLAT-001",
-    "module": "M14 Platform & AI",
+    "module": "M13 Platform & compliance",
     "title": "Market configuration contract",
     "description": "Implement market configuration contract within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -826,7 +826,7 @@
   },
   {
     "id": "PLAT-002",
-    "module": "M14 Platform & AI",
+    "module": "M13 Platform & compliance",
     "title": "External provider adapter framework",
     "description": "Implement external provider adapter framework within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -846,7 +846,7 @@
   },
   {
     "id": "PLAT-003",
-    "module": "M14 Platform & AI",
+    "module": "M13 Platform & compliance",
     "title": "AI intake suggestion boundary",
     "description": "Implement ai intake suggestion boundary within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -867,7 +867,7 @@
   },
   {
     "id": "PLAT-004",
-    "module": "M14 Platform & AI",
+    "module": "M13 Platform & compliance",
     "title": "AI evaluation and prompt governance",
     "description": "Implement ai evaluation and prompt governance within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -884,5 +884,728 @@
     "passes": false,
     "verified_by": null,
     "notes": "Implementation merged (PR #46). Independent QA evidence is still pending; passes remains false."
+  },
+  {
+    "id": "IDENT-005",
+    "module": "M1 Identity",
+    "title": "Session-bound device inventory and revocation",
+    "description": "Register devices against authenticated sessions, list identity-owned registrations, and revoke associated sessions.",
+    "acceptance": [
+      "An authenticated identity can register and list only its own session-bound device records.",
+      "Revoking a device revokes all sessions bound to it; refresh rotation preserves the device binding."
+    ],
+    "depends_on": [
+      "IDENT-003"
+    ],
+    "size": "S",
+    "nature": [
+      "SEC",
+      "CRUD"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Implementation is in PR #158; CI and independent acceptance are pending. Device labels are metadata, not hardware attestation or proof of trust."
+  },
+  {
+    "id": "IDENT-006",
+    "module": "M1 Identity",
+    "title": "Privacy export and deletion workflow",
+    "description": "Provide authenticated privacy export and deletion/anonymization orchestration.",
+    "acceptance": [
+      "Export is scoped to the requesting data subject and produces an auditable result.",
+      "Deletion follows an explicitly configured policy and preserves legally required immutable records without inventing retention periods."
+    ],
+    "depends_on": [
+      "IDENT-004"
+    ],
+    "size": "S",
+    "nature": [
+      "SEC",
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "CAT-004",
+    "module": "M2 Catalog",
+    "title": "Dynamic service questionnaire schemas",
+    "description": "Allow operators to define versioned service-specific forms without code changes.",
+    "acceptance": [
+      "Published form versions validate conditional fields and typed answers.",
+      "Orders retain the exact form schema version and submitted answer snapshot."
+    ],
+    "depends_on": [
+      "CAT-001"
+    ],
+    "size": "S",
+    "nature": [
+      "CRUD",
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "PRICE-004",
+    "module": "M2 Catalog & pricing",
+    "title": "Subscription and service package lifecycle",
+    "description": "Model recurring service packages and subscription state transitions.",
+    "acceptance": [
+      "Create, pause, resume and cancel versioned plans with idempotent commands.",
+      "Billing attempts and service entitlements are auditable; no charge occurs without an enabled payment adapter."
+    ],
+    "depends_on": [
+      "PRICE-001",
+      "ORDER-002"
+    ],
+    "size": "S",
+    "nature": [
+      "WF",
+      "FIN"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "ORDER-005",
+    "module": "M3 Customer experience",
+    "title": "Customer completion approval and reorder",
+    "description": "Support customer confirmation of completed work and safe repeat ordering.",
+    "acceptance": [
+      "Completion approval is authorized and idempotent.",
+      "Reorder creates a new order from an explicit snapshot and revalidates current catalog, price and availability."
+    ],
+    "depends_on": [
+      "ORDER-002",
+      "PRICE-001"
+    ],
+    "size": "S",
+    "nature": [
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "ORDER-006",
+    "module": "M3 Customer experience",
+    "title": "Customer review and reputation workflow",
+    "description": "Support bilateral reviews with abuse-resistant eligibility.",
+    "acceptance": [
+      "Only eligible participants can review a completed order once per review direction.",
+      "Review moderation and appeals are auditable; reputation changes follow deterministic policy."
+    ],
+    "depends_on": [
+      "ORDER-002",
+      "TRUST-001"
+    ],
+    "size": "S",
+    "nature": [
+      "WF",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "DISP-004",
+    "module": "M5 Matching & dispatch",
+    "title": "Dispatch strategy and reassignment policies",
+    "description": "Support broadcast, sequential offer and customer-choice dispatch strategies.",
+    "acceptance": [
+      "Each strategy has bounded offers, expiry and idempotent state transitions.",
+      "Cancellation/timeout reassignment cannot create multiple active assignments."
+    ],
+    "depends_on": [
+      "DISP-003"
+    ],
+    "size": "S",
+    "nature": [
+      "RT",
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "DISP-005",
+    "module": "M5 Matching & dispatch",
+    "title": "Capacity controls and supply forecasting",
+    "description": "Manage service/region capacity and generate supply-shortage signals.",
+    "acceptance": [
+      "Operators can open/close service-region capacity with an audit reason.",
+      "Forecasts expose inputs, horizon and uncertainty and never auto-disable a market."
+    ],
+    "depends_on": [
+      "DISP-002"
+    ],
+    "size": "S",
+    "nature": [
+      "WF",
+      "ML-AI"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "FIN-005",
+    "module": "M6 Payments & finance",
+    "title": "Escrow and payment hold lifecycle",
+    "description": "Model authorization/hold, release and expiry as explicit financial workflows.",
+    "acceptance": [
+      "Hold transitions are idempotent and linked to order and policy versions.",
+      "Release requires the configured completion/approval guard; fake adapters never move real funds."
+    ],
+    "depends_on": [
+      "FIN-001",
+      "ORDER-002"
+    ],
+    "size": "S",
+    "nature": [
+      "FIN",
+      "WF",
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "FIN-006",
+    "module": "M6 Payments & finance",
+    "title": "Payout, refund and chargeback workflows",
+    "description": "Track professional payouts, refunds and chargeback cases against immutable ledger entries.",
+    "acceptance": [
+      "Every financial correction uses compensating postings; original entries remain immutable.",
+      "Duplicate callbacks and timeout reconciliation cannot double settle or refund."
+    ],
+    "depends_on": [
+      "FIN-002",
+      "FIN-003"
+    ],
+    "size": "S",
+    "nature": [
+      "FIN",
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "FIN-007",
+    "module": "M6 Payments & finance",
+    "title": "Invoice and tax reporting records",
+    "description": "Generate versioned invoice records and market-configured tax breakdowns.",
+    "acceptance": [
+      "Invoice totals reconcile to source order and ledger postings in integer minor units.",
+      "Tax behavior is selected from explicit market configuration; unknown rules fail closed."
+    ],
+    "depends_on": [
+      "FIN-002",
+      "PLAT-001"
+    ],
+    "size": "S",
+    "nature": [
+      "FIN",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "TRUST-005",
+    "module": "M7 Trust & safety",
+    "title": "SOS and emergency escalation",
+    "description": "Provide controlled SOS, trip-sharing and emergency contact workflows.",
+    "acceptance": [
+      "Only authorized participants can start/stop trip sharing and access live location.",
+      "Escalation delivery failures are visible and do not claim emergency services were contacted."
+    ],
+    "depends_on": [
+      "ORDER-002",
+      "IDENT-004"
+    ],
+    "size": "S",
+    "nature": [
+      "RT",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "TRUST-006",
+    "module": "M7 Trust & safety",
+    "title": "Insurance claims and evidence lifecycle",
+    "description": "Track guarantee/insurance claims and associated evidence.",
+    "acceptance": [
+      "Claims have explicit statuses, authorized transitions and immutable evidence references.",
+      "External insurer actions are adapter-backed and require human approval."
+    ],
+    "depends_on": [
+      "TRUST-003"
+    ],
+    "size": "S",
+    "nature": [
+      "WF",
+      "FIN",
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "TRUST-007",
+    "module": "M7 Trust & safety",
+    "title": "Review moderation and appeals",
+    "description": "Moderate user-generated reviews/content with appealable decisions.",
+    "acceptance": [
+      "Moderation actions record actor, reason and prior state.",
+      "Appeals are independently reviewable; model output alone cannot remove reputation."
+    ],
+    "depends_on": [
+      "ORDER-006"
+    ],
+    "size": "S",
+    "nature": [
+      "WF",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "MSG-004",
+    "module": "M8 Communications",
+    "title": "Realtime chat and contact-data protection",
+    "description": "Provide order-scoped chat with realtime delivery and contact leakage controls.",
+    "acceptance": [
+      "Only order participants and authorized support can read/send messages.",
+      "Contact-data filtering is tested for bypasses and false positives; message history is auditable."
+    ],
+    "depends_on": [
+      "ORDER-001",
+      "IDENT-004"
+    ],
+    "size": "S",
+    "nature": [
+      "RT",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "MSG-005",
+    "module": "M8 Communications",
+    "title": "Transactional and marketing consent separation",
+    "description": "Enforce separate delivery preferences and opt-in state for transactional and marketing messages.",
+    "acceptance": [
+      "Marketing delivery requires current explicit consent and respects unsubscribe/suppression.",
+      "Transactional messages do not implicitly grant marketing consent."
+    ],
+    "depends_on": [
+      "MSG-003",
+      "IDENT-003"
+    ],
+    "size": "S",
+    "nature": [
+      "WF",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "ADMIN-004",
+    "module": "M9 Admin & operations",
+    "title": "Step-up approval for sensitive operations",
+    "description": "Require stronger approval for configured high-impact operator actions.",
+    "acceptance": [
+      "Sensitive actions cannot execute without the configured second approval/step-up proof.",
+      "Approval actor, scope, expiry and outcome are audited and replay-safe."
+    ],
+    "depends_on": [
+      "ADMIN-001",
+      "SUP-002"
+    ],
+    "size": "S",
+    "nature": [
+      "SEC",
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "GROW-003",
+    "module": "M10 Growth",
+    "title": "SEO content and landing page lifecycle",
+    "description": "Manage localized service-region landing pages and reviewable content publication.",
+    "acceptance": [
+      "Published pages resolve from versioned service/region/locale content.",
+      "Unreviewed AI drafts cannot be published and canonical/metadata output is deterministic."
+    ],
+    "depends_on": [
+      "CAT-003",
+      "PLAT-001"
+    ],
+    "size": "S",
+    "nature": [
+      "CRUD",
+      "ML-AI"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "GROW-004",
+    "module": "M10 Growth",
+    "title": "Campaign attribution and A/B experiments",
+    "description": "Track campaign/referral attribution and controlled experiments.",
+    "acceptance": [
+      "Experiments define hypothesis, allocation, metric, guardrails and end conditions.",
+      "Assignment is stable and analytics events avoid exposing direct PII."
+    ],
+    "depends_on": [
+      "AN-001",
+      "GROW-001"
+    ],
+    "size": "S",
+    "nature": [
+      "WF",
+      "ML-AI"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "B2B-004",
+    "module": "M11 B2B",
+    "title": "Maintenance contracts and recurring work",
+    "description": "Manage organization maintenance agreements and scheduled work entitlements.",
+    "acceptance": [
+      "Contract changes are versioned and organization/property scoped.",
+      "Recurring orders are created idempotently and revalidate active membership, catalog and policy."
+    ],
+    "depends_on": [
+      "B2B-002",
+      "PRICE-004"
+    ],
+    "size": "S",
+    "nature": [
+      "WF",
+      "FIN"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "B2B-005",
+    "module": "M11 B2B",
+    "title": "Building-manager API and webhooks",
+    "description": "Expose tenant-scoped integration APIs and signed webhook delivery for organizations.",
+    "acceptance": [
+      "API access is least-privilege and property-scoped.",
+      "Webhook delivery is signed, retryable, idempotent and supports controlled replay."
+    ],
+    "depends_on": [
+      "B2B-001",
+      "MSG-002"
+    ],
+    "size": "S",
+    "nature": [
+      "INT",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "AN-003",
+    "module": "M12 Data & analytics",
+    "title": "Replayable analytics projections and warehouse export",
+    "description": "Build idempotent projections and export canonical events for analytics consumers.",
+    "acceptance": [
+      "Projection generations can be rebuilt without corrupting active reads.",
+      "Export is privacy-classified, tenant-scoped and replay-safe."
+    ],
+    "depends_on": [
+      "AN-001",
+      "AN-002"
+    ],
+    "size": "S",
+    "nature": [
+      "WF",
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "PLAT-005",
+    "module": "M13 Platform & compliance",
+    "title": "Market locale and provider capability matrix",
+    "description": "Resolve locale, timezone, direction and adapter capabilities from versioned market config.",
+    "acceptance": [
+      "Unknown required capability fails closed with a typed error.",
+      "Representative market fixtures validate currency, locale, timezone, RTL and adapter availability."
+    ],
+    "depends_on": [
+      "PLAT-001",
+      "PLAT-002"
+    ],
+    "size": "S",
+    "nature": [
+      "CRUD",
+      "INT",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "AI-005",
+    "module": "M14 AI capabilities",
+    "title": "Professional Copilot",
+    "description": "Provide grounded troubleshooting, execution checklists and quote drafts to professionals.",
+    "acceptance": [
+      "Outputs cite configured knowledge/policy sources and validate against a versioned schema.",
+      "Unsafe or low-confidence suggestions require human review and cannot mutate orders or prices."
+    ],
+    "depends_on": [
+      "PLAT-003",
+      "PLAT-004"
+    ],
+    "size": "S",
+    "nature": [
+      "ML-AI",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "AI-006",
+    "module": "M14 AI capabilities",
+    "title": "Dispute triage copilot",
+    "description": "Summarize dispute evidence and suggest resolution paths for human adjudicators.",
+    "acceptance": [
+      "Summary preserves evidence provenance and separates facts from suggestions.",
+      "AI cannot resolve, settle or change dispute outcome; authorized human decision is audited."
+    ],
+    "depends_on": [
+      "TRUST-003",
+      "PLAT-004"
+    ],
+    "size": "S",
+    "nature": [
+      "ML-AI",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "AI-007",
+    "module": "M14 AI capabilities",
+    "title": "Support copilot",
+    "description": "Suggest grounded support responses and permitted operator actions.",
+    "acceptance": [
+      "Suggestions cite knowledge/policy versions and redact PII before external inference.",
+      "Actions remain suggestions until authorized operator confirmation."
+    ],
+    "depends_on": [
+      "SUP-001",
+      "PLAT-004"
+    ],
+    "size": "S",
+    "nature": [
+      "ML-AI",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "AI-008",
+    "module": "M14 AI capabilities",
+    "title": "Explainable leakage and payment fraud signals",
+    "description": "Combine deterministic rules and evaluated models for suspicious behavior signals.",
+    "acceptance": [
+      "Signals include explainable features, provenance and confidence; no autonomous punitive action.",
+      "Golden-set evaluation and false-positive review are versioned."
+    ],
+    "depends_on": [
+      "TRUST-003",
+      "FIN-003",
+      "PLAT-004"
+    ],
+    "size": "S",
+    "nature": [
+      "ML-AI",
+      "SEC",
+      "FIN"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "AI-009",
+    "module": "M14 AI capabilities",
+    "title": "Professional quality coaching",
+    "description": "Provide evidence-based quality feedback and coaching recommendations.",
+    "acceptance": [
+      "Scores expose factors, uncertainty and contestability.",
+      "No automatic suspension, ranking penalty or payout change is triggered by model output."
+    ],
+    "depends_on": [
+      "ORDER-006",
+      "PLAT-004"
+    ],
+    "size": "S",
+    "nature": [
+      "ML-AI",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "AI-010",
+    "module": "M14 AI capabilities",
+    "title": "Demand ETA and price forecasting",
+    "description": "Provide evaluated forecasts for demand, arrival time and price ranges.",
+    "acceptance": [
+      "Forecasts expose horizon, uncertainty, training/evaluation version and freshness.",
+      "Forecasts are advisory and do not override price rules, dispatch policy or human operators."
+    ],
+    "depends_on": [
+      "AN-002",
+      "DISP-002",
+      "PLAT-004"
+    ],
+    "size": "S",
+    "nature": [
+      "ML-AI"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "CLIENT-001",
+    "module": "M3 Customer experience",
+    "title": "Customer mobile application workflows",
+    "description": "Deliver customer-facing mobile flows over the public API contracts.",
+    "acceptance": [
+      "Customer can authenticate, discover services, create/schedule orders and follow status on supported mobile platforms.",
+      "Offline mutations are queued with idempotency and revalidated on sync."
+    ],
+    "depends_on": [
+      "IDENT-004",
+      "ORDER-001"
+    ],
+    "size": "S",
+    "nature": [
+      "INT",
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "CLIENT-002",
+    "module": "M4 Professional workspace",
+    "title": "Professional mobile application workflows",
+    "description": "Deliver professional onboarding, availability, offers and fulfillment on mobile.",
+    "acceptance": [
+      "Professionals can manage availability, accept/decline offers and update eligible order progress.",
+      "Offline sync cannot bypass authorization, offer expiry or financial/safety guards."
+    ],
+    "depends_on": [
+      "DISP-003",
+      "IDENT-004"
+    ],
+    "size": "S",
+    "nature": [
+      "INT",
+      "RT",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "PLAT-006",
+    "module": "M13 Platform & compliance",
+    "title": "Backup disaster recovery and operational observability",
+    "description": "Provide documented backup/restore, DR and telemetry for self-hosted deployments.",
+    "acceptance": [
+      "Backup integrity and restore are rehearsed with recorded evidence and adopter-defined RPO/RTO.",
+      "Health, readiness, logs, metrics, traces and alerting cover critical workflows without leaking PII."
+    ],
+    "depends_on": [
+      "PLAT-001"
+    ],
+    "size": "S",
+    "nature": [
+      "SEC",
+      "DX"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "IDENT-007",
+    "module": "M1 Identity",
+    "title": "Trusted-device attestation and step-up policy",
+    "description": "Define and enforce an explicit, configurable trusted-device proof and step-up authentication policy.",
+    "acceptance": [
+      "A device is trusted only after the configured proof/step-up flow succeeds; client-provided labels or identifiers alone never establish trust.",
+      "Sensitive actions enforce configured step-up requirements and record auditable proof metadata; missing policy or provider capability fails closed."
+    ],
+    "depends_on": [
+      "IDENT-005",
+      "IDENT-003"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC",
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Planned capability. Do not infer attestation method, step-up factors or risk thresholds; require an explicit ADR and provider-neutral contract."
   }
 ]
