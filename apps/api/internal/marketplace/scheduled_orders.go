@@ -1,6 +1,7 @@
 package marketplace
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -121,7 +122,7 @@ func (s *Store) CreateScheduledOrderWithAnswers(ctx context.Context,actor Actor,
 
  // Resolve the active questionnaire only for a new order; replays above retain
  // their original version even if a newer form has since been published.
- var formID *string
+ var formID string
  var formSchema []byte
  var formVersion int
  var serviceCode,locale string
@@ -173,8 +174,8 @@ func (s *Store) CreateScheduledOrderWithAnswers(ctx context.Context,actor Actor,
 		return existing,false,nil
 	}
 	if err!=nil { return Order{},false,err }
- if formID!=nil {
-  if _,err=tx.Exec(ctx,`INSERT INTO order_service_form_answers(order_id,form_version_id,answers,submitted_by) VALUES($1,$2,$3::jsonb,$4)`,id,*formID,canonicalAnswers,actor.SubjectID);err!=nil{return Order{},false,err}
+ if formID!="" {
+  if _,err=tx.Exec(ctx,`INSERT INTO order_service_form_answers(order_id,form_version_id,answers,submitted_by) VALUES($1,$2,$3::jsonb,$4)`,id,formID,canonicalAnswers,actor.SubjectID);err!=nil{return Order{},false,err}
  }
 
 	// Booking creation does not represent a payment authorization or funds hold.
@@ -197,4 +198,4 @@ func (s *Store) CreateScheduledOrderWithAnswers(ctx context.Context,actor Actor,
 func canonicalFormAnswers(raw []byte)([]byte,error){
  if len(raw)==0{return nil,nil};var value any;dec:=json.NewDecoder(strings.NewReader(string(raw)));dec.UseNumber();if err:=dec.Decode(&value);err!=nil{return nil,err};if err:=dec.Decode(new(any));!errors.Is(err,io.EOF){return nil,errors.New("trailing JSON")};return json.Marshal(value)
 }
-func sameFormAnswers(stored *string,submitted []byte)bool{if stored==nil{return len(submitted)==0};return string(submitted)==*stored}
+func sameFormAnswers(stored *string,submitted []byte)bool{if stored==nil{return len(submitted)==0};canonical,err:=canonicalFormAnswers([]byte(*stored));return err==nil&&bytes.Equal(submitted,canonical)}
