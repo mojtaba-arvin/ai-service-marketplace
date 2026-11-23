@@ -96,7 +96,8 @@ func(s *Store)PublishServiceFormVersion(ctx context.Context,actor Actor,formID s
  if _,err=tx.Exec(ctx,`UPDATE service_form_versions SET status='retired',retired_by=$4,retired_at=now() WHERE menu_id=$1 AND market_code=$2 AND locale=$3 AND status='published'`,target.MenuID,target.MarketCode,target.Locale,actor.SubjectID);err!=nil{return ServiceFormVersion{},err}
  if _,err=tx.Exec(ctx,`UPDATE service_form_versions SET status='published',published_by=$2,published_at=now() WHERE id=$1`,formID,actor.SubjectID);err!=nil{return ServiceFormVersion{},err}
  payload,_:=json.Marshal(map[string]any{"form_version_id":target.ID,"menu_id":target.MenuID,"service_code":target.ServiceCode,"market_code":target.MarketCode,"locale":target.Locale,"version":target.Version})
- if _,err=outbox.Append(ctx,tx,"service_form",target.ID,"catalog.service_form.published",payload);err!=nil{return ServiceFormVersion{},err}
+ eventID,err:=newID();if err!=nil{return ServiceFormVersion{},err}
+ if _,err=outbox.AppendDomainEvent(ctx,tx,outbox.DomainEvent{ID:eventID,Type:"catalog.service_form.published",Version:1,OccurredAt:time.Now().UTC(),TenantID:platformTenantID,Aggregate:outbox.EventAggregate{Type:"service_form",ID:target.ID},Data:payload});err!=nil{return ServiceFormVersion{},err}
  published,err:=scanServiceForm(tx.QueryRow(ctx,`SELECT `+serviceFormColumns+` FROM service_form_versions f JOIN service_price_menus m ON m.id=f.menu_id WHERE f.id=$1`,formID))
  if err!=nil{return ServiceFormVersion{},err}
  if err=tx.Commit(ctx);err!=nil{return ServiceFormVersion{},err};return published,nil
