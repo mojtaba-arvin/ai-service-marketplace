@@ -57,7 +57,7 @@ Required independent negatives: invalid/expired/replayed OTP, exhausted attempts
 
 ## Open gaps
 
-- Device inventory and session-bound revocation are implemented in PR #158; required CI and independent acceptance are pending. Device registration does not claim hardware attestation or trusted-device status.
+- Device inventory and session-bound revocation are implemented in the current change; required CI and independent acceptance are pending. Device registration does not claim hardware attestation or trusted-device status.
 - Define an explicit trusted-device attestation and step-up policy before treating any device as trusted; do not infer trust from a client-provided label.
 
 - Define explicit membership administration and revocation lifecycle.
