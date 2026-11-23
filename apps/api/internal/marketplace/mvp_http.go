@@ -570,11 +570,11 @@ func (h *Handler) reorderScheduledOrder(w http.ResponseWriter, r *http.Request) 
     }
     order, created, err := h.Store.ReorderScheduledOrder(r.Context(), actor, parts[2], key, in.ScheduledAt, h.DefaultMarketCode, in.Answers)
     if err != nil {
-        status := http.StatusUnprocessableEntity
+        status := http.StatusInternalServerError
         if errors.Is(err, ErrForbidden) { status = http.StatusForbidden }
         if errors.Is(err, ErrOrderNotFound) || errors.Is(err, ErrPriceMenuNotFound) { status = http.StatusNotFound }
-        if errors.Is(err, ErrOrderIdempotencyConflict) || errors.Is(err, ErrProviderUnavailable) { status = http.StatusConflict }
-        if errors.Is(err, ErrMarketUnavailable) || errors.Is(err, ErrPriceUnavailable) || errors.Is(err, ErrServiceFormAnswersRequired) || errors.Is(err, ErrServiceFormAnswersInvalid) { status = http.StatusUnprocessableEntity }
+        if errors.Is(err, ErrOrderIdempotencyConflict) || errors.Is(err, ErrProviderUnavailable) || errors.Is(err, ErrInvalidTransition) { status = http.StatusConflict }
+        if errors.Is(err, ErrInvalidOrderRequest) || errors.Is(err, ErrInvalidAvailability) || errors.Is(err, ErrMarketUnavailable) || errors.Is(err, ErrPriceUnavailable) || errors.Is(err, ErrServiceFormAnswersRequired) || errors.Is(err, ErrServiceFormAnswersInvalid) { status = http.StatusUnprocessableEntity }
         writeError(w, status, err.Error()); return
     }
     status := http.StatusOK
@@ -594,9 +594,10 @@ func (h *Handler) approveOrderCompletion(w http.ResponseWriter, r *http.Request)
     }
     approval, created, err := h.Store.ApproveOrderCompletion(r.Context(), actor, parts[2])
     if err != nil {
-        status := http.StatusConflict
+        status := http.StatusInternalServerError
         if errors.Is(err, ErrForbidden) { status = http.StatusForbidden }
         if errors.Is(err, ErrOrderNotFound) { status = http.StatusNotFound }
+        if errors.Is(err, ErrInvalidTransition) { status = http.StatusConflict }
         writeError(w, status, err.Error())
         return
     }
