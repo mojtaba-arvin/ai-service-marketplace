@@ -29,7 +29,7 @@ These are repository capabilities, not evidence that every domain is complete or
 - PR #181: scheduled order answer validation and immutable form-version snapshots; current-head Required Checks are pending. CAT-004/CAT-006 remain passes=false.
 - PR #183: dynamic customer questionnaire rendering and structured submission; current-main Required Checks pending.
 - PR #182: correct adopter-facing full-product language and stale MVP framing; Required Checks pending.
-- PR #184: 13 missing M1–M14 capabilities decomposed into the feature inventory and linked module issues; not accepted until CI.
+- PR #184: 13 missing M1–M14 capabilities decomposed into the feature inventory and linked module issues; current-main Required Checks pending, no acceptance claimed.
 
 ## Product workstreams and gates
 
