@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 type Role = "customer" | "professional" | "operator";
 type Me = { session_id: string; identity_id: string; phone: string; roles: Role[] };
@@ -40,6 +40,47 @@ type ProfessionalOrder = Order;
 type ProfileResponse = { profile: ProviderProfile; qualification_complete: boolean };
 type ApiError = { error?: string };
 
+type FormSchema = {
+  type: "object" | "string" | "integer" | "number" | "boolean" | "array";
+  title?: string; description?: string; required?: string[]; properties?: Record<string, FormSchema>;
+  enum?: unknown[]; minLength?: number; maxLength?: number; minimum?: number; maximum?: number;
+  items?: FormSchema; minItems?: number; maxItems?: number;
+};
+type PublishedServiceForm = { id: string; service_code: string; market_code: string; locale: string; version: number; schema: FormSchema };
+type DynamicFieldProps = { name: string; path: string; schema: FormSchema; value: unknown; required?: boolean; onChange: (value: unknown) => void };
+
+function defaultFieldValue(schema: FormSchema): unknown {
+  if (schema.type === "object") return {};
+  if (schema.type === "array") return Array.from({ length: schema.minItems ?? 0 }, () => schema.items ? defaultFieldValue(schema.items) : null);
+  if (schema.type === "boolean") return false;
+  if (schema.type === "integer" || schema.type === "number") return undefined;
+  return "";
+}
+
+function DynamicField({ name, path, schema, value, required = false, onChange }: DynamicFieldProps): ReactNode {
+  const id = `service-field-${path.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const description = schema.description ? <small className="field-description">{schema.description}</small> : null;
+  if (schema.type === "object") {
+    const objectValue = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    return <fieldset className="dynamic-object"><legend>{schema.title ?? name}{required ? " *" : ""}</legend>{description}
+      {Object.entries(schema.properties ?? {}).map(([key, child]) => <DynamicField key={`${path}.${key}`} name={child.title ?? key} path={`${path}.${key}`} schema={child} value={objectValue[key]} required={schema.required?.includes(key)} onChange={(next) => onChange({ ...objectValue, [key]: next })} />)}
+    </fieldset>;
+  }
+  if (schema.type === "array" && schema.items) {
+    const values = Array.isArray(value) ? value : [];
+    return <fieldset className="dynamic-array"><legend>{schema.title ?? name}{required ? " *" : ""}</legend>{description}
+      {values.map((item, index) => <div className="dynamic-array-item" key={`${path}.${index}`}><DynamicField name={`${name} ${index + 1}`} path={`${path}.${index}`} schema={schema.items!} value={item} onChange={(next) => onChange(values.map((current, currentIndex) => currentIndex === index ? next : current))} /><button type="button" className="button-secondary compact" disabled={values.length <= (schema.minItems ?? 0)} onClick={() => onChange(values.filter((_, currentIndex) => currentIndex !== index))}>Remove</button></div>)}
+      <button type="button" className="button-secondary compact" disabled={values.length >= (schema.maxItems ?? 100)} onClick={() => onChange([...values, defaultFieldValue(schema.items!)])}>Add item</button>
+    </fieldset>;
+  }
+  if (schema.enum?.length) {
+    const selected = value === undefined ? "" : String(schema.enum.findIndex((option) => JSON.stringify(option) === JSON.stringify(value)));
+    return <div className="dynamic-field"><label htmlFor={id}>{schema.title ?? name}{required ? " *" : ""}</label>{description}<select id={id} value={selected} required={required} onChange={(event) => onChange(event.target.value === "" ? undefined : schema.enum?.[Number(event.target.value)])}><option value="">Select…</option>{schema.enum.map((option, index) => <option key={index} value={index}>{String(option)}</option>)}</select></div>;
+  }
+  if (schema.type === "boolean") return <div className="dynamic-field dynamic-checkbox"><label htmlFor={id}><input id={id} type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} /> {schema.title ?? name}{required ? " *" : ""}</label>{description}</div>;
+  const numeric = schema.type === "integer" || schema.type === "number";
+  return <div className="dynamic-field"><label htmlFor={id}>{schema.title ?? name}{required ? " *" : ""}</label>{description}<input id={id} type={numeric ? "number" : "text"} value={value === undefined || value === null ? "" : String(value)} required={required} min={numeric ? schema.minimum : undefined} max={numeric ? schema.maximum : undefined} step={schema.type === "integer" ? 1 : numeric ? "any" : undefined} minLength={!numeric ? schema.minLength : undefined} maxLength={!numeric ? schema.maxLength : undefined} onChange={(event) => onChange(numeric ? (event.target.value === "" ? undefined : Number(event.target.value)) : event.target.value)} /></div>;
+}
 function csrfToken(): string {
   if (typeof document === "undefined") return "";
   const prefix = "marketplace_csrf=";
@@ -130,6 +171,10 @@ export default function HomePage() {
   const [me, setMe] = useState<Me | null>(null);
   const [activeRole, setActiveRole] = useState<Role>("customer");
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [serviceForm, setServiceForm] = useState<PublishedServiceForm | null>(null);
+  const [formAnswers, setFormAnswers] = useState<Record<string, unknown>>({});
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState("");
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
   const [professionalOrders, setProfessionalOrders] = useState<ProfessionalOrder[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -153,6 +198,25 @@ export default function HomePage() {
     () => catalog?.items.find((item) => item.menu_id === selectedMenu) ?? catalog?.items[0],
     [catalog, selectedMenu],
   );
+
+  useEffect(() => {
+    if (!accessToken || !catalog || !selectedItem || activeRole !== "customer") {
+      setServiceForm(null); setFormAnswers({}); setFormLoading(false); setFormError("");
+      return;
+    }
+    let active = true;
+    setServiceForm(null); setFormAnswers({}); setFormError(""); setFormLoading(true);
+    const query = new URLSearchParams({ menu_id: selectedItem.menu_id, market: catalog.market, locale: catalog.locale });
+    void api<{ form: PublishedServiceForm }>(`/catalog/service-forms?${query.toString()}`, accessToken)
+      .then((result) => { if (active) setServiceForm(result.form); })
+      .catch((reason) => {
+        if (!active) return;
+        const message = reason instanceof Error ? reason.message : "Could not load the service questionnaire.";
+        if (!message.toLowerCase().includes("published service form not found") && !message.includes("(404)")) setFormError(message);
+      })
+      .finally(() => { if (active) setFormLoading(false); });
+    return () => { active = false; };
+  }, [accessToken, catalog, selectedItem?.menu_id, activeRole]);
 
   useEffect(() => {
     void api<Me>("/auth/me")
@@ -280,6 +344,7 @@ export default function HomePage() {
           region_code: regionCode,
           city_code: cityCode,
           area_code: areaCode,
+          answers: serviceForm ? formAnswers : undefined,
         }),
       });
       setNotice("Your service request has been created.");
@@ -492,8 +557,11 @@ export default function HomePage() {
                 </div>
                 <label htmlFor="area">Area</label>
                 <input id="area" value={areaCode} onChange={(event) => setAreaCode(event.target.value)} required />
-                <button disabled={busy || !selectedItem}>{busy ? "Submitting…" : "Create service request"}</button>
-                <p className="footnote">The listed price is a service-price snapshot. No payment is collected in this MVP.</p>
+                {formLoading && <p className="muted small-text">Loading service questions…</p>}
+                {formError && <p className="notice error">{formError}</p>}
+                {serviceForm && <div className="service-form-fields"><div><h3>{serviceForm.schema.title ?? "Service details"}</h3><p className="muted small-text">Questionnaire version {serviceForm.version} · {serviceForm.locale}</p></div><DynamicField name="Service details" path="answers" schema={serviceForm.schema} value={formAnswers} onChange={(next) => setFormAnswers(next as Record<string, unknown>)} required /></div>}
+                <button disabled={busy || formLoading || Boolean(formError) || !selectedItem}>{busy ? "Submitting…" : "Create service request"}</button>
+                <p className="footnote">The listed price is a service-price snapshot. Payment is not collected during request creation.</p>
               </form>
             ) : <p className="muted">No services are published in this market yet. Run the initial market seed procedure.</p>}
           </section>
