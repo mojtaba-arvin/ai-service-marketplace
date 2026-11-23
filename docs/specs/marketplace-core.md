@@ -1,6 +1,6 @@
 # M2–M5 — Catalog/Pricing, Customer Experience, Professional Workspace and Matching Specification
 
-**Feature IDs:** CAT-001–CAT-007, PRICE-001–PRICE-004, ORDER-001–ORDER-007, DISP-001–DISP-006, PRO-001–PRO-003, CLIENT-001–CLIENT-002  
+**Feature IDs:** CAT-001–CAT-006, PRICE-001–PRICE-004, ORDER-001–ORDER-007, DISP-001–DISP-006, PRO-001–PRO-003, CLIENT-001–CLIENT-002  
 **Status:** repository contains foundational slices; full module scope and independent acceptance remain pending.
 
 ## Ownership and boundaries
