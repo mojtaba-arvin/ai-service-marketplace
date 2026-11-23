@@ -47,7 +47,7 @@ func TestDeviceRegistrationListingAndRevocationPostgres(t *testing.T) {
 	if device.ID == "" || device.Label != "Personal laptop" || device.RevokedAt != nil { t.Fatalf("unexpected device: %#v", device) }
 	listed, err := store.ListDevices(ctx, identityID)
 	if err != nil || len(listed) != 1 || listed[0].ID != device.ID { t.Fatalf("list devices: %#v %v", listed, err) }
-	if _, err = store.RegisterDevice(ctx, identityID, "device-session", "Renamed laptop"); err != nil { t.Fatal(err) }
+	if _, err = store.RegisterDevice(ctx, identityID, sessionID, "Renamed laptop"); err != nil { t.Fatal(err) }
 	listed, err = store.ListDevices(ctx, identityID)
 	if err != nil || len(listed) != 1 || listed[0].Label != "Renamed laptop" { t.Fatalf("device update: %#v %v", listed, err) }
 	if err = store.RevokeDevice(ctx, "another-identity", device.ID); !errors.Is(err, ErrDeviceNotFound) { t.Fatalf("cross-identity revoke should be hidden: %v", err) }
