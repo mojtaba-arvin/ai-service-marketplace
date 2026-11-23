@@ -448,7 +448,7 @@ func (h *Handler) getPublishedServiceForm(w http.ResponseWriter,r *http.Request)
  locale:=strings.TrimSpace(r.URL.Query().Get("locale"));if locale==""{locale=market.DefaultLocale}
  form,err:=h.Store.GetPublishedServiceForm(r.Context(),menuID,marketCode,locale)
  if err!=nil{if errors.Is(err,ErrServiceFormNotFound){writeError(w,http.StatusNotFound,"published service form not found")}else{writeError(w,http.StatusInternalServerError,"could not load service form")};return}
- writeJSON(w,http.StatusOK,map[string]any{"form":form})
+ writeJSON(w,http.StatusOK,map[string]any{"form":publicServiceForm(form)})
 }
 
 func (h *Handler) publicCatalog(w http.ResponseWriter, r *http.Request) {
