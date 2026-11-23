@@ -133,3 +133,13 @@ QA evidence on exact PR #108 head `249d0eb68f991c34e5d138e8f7c0de97c5dcf266`:
 - Agent Guard [#45022503404](https://github.com/mojtaba-arvin/ai-service-marketplace/actions/runs/45022503404): success.
 
 This is agent-led QA, not independent third-party sign-off. Feature inventory remains `passes: false`; issue #88 remains open until the gated order/finance relationship and consolidated statement work is implemented and verified.
+
+
+## 2026-11-23 — Identity device inventory implementation in review
+
+A session-bound device inventory has been added on a separate implementation branch:
+- Authenticated users can register a bounded display label for the current active session and list their own device registrations.
+- Revoking a device revokes all sessions bound to it; refresh rotation preserves the device association.
+- OpenAPI, migration 025, store tests and HTTP integration coverage are included.
+- This does **not** claim hardware attestation or trusted-device status. A separate, explicitly configured step-up/attestation policy remains open.
+- Required CI and independent acceptance are pending. No feature inventory status was changed.
