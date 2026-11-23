@@ -36,13 +36,19 @@ BEGIN
     IF OLD.status IN ('published','retired') AND OLD.schema IS DISTINCT FROM NEW.schema THEN
         RAISE EXCEPTION 'published service form schema is immutable; create a new version';
     END IF;
+    IF OLD.published_at IS NOT NULL AND (NEW.published_at IS DISTINCT FROM OLD.published_at OR NEW.published_by IS DISTINCT FROM OLD.published_by) THEN
+        RAISE EXCEPTION 'service form publication metadata is immutable';
+    END IF;
+    IF OLD.retired_at IS NOT NULL AND (NEW.retired_at IS DISTINCT FROM OLD.retired_at OR NEW.retired_by IS DISTINCT FROM OLD.retired_by) THEN
+        RAISE EXCEPTION 'service form retirement metadata is immutable';
+    END IF;
     IF OLD.status='retired' AND NEW.status<>'retired' THEN
         RAISE EXCEPTION 'retired service form versions cannot be reactivated';
     END IF;
     IF OLD.status='published' AND NEW.status NOT IN ('published','retired') THEN
         RAISE EXCEPTION 'published service form can only be retired';
     END IF;
-    IF OLD.status='draft' AND NEW.status NOT IN ('draft','published','retired') THEN
+    IF OLD.status='draft' AND NEW.status NOT IN ('draft','published') THEN
         RAISE EXCEPTION 'invalid service form lifecycle transition';
     END IF;
     RETURN NEW;
