@@ -193,6 +193,6 @@ func (s *Store) CreateScheduledOrderWithAnswers(ctx context.Context,actor Actor,
 
 // canonicalFormAnswers normalizes JSON key ordering for semantic idempotency.
 func canonicalFormAnswers(raw []byte)([]byte,error){
- if len(raw)==0{return nil,nil};var value any;dec:=json.NewDecoder(strings.NewReader(string(raw)));dec.UseNumber();if err:=dec.Decode(&value);err!=nil{return nil,err};if dec.Decode(new(any))==nil{return nil,errors.New("trailing JSON")};return json.Marshal(value)
+ if len(raw)==0{return nil,nil};var value any;dec:=json.NewDecoder(strings.NewReader(string(raw)));dec.UseNumber();if err:=dec.Decode(&value);err!=nil{return nil,err};if err:=dec.Decode(new(any));!errors.Is(err,io.EOF){return nil,errors.New("trailing JSON")};return json.Marshal(value)
 }
 func sameFormAnswers(stored *string,submitted []byte)bool{if stored==nil{return len(submitted)==0};return string(submitted)==*stored}
