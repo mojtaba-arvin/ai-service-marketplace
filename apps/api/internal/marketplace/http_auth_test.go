@@ -131,13 +131,19 @@ func TestHTTPDeviceManagementIsIdentityScopedAndRevokesSessionsPostgres(t *testi
 		if _, err = execMigrationScript(ctx, pool, raw); err != nil { t.Fatalf("apply %s: %v", name, err) }
 	}
 	pepper := []byte("http-device-test-session-pepper-at-least-32-bytes")
+	identityID, err := newID()
+	if err != nil { t.Fatal(err) }
+	sessionID, err := newID()
+	if err != nil { t.Fatal(err) }
+	familyID, err := newID()
+	if err != nil { t.Fatal(err) }
 	phone := fmt.Sprintf("+1993%011d", time.Now().UnixNano()%100000000000)
-	if _, err = pool.Exec(ctx, `INSERT INTO phone_identities(id,phone_e164) VALUES('http-device-identity',$1)`, phone); err != nil { t.Fatal(err) }
-	token := "http-device-access-token"
+	if _, err = pool.Exec(ctx, `INSERT INTO phone_identities(id,phone_e164) VALUES($1,$2)`, identityID, phone); err != nil { t.Fatal(err) }
+	token := "http-device-access-"+sessionID
 	if _, err = pool.Exec(ctx, `
 		INSERT INTO auth_sessions(id,family_id,phone_identity_id,access_token_hash,refresh_token_hash,access_expires_at,refresh_expires_at)
-		VALUES('http-device-session','http-device-family','http-device-identity',$1,$2,now()+interval '15 minutes',now()+interval '1 day')
-	`, sessionDigest(token, pepper), sessionDigest("http-device-refresh", pepper)); err != nil { t.Fatal(err) }
+		VALUES($1,$2,$3,$4,$5,now()+interval '15 minutes',now()+interval '1 day')
+	`, sessionID, familyID, identityID, sessionDigest(token, pepper), sessionDigest("http-device-refresh-"+sessionID, pepper)); err != nil { t.Fatal(err) }
 	h := &Handler{Store:&Store{DB:pool},SessionPepper:pepper}
 
 	request := func(method, path, body string) *httptest.ResponseRecorder {
