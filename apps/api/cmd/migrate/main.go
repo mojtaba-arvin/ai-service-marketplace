@@ -44,6 +44,7 @@ var migrationFiles = []string{
 	"026_market_config_audit.sql",
 	"027_service_form_versions.sql",
 	"028_order_service_form_answers.sql",
+	"029_order_completion_approval.sql",
 }
 
 const advisoryLockID int64 = 824713921734
