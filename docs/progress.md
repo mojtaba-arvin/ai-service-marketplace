@@ -15,24 +15,21 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 - PR #156: full fourteen-domain product definition, adopter-facing README, business/technical vision and dependency-aware roadmap.
 - PR #159: grounded Professional Copilot boundary with redaction, retrieval-only citations, strict schema/provenance, mandatory professional review and offline golden evaluation.
 - PR #162: platform-only global market configuration mutation, transactional before/after audit snapshots and append-only audit history including TRUNCATE protection.
-- PR #168: bounded dynamic service-form schema/answer validator. Persistence, admin publication, API/UI and order snapshots remain open.
-- PR #171: 77-feature full-product inventory; all 33 added capabilities remain passes=false.
-- PR #175: session-bound device inventory and revocation; refresh rotation preserves device binding. This is not hardware attestation or trusted-device proof.
+- PR #168: bounded dynamic service-form schema/answer validator. Persistence/publication, API/UI and order snapshots are separate layers.
+- PR #171: 77-feature full-product inventory; added capabilities remain passes=false.
+- PR #175: session-bound device inventory/revocation; refresh rotation preserves binding. Not hardware attestation or trusted-device proof.
+- PR #177: evidence-grounded Dispute Triage advisory boundary with redaction, evidence-cited facts/options, mandatory human adjudication and golden evaluation.
 
 These are repository capabilities, not evidence that every domain is complete or that a production marketplace is publicly deployed.
 
-## Active implementation PRs
+## Active implementation PR
 
-- #177: Dispute Triage advisory boundary with redaction, evidence-cited facts/options, human-adjudication requirement and golden evaluation. API/UI, case persistence, evidence access, appeals and independent QA remain open.
-- Additional identity work: explicit trusted-device attestation/step-up policy and privacy export/deletion under approved policy.
-- Additional catalog work: persist/publish dynamic form versions, admin authorization, API/client rendering and immutable order answer snapshots.
-
-PR creation or a passing unit test alone does not establish feature acceptance.
+- #180: market/locale-specific service form version lifecycle, platform-operator draft/publish/read APIs, immutable published/retired schemas, serialized version allocation and publish outbox event. CAT-005 is under review; CAT-006 order answer snapshot remains unimplemented.
 
 ## Product workstreams and gates
 
 1. **M1 Identity/privacy:** trusted-device attestation/step-up policy; privacy export/deletion only under approved policy.
-2. **M2 Catalog/pricing:** dynamic form lifecycle, immutable price rules/snapshots, packages/subscriptions and localized SEO.
+2. **M2 Catalog/pricing:** form version lifecycle and order answer snapshots, immutable price rules/snapshots, packages/subscriptions and localized SEO.
 3. **M3/M4 Customer/professional:** full intake, scheduling, estimates, tracking, masked communications, completion/variations/reviews/reorder; onboarding/KYC/academy, quotes, earnings, CRM and offline-safe mobile.
 4. **M5 Matching:** broadcast/sequential/customer-choice strategies, reassignment, capacity and advisory demand/supply forecasts.
 5. **M6 Finance:** escrow/holds, payouts/refunds/chargebacks, tax/invoices/reconciliation; gated on independent Order/Ledger QA.

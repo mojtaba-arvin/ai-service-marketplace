@@ -4,6 +4,7 @@ import (
     "context"
     "encoding/json"
     "errors"
+    "io"
     "net/http"
     "strconv"
     "strings"
@@ -374,6 +375,12 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         if !ok { writeError(w,http.StatusNotFound,"not found"); return true }
         if strings.HasSuffix(path,"/properties") { h.organizationProperties(w,r,organizationID) } else { h.organizationGet(w,r,organizationID) }
         return true
+    case r.Method == http.MethodPost && path == "/v1/operator/service-forms":
+        h.createServiceFormDraft(w,r); return true
+    case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/operator/service-forms/") && strings.HasSuffix(path,"/publish"):
+        h.publishServiceFormVersion(w,r); return true
+    case r.Method == http.MethodGet && path == "/v1/catalog/service-forms":
+        h.getPublishedServiceForm(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/catalog":
         h.publicCatalog(w,r); return true
     case r.Method == http.MethodPost && path == "/v1/orders":
@@ -408,6 +415,40 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.verifyProvider(w,r); return true
     }
     return false
+}
+
+
+func (h *Handler) platformOperatorForRequest(r *http.Request)(Actor,error){
+ principal,err:=h.principal(r);if err!=nil{return Actor{},err}
+ if h.TestMode{return Actor{SubjectID:principal.IdentityID,TenantID:platformTenantID,Role:RoleOperator},nil}
+ return h.Store.ResolveActor(r.Context(),principal.IdentityID,platformTenantID,RoleOperator)
+}
+func (h *Handler) createServiceFormDraft(w http.ResponseWriter,r *http.Request){
+ actor,err:=h.platformOperatorForRequest(r);if err!=nil{writeError(w,http.StatusForbidden,"platform operator membership is required");return}
+ var in struct{MenuID string `json:"menu_id"`;MarketCode string `json:"market_code"`;Locale string `json:"locale"`;Schema json.RawMessage `json:"schema"`}
+ dec:=json.NewDecoder(r.Body);dec.DisallowUnknownFields()
+ if dec.Decode(&in)!=nil||len(in.Schema)==0{writeError(w,http.StatusBadRequest,"invalid service form payload");return}
+ if dec.Decode(new(any))!=io.EOF{writeError(w,http.StatusBadRequest,"invalid service form payload");return}
+ form,err:=h.Store.CreateServiceFormDraft(r.Context(),actor,in.MenuID,in.MarketCode,in.Locale,in.Schema)
+ if err!=nil{status:=http.StatusUnprocessableEntity;if errors.Is(err,ErrForbidden){status=http.StatusForbidden};if errors.Is(err,ErrPriceMenuNotFound){status=http.StatusNotFound};if errors.Is(err,ErrMarketUnavailable){status=http.StatusUnprocessableEntity};writeError(w,status,err.Error());return}
+ writeJSON(w,http.StatusCreated,map[string]any{"form":form})
+}
+func (h *Handler) publishServiceFormVersion(w http.ResponseWriter,r *http.Request){
+ actor,err:=h.platformOperatorForRequest(r);if err!=nil{writeError(w,http.StatusForbidden,"platform operator membership is required");return}
+ parts:=strings.Split(strings.Trim(r.URL.Path,"/"),"/")
+ if len(parts)!=5||parts[0]!="v1"||parts[1]!="operator"||parts[2]!="service-forms"||parts[3]==""||parts[4]!="publish"{writeError(w,http.StatusNotFound,"not found");return}
+ form,err:=h.Store.PublishServiceFormVersion(r.Context(),actor,parts[3])
+ if err!=nil{status:=http.StatusUnprocessableEntity;if errors.Is(err,ErrForbidden){status=http.StatusForbidden};if errors.Is(err,ErrServiceFormNotFound){status=http.StatusNotFound};writeError(w,status,err.Error());return}
+ writeJSON(w,http.StatusOK,map[string]any{"form":form})
+}
+func (h *Handler) getPublishedServiceForm(w http.ResponseWriter,r *http.Request){
+ menuID:=strings.TrimSpace(r.URL.Query().Get("menu_id"));marketCode:=strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("market")));if marketCode==""{marketCode=h.DefaultMarketCode}
+ if menuID==""{writeError(w,http.StatusBadRequest,"menu_id is required");return}
+ market,err:=h.Store.GetMarket(r.Context(),marketCode);if err!=nil{writeError(w,http.StatusNotFound,"market not found");return}
+ locale:=strings.TrimSpace(r.URL.Query().Get("locale"));if locale==""{locale=market.DefaultLocale}
+ form,err:=h.Store.GetPublishedServiceForm(r.Context(),menuID,marketCode,locale)
+ if err!=nil{if errors.Is(err,ErrServiceFormNotFound){writeError(w,http.StatusNotFound,"published service form not found")}else{writeError(w,http.StatusInternalServerError,"could not load service form")};return}
+ writeJSON(w,http.StatusOK,map[string]any{"form":publicServiceForm(form)})
 }
 
 func (h *Handler) publicCatalog(w http.ResponseWriter, r *http.Request) {
