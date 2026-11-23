@@ -1,4 +1,4 @@
-# M8, M10–M14 — Platform, Messaging, Admin, Analytics, B2B and AI Specification
+# M8–M14 — Messaging, Admin, Growth, Analytics, B2B, Platform and AI Specification
 
 **Feature IDs:** MSG-001–MSG-006, ADMIN-001–ADMIN-005, GROW-001–GROW-004, AN-001–AN-003, B2B-001–B2B-005, PLAT-001–PLAT-007, AI-001, AI-005–AI-010  
 **Status:** adapter, outbox, market-config and AI intake/evaluation foundations exist. Growth, analytics, B2B and several admin capabilities remain backlog.
@@ -15,7 +15,7 @@ The transactional outbox is written in the same PostgreSQL transaction as the ag
 
 Notification preferences and provider delivery adapters remain distinct backlog work. Do not equate a persisted outbox event with successful user notification.
 
-## Admin (M10)
+## Admin (M9)
 
 The API is the authorization boundary. Operator/support roles are tenant-scoped and sensitive actions require audit evidence. The admin UI must never rely on hidden controls as authorization. Market configuration changes require explicit permission, validation, audit and fail-closed rollback.
 
@@ -27,7 +27,7 @@ The canonical event envelope is defined in `schemas/domain-event.schema.json`. T
 
 Metric definitions must specify event source, denominator, time window, timezone, deduplication and late-arrival behavior. Funnel and supply metrics are not accepted until replay, duplicate delivery and schema-version compatibility are tested.
 
-## B2B (M13)
+## B2B (M11)
 
 Tracking: [#88](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/88). Architecture decision: [ADR 0004](../adr/0004-tenant-organization-boundary.md).
 
