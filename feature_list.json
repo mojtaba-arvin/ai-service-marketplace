@@ -888,11 +888,11 @@
   {
     "id": "IDENT-005",
     "module": "M1 Identity",
-    "title": "Trusted device inventory and revocation",
-    "description": "Manage user device registrations and trusted-device state.",
+    "title": "Session-bound device inventory and revocation",
+    "description": "Register devices against authenticated sessions, list identity-owned registrations, and revoke associated sessions.",
     "acceptance": [
-      "Users can list and revoke their own devices.",
-      "Untrusted/new devices follow configured step-up policy; cross-account access is denied."
+      "An authenticated identity can register and list only its own session-bound device records.",
+      "Revoking a device revokes all sessions bound to it; refresh rotation preserves the device binding."
     ],
     "depends_on": [
       "IDENT-003"
@@ -904,7 +904,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Implementation is in PR #158; CI and independent acceptance are pending. Device labels are metadata, not hardware attestation or proof of trust."
   },
   {
     "id": "IDENT-006",
@@ -1585,5 +1585,27 @@
     "passes": false,
     "verified_by": null,
     "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "IDENT-007",
+    "module": "M1 Identity",
+    "title": "Trusted-device attestation and step-up policy",
+    "description": "Define and enforce an explicit, configurable trusted-device proof and step-up authentication policy.",
+    "acceptance": [
+      "A device is trusted only after the configured proof/step-up flow succeeds; client-provided labels or identifiers alone never establish trust.",
+      "Sensitive actions enforce configured step-up requirements and record auditable proof metadata; missing policy or provider capability fails closed."
+    ],
+    "depends_on": [
+      "IDENT-005",
+      "IDENT-003"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC",
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Planned capability. Do not infer attestation method, step-up factors or risk thresholds; require an explicit ADR and provider-neutral contract."
   }
 ]
