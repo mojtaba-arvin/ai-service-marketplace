@@ -72,11 +72,12 @@ func(s *Store)CreateServiceFormDraft(ctx context.Context,actor Actor,menuID,mark
  definition,err:=decodeServiceFormSchema(schemaJSON,serviceCode,locale,version);if err!=nil{return ServiceFormVersion{},err}
  canonicalSchema,err:=json.Marshal(definition.Schema);if err!=nil{return ServiceFormVersion{},err}
  id,err:=newID();if err!=nil{return ServiceFormVersion{},err}
- result,err:=scanServiceForm(tx.QueryRow(ctx,`
+ _,err=tx.Exec(ctx,`
   INSERT INTO service_form_versions(id,menu_id,market_code,locale,version_no,schema,status,created_by)
   VALUES($1,$2,$3,$4,$5,$6::jsonb,'draft',$7)
-  RETURNING id,menu_id,(SELECT service_code FROM service_price_menus WHERE id=menu_id),market_code,locale,version_no,schema,status,created_by,created_at,published_by,published_at,retired_by,retired_at
- `,id,menuID,marketCode,locale,version,canonicalSchema,actor.SubjectID))
+ `,id,menuID,marketCode,locale,version,canonicalSchema,actor.SubjectID)
+ if err!=nil{return ServiceFormVersion{},err}
+ result,err:=scanServiceForm(tx.QueryRow(ctx,`SELECT `+serviceFormColumns+` FROM service_form_versions f JOIN service_price_menus m ON m.id=f.menu_id WHERE f.id=$1`,id))
  if err!=nil{return ServiceFormVersion{},err}
  if err=tx.Commit(ctx);err!=nil{return ServiceFormVersion{},err};return result,nil
 }
