@@ -1,74 +1,73 @@
 # AI Service Marketplace
 
-An open-source, multi-market home-services marketplace platform connecting customers with vetted independent professionals. It is designed as a reusable, self-hostable software foundation for trusted service discovery, scheduling, dispatch, and auditable operations.
+An open-source, self-hostable platform for building and operating a complete, multi-market home-services marketplace. It serves customers, independent professionals, operators, support and finance teams, property managers, and developers integrating external systems.
 
-## Project status
+This is a full-product software project—not a demo, an MVP, or a repository whose intended scope ends at a customer-to-professional vertical slice. Adopters should be able to configure their own market, select providers, deploy the platform, and extend it through documented module and adapter contracts.
 
-The Go/PostgreSQL backend, one-shot migration runner, customer-to-professional browser MVP, browser-level E2E journey, and repository-side backup/restore rehearsal are integrated into `main`. This is a validated repository/deployment foundation, not a claim that a live production service is operating.
+## Complete product scope
 
-The project is developed as open-source infrastructure and a reference implementation. Regional context (Armenia and the GCC countries) is used to guide localization and market-configuration design; it does not represent a market-entry plan, launch commitment, or approval for regulated production integrations.
+The product is organized into fourteen first-class domains:
 
-The current MVP vertical-slice scope is tracked in [MVP Release #53](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/53). Public deployment and independent release QA remain blocked on real-host provisioning, real OTP delivery credentials, production smoke and backup/restore validation, external event-sink configuration where needed, and independent QA.
+| Domain | Capabilities |
+|---|---|
+| M1 Identity & accounts | OTP and optional email/social sign-in; customer, professional, admin, support, finance and B2B roles; profiles, addresses, devices, sessions, trusted devices, abuse controls, privacy export/deletion |
+| M2 Catalog & services | Hierarchical admin-defined taxonomy, dynamic service forms, versioned price books/rules, packages/subscriptions, localized SEO content |
+| M3 Customer experience | Conversational/form/photo intake, scheduling, explained estimates, live tracking/ETA, masked chat/calls, work approval, variations, invoices, reviews, history/reorder, cancellation/rescheduling |
+| M4 Professional workspace | Onboarding, KYC, skill assessment/academy, calendar/coverage, offers, quotes, wallet/settlement, business tools, offline-critical workflows, quality coaching |
+| M5 Matching & dispatch | Eligibility/ranking, broadcast/sequential/customer-choice strategies, reassignment, capacity controls, demand/supply forecasting |
+| M6 Payments & finance | Immutable double-entry ledger, idempotency/replay, escrow, PSP adapters, commissions/incentives/credits, payouts, refunds, chargebacks, invoices, tax reports, reconciliation, fraud controls |
+| M7 Trust & safety | Identity/credential review, background-check adapters, SOS/trip sharing, insurance/claims, disputes/evidence/human adjudication, suspicious-behavior signals, moderation, immutable audit |
+| M8 Communications | Push/SMS/email and market channels, templates/preferences, transactional/marketing consent, protected in-app chat, ticketing and AI-assisted support |
+| M9 Admin & operations | Order/customer/pro/market management, guarded state-machine interventions, dispute/finance queues, pricing/campaign/policy/feature flags, dashboards, granular RBAC and step-up approval |
+| M10 Growth | Service×region SEO, content, referrals, coupons/campaigns, landing pages, attribution, A/B tests and lifecycle messaging |
+| M11 B2B | Organizations, multiple properties, maintenance contracts, consumption reports, consolidated invoices, building-manager API/webhooks |
+| M12 Data & analytics | Versioned events, warehouse/export, dashboards, experiments, leakage and quality monitoring |
+| M13 Platform & compliance | Country/language/currency/tax/RTL configuration, i18n, adapters, observability, secret management, backup/DR, consent and privacy |
+| M14 AI capabilities | Intake Copilot, Pro Copilot, Dispute Triage, Support Copilot, explainable leakage/fraud, quality coaching, demand/ETA/price forecasting |
 
-### Integrated backend capabilities
+See [Product Scope](docs/product-scope.md) for the complete capability catalogue and [Engineering Roadmap](docs/ROADMAP.md) for dependency-aware delivery. Implementation status belongs to [feature_list.json](feature_list.json), module specifications, issues and [Development Progress](docs/progress.md). A planned capability is not implemented merely because it is documented; a merged PR is not independent acceptance.
 
-- Tenant-scoped identity and session primitives.
-- Market configuration and market-visible service catalog.
-- Versioned service pricing and scheduled customer orders.
-- Provider profiles, verification, service areas, and availability.
-- Deterministic dispatch candidates, expiring offers, and atomic provider acceptance.
-- Order history and lifecycle events.
-- Double-entry ledger primitives and payment-provider contracts (no real payment capture or funds movement).
-- Transactional outbox and background workers.
-- Support and AI intake foundations.
+## Current repository status
 
-### MVP delivery status
+The repository already contains a Go/PostgreSQL modular-monolith API, customer/professional/operator browser workflows, migrations, transactional outbox foundations, ledger primitives, market configuration, B2B organization/property foundations, deployment assets and automated CI/security workflows. These are foundations for the complete product, not evidence that all fourteen domains are complete or that a public production service is operating.
 
-- Backend integration baseline: merged.
-- Single-host container and HTTPS deployment foundation: merged.
-- One-shot PostgreSQL migration runner: merged via PR #66, with advisory-lock serialization, transactional migrations, replay safety, legacy bootstrap, and PostgreSQL integration coverage for concurrent runs and rollback/retry.
-- Production-safe customer/professional/operator API workflow: merged via PR #61.
-- Responsive customer/professional/operations browser experience: merged via PR #62.
-- Browser session hardening: merged via PR #64 (HttpOnly access/refresh cookies, same-origin CSRF protection, and Origin validation for cookie-authenticated mutations).
-- Browser-level E2E: merged via PR #74. CI exercises the same-origin HTTPS customer booking → operator verification/dispatch → professional acceptance → customer status journey, plus cookie/CSRF/refresh/sign-out behavior.
-- Backup/restore and outbox operations: merged via PR #74. CI rehearses a clean PostgreSQL dump/restore, checks transactional order/dispatch outbox events, and validates the optional outbox Compose profile. The external event sink is not configured.
-- Production deployment and independent acceptance: not complete. Host provisioning, real OTP credentials, production smoke/restore validation, and release QA remain tracked in [#56](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/56) and [#57](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/57).
+## Architecture
 
-See the [deployment guide](infra/DEPLOYMENT.md) for the current container topology, configuration requirements, seed procedure, and known limitations. It is a deployment foundation, not a claim that the complete MVP is already live.
+- Transactional core: Go modular monolith and PostgreSQL/PostGIS.
+- Customer web: Next.js + TypeScript.
+- Operations UI: React + Vite + TypeScript.
+- Mobile: Flutter customer and professional clients.
+- AI/data workloads: isolated Python workers behind an internal AI gateway.
+- Contracts: OpenAPI for HTTP APIs and JSON Schema for events.
+- Async/realtime: transactional outbox; NATS JetStream and Valkey where justified.
+- Deployment: Docker Compose and containerized self-hosting.
 
-## Architecture at a glance
+This is the current repository baseline. The alternative TypeScript end-to-end stack in the original proposal conflicts with code already integrated here; changing core language, ORM, queue or mobile framework requires an explicit ADR and migration plan, not an undocumented rewrite. See [Technical Plan](docs/vision/tech-plan.md).
 
-- **Core API:** Go, with explicit modular-monolith boundaries.
-- **MVP browser application:** Next.js + TypeScript, with customer, professional, and operator workspaces.
-- **Dedicated operations console:** React + Vite + TypeScript (post-MVP).
-- **Mobile clients:** Flutter (customer and professional applications; post-MVP).
-- **AI workloads:** isolated Python workers behind an internal AI gateway.
-- **Data:** PostgreSQL + PostGIS; pgvector only for use cases that justify vector retrieval.
-- **Async and realtime infrastructure:** transactional outbox, NATS JetStream, and Valkey where caching or ephemeral coordination is justified.
-- **Contracts:** OpenAPI and JSON Schema as versioned interface contracts.
+## Getting started
 
-See [contributing guidance](CONTRIBUTING.md), the [security policy](SECURITY.md), [module specifications](docs/specs/README.md), and [API/event contracts](packages/contracts/README.md). See the [product vision](docs/vision/business-plan.md), [technical plan](docs/vision/tech-plan.md), [engineering roadmap](docs/ROADMAP.md), [architecture decisions](docs/adr/), and [agent instructions](AGENTS.md).
-
-## Development
-
-Requirements and commands:
+See [Deployment](infra/DEPLOYMENT.md). Start from .env.example and never commit production credentials.
 
 ```sh
 make verify
 make verify-full
 ```
 
-No production credentials belong in this repository. Start from `.env.example`.
+These commands verify the current repository state; they do not certify every planned capability.
 
-## Project principles
+## Extensibility and safety
 
-1. Correctness and safety before throughput; optimize measured hot paths.
-2. Modular monolith first; extract services only with evidence.
-3. Money movement uses an immutable, idempotent, double-entry ledger.
-4. Cross-module communication uses public APIs and domain events.
-5. AI never autonomously decides money, safety, identity, or dispute outcomes.
-6. Market-specific behavior is configuration plus adapters, not scattered conditionals.
-7. A feature is complete only when its acceptance evidence and required checks pass.
+1. Market-specific behavior is configuration plus replaceable adapters, not scattered country conditionals.
+2. External adapters have deterministic local fakes and contract tests; CI needs no live provider credentials.
+3. Money uses integer minor units and an immutable, idempotent, balanced double-entry ledger. Corrections use reversals.
+4. Cross-module interaction uses documented public APIs and versioned events.
+5. AI affecting money, identity, safety, access or reputation remains advisory until deterministic policy and/or authorized human approval.
+6. PII is minimized and redacted before external calls; consent, retention and deletion are explicit.
+7. Features are accepted only with required automated and independent evidence.
+
+## Contributing
+
+Read [AGENTS.md](AGENTS.md), [Contributing](CONTRIBUTING.md), [module specifications](docs/specs/README.md), [ADRs](docs/adr/) and the [roadmap](docs/ROADMAP.md). Choose a scoped issue, preserve module ownership, add failure-path tests and submit a focused PR. See [Security](SECURITY.md).
 
 ## License
 
