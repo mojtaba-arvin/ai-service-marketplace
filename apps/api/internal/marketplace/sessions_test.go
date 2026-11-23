@@ -21,7 +21,7 @@ func TestSessionLifecyclePostgres(t *testing.T) {
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil { t.Fatal(err) }
 	defer pool.Close()
-	for _, name := range []string{"002_identity.sql", "003_sessions.sql"} {
+	for _, name := range []string{"002_identity.sql", "003_sessions.sql", "025_auth_devices.sql"} {
 		migration, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if readErr != nil { t.Fatal(readErr) }
 		if _, err = execMigrationScript(ctx, pool, migration); err != nil { t.Fatalf("apply %s: %v", name, err) }
