@@ -3045,6 +3045,74 @@
           }
         }
       }
+    },
+    "/v1/orders/{order_id}/completion-approval": {
+      "post": {
+        "summary": "Approve completed customer order",
+        "description": "Only the owning customer may approve work after the professional marks the order completed. The immutable one-per-order approval makes retries idempotent. This operation does not capture, release or transfer funds.",
+        "operationId": "approve_customer_order_completion",
+        "tags": [
+          "Marketplace"
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The existing approval was returned for an idempotent retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Completion approval created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3929,6 +3997,23 @@
             "format": "date-time"
           }
         }
+      },
+      "OrderCompletionApproval": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "approved_at"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "approved_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
       }
     },
     "responses": {

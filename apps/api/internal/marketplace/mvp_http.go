@@ -387,6 +387,8 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.createScheduledOrder(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/orders":
         h.orderHistory(w,r); return true
+    case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/orders/") && strings.HasSuffix(path,"/completion-approval"):
+        h.approveOrderCompletion(w,r); return true
     case r.Method == http.MethodGet && strings.HasPrefix(path,"/v1/orders/"):
         h.orderTimeline(w,r); return true
     case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/orders/") && strings.HasSuffix(path,"/cancel"):
@@ -549,6 +551,29 @@ func (h *Handler) orderTimeline(w http.ResponseWriter, r *http.Request) {
     writeJSON(w,http.StatusOK,item)
 }
 
+func (h *Handler) approveOrderCompletion(w http.ResponseWriter, r *http.Request) {
+    actor, err := h.actorForRole(r, RoleCustomer)
+    if err != nil {
+        writeError(w, http.StatusForbidden, "customer membership is required")
+        return
+    }
+    parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+    if len(parts) != 4 || parts[0] != "v1" || parts[1] != "orders" || parts[2] == "" || parts[3] != "completion-approval" {
+        writeError(w, http.StatusNotFound, "not found")
+        return
+    }
+    approval, created, err := h.Store.ApproveOrderCompletion(r.Context(), actor, parts[2])
+    if err != nil {
+        status := http.StatusConflict
+        if errors.Is(err, ErrForbidden) { status = http.StatusForbidden }
+        if errors.Is(err, ErrOrderNotFound) { status = http.StatusNotFound }
+        writeError(w, status, err.Error())
+        return
+    }
+    status := http.StatusOK
+    if created { status = http.StatusCreated }
+    writeJSON(w, status, map[string]any{"approval": approval, "created": created})
+}
 func (h *Handler) cancelOrder(w http.ResponseWriter, r *http.Request) {
     actor, err := h.actorForRole(r,RoleCustomer)
     if err != nil {

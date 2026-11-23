@@ -946,7 +946,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Implementation merged in PR #168: bounded dynamic questionnaire schemas validate conditional fields and typed answers. passes remains false pending independent QA."
   },
   {
     "id": "PRICE-004",
@@ -989,7 +989,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Customer completion approval backend is implemented in PR branch feat/order-customer-completion-approval-20261123: customer/tenant ownership is enforced, approval is one-per-order and immutable, retries return the original record, and the customer timeline exposes it. Safe reorder from an explicit prior snapshot with current catalog/price/availability revalidation remains unimplemented. passes remains false pending the remaining scope and independent QA."
   },
   {
     "id": "ORDER-006",
@@ -1628,7 +1628,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation is in the current service-form lifecycle PR; exact-head CI and independent acceptance are pending."
+    "notes": "Implementation merged in PR #180: market/locale form draft and publication lifecycle serializes version numbers, retires prior active versions and protects published schemas. passes remains false pending independent QA."
   },
   {
     "id": "CAT-006",
@@ -1650,7 +1650,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Planned follow-up; not implemented or independently accepted."
+    "notes": "Implementation merged in PR #181: scheduled order creation validates against the active published form and persists an immutable versioned answer snapshot with semantic idempotent replay. passes remains false pending independent QA."
   },
   {
     "id": "IDENT-008",
