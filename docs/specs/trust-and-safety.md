@@ -36,6 +36,13 @@ Unknown evidence references, duplicate open verification cases, cross-tenant acc
 - Support: `support_cases_test.go`
 - Required negatives: wrong profile owner, cross-tenant reviewer, self-review, duplicate submission, inactive support actor, cross-tenant support read, unassigned support user, invalid transition and immutable audit-event mutation.
 
+
+### Dispute Triage AI boundary
+
+The new `internal/disputetriage` package provides an advisory case summary, established-fact list, missing-information checklist and possible next-step options. Case reason and retrieved evidence are redacted before model invocation. Evidence retrieval is scoped by market, locale and dispute type; option citations must reference only retrieved evidence. Strict output rejects unknown fields, including verdict, refund amount, settlement or authority-bearing commands.
+
+Every result sets `requires_human_adjudication=true`. AI cannot determine liability, issue refunds, settle a case, change order state or replace an adjudicator. The versioned golden set checks critical evidence coverage. This package is a service boundary only; dispute persistence, evidence storage/access policy, API/UI, appeal workflow and independent adjudicator integration remain open. No evidence-retention period is inferred.
+
 ## Open gaps
 
 - Define incident severity, triage, escalation, emergency handling and evidence-retention policy before implementing TRUST-002.
