@@ -27,7 +27,7 @@ These are repository capabilities, not evidence that every domain is complete or
 
 - PR #180 merged to main (`164592e51b45e83706d43a84cdd50a98134dac3d`): market/locale-specific service form version lifecycle, platform-operator draft/publish/read APIs, immutable published/retired schemas, serialized version allocation and publish outbox event.
 - PR #181: scheduled order answer validation and immutable form-version snapshots; current-head Required Checks are pending. CAT-004/CAT-006 remain passes=false.
-- PR #183: dynamic customer questionnaire rendering and structured submission; stacked on #181, Required Checks pending.
+- PR #183: dynamic customer questionnaire rendering and structured submission; current-main Required Checks pending.
 - PR #182: correct adopter-facing full-product language and stale MVP framing; Required Checks pending.
 - PR #184: 13 missing M1–M14 capabilities decomposed into the feature inventory and linked module issues; not accepted until CI.
 
