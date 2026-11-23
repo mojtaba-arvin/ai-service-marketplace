@@ -3,6 +3,7 @@ package marketplace
 import(
  "context"
  "errors"
+ "fmt"
  "os"
  "path/filepath"
  "strings"
@@ -16,12 +17,12 @@ func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
  dsn:=os.Getenv("TEST_DATABASE_URL");if dsn==""{t.Skip("TEST_DATABASE_URL is not configured")}
  ctx,cancel:=context.WithTimeout(context.Background(),30*time.Second);defer cancel()
  pool,err:=pgxpool.New(ctx,dsn);if err!=nil{t.Fatal(err)};defer pool.Close()
- for _,name:=range []string{"001_walking_skeleton.sql","004_catalog.sql","005_pricing.sql","007_market_config.sql","026_market_config_audit.sql","027_service_form_versions.sql"}{
+ for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","007_market_config.sql","015_order_schedule.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","026_market_config_audit.sql","027_service_form_versions.sql","028_order_service_form_answers.sql"}{
   raw,e:=os.ReadFile(filepath.Join("..","..","migrations",name));if e!=nil{t.Fatal(e)}
   if _,e=execMigrationScript(ctx,pool,raw);e!=nil{t.Fatalf("apply %s: %v",name,e)}
  }
  suffix,err:=newID();if err!=nil{t.Fatal(err)}
- marketCode:="T"+strings.ToUpper(strings.NewReplacer("0","A","1","B","2","C","3","D","4","E","5","F","6","G","7","H","8","I","9","J").Replace(suffix[:7]))
+ marketCode:=strings.NewReplacer("0","A","1","B","2","C","3","D","4","E","5","F","6","G","7","H","8","I","9","J","a","K","b","L","c","M","d","N","e","O","f","P").Replace(strings.ToLower(suffix[:2]))
  if _,err=pool.Exec(ctx,`INSERT INTO markets(code,default_locale,currency,timezone,policy_version,enabled,version) VALUES($1,'en','OMR','Asia/Muscat','v1',true,1) ON CONFLICT(code) DO NOTHING`,marketCode);err!=nil{t.Fatal(err)}
  if _,err=pool.Exec(ctx,`INSERT INTO market_locales(market_code,locale,is_default) VALUES($1,'en',true) ON CONFLICT DO NOTHING`,marketCode);err!=nil{t.Fatal(err)}
  categoryID,menuID:="form-category-"+suffix,"form-menu-"+suffix
@@ -73,4 +74,30 @@ func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
  for e:=range failures{t.Fatal(e)}
  got:=map[int]bool{};for v:=range versions{got[v]=true}
  if !got[3]||!got[4]{t.Fatalf("concurrent draft versions were not serialized: %#v",got)}
+
+ // A published questionnaire is enforced at order creation and its exact
+ // version/answers are committed atomically and cannot later be rewritten.
+ if _,err=pool.Exec(ctx,`INSERT INTO market_category_visibility(market_code,category_id,visible) VALUES($1,$2,true) ON CONFLICT(market_code,category_id) DO UPDATE SET visible=true`,marketCode,categoryID);err!=nil{t.Fatal(err)}
+ _,err=store.CreatePriceVersion(ctx,menuID,12500,"OMR");if err!=nil{t.Fatal(err)}
+ identityID,err:=newID();if err!=nil{t.Fatal(err)}
+ phone:=fmt.Sprintf("+1994%011d",time.Now().UnixNano()%100_000_000_000)
+ if _,err=pool.Exec(ctx,`INSERT INTO phone_identities(id,phone_e164) VALUES($1,$2)`,identityID,phone);err!=nil{t.Fatal(err)}
+ customer:=Actor{SubjectID:identityID,TenantID:"tenant-form-"+suffix,Role:RoleCustomer}
+ scheduled:=time.Now().UTC().Add(2*time.Hour).Truncate(time.Microsecond)
+ if !validOrderArea(marketCode,"Region","City","Area") || scheduled.Before(time.Now().UTC().Add(30*time.Minute)) || scheduled.After(time.Now().UTC().Add(90*24*time.Hour)) { t.Fatalf("test fixture invalid: market=%q area=%v scheduled=%s",marketCode,validOrderArea(marketCode,"Region","City","Area"),scheduled) }
+ if _,_,err=store.CreateScheduledOrderWithAnswers(ctx,customer,"form-missing-"+suffix,menuID,scheduled,marketCode,"Region","City","Area",nil);!errors.Is(err,ErrServiceFormAnswersRequired){t.Fatalf("published form must require answers: %v",err)}
+ invalidAnswers:=[]byte(`{"rooms":0,"urgent":true}`)
+ if _,_,err=store.CreateScheduledOrderWithAnswers(ctx,customer,"form-invalid-"+suffix,menuID,scheduled,marketCode,"Region","City","Area",invalidAnswers);!errors.Is(err,ErrServiceFormAnswersInvalid){t.Fatalf("invalid form answers accepted: %v",err)}
+ answers:=[]byte(`{"urgent":true,"rooms":2}`)
+ order,created,err:=store.CreateScheduledOrderWithAnswers(ctx,customer,"form-order-"+suffix,menuID,scheduled,marketCode,"Region","City","Area",answers)
+ if err!=nil||!created{t.Fatalf("create order with form answers: created=%v err=%v",created,err)}
+ var storedFormID,storedAnswers string
+ if err=pool.QueryRow(ctx,`SELECT form_version_id,answers::text FROM order_service_form_answers WHERE order_id=$1`,order.ID).Scan(&storedFormID,&storedAnswers);err!=nil{t.Fatal(err)}
+ if storedFormID!=second.ID||storedAnswers!=`{"rooms": 2, "urgent": true}`{t.Fatalf("incorrect immutable form snapshot: version=%s answers=%s",storedFormID,storedAnswers)}
+ replay,created,err:=store.CreateScheduledOrderWithAnswers(ctx,customer,"form-order-"+suffix,menuID,scheduled,marketCode,"Region","City","Area",[]byte(`{ "rooms" : 2, "urgent" : true }`))
+ if err!=nil||created||replay.ID!=order.ID{t.Fatalf("semantic answer replay failed: created=%v order=%s err=%v",created,replay.ID,err)}
+ if _,_,err=store.CreateScheduledOrderWithAnswers(ctx,customer,"form-order-"+suffix,menuID,scheduled,marketCode,"Region","City","Area",[]byte(`{"rooms":3,"urgent":true}`));!errors.Is(err,ErrOrderIdempotencyConflict){t.Fatalf("changed answer payload under same idempotency key accepted: %v",err)}
+ if _,err=pool.Exec(ctx,`UPDATE order_service_form_answers SET answers='{"rooms":4,"urgent":true}'::jsonb WHERE order_id=$1`,order.ID);err==nil{t.Fatal("order form answers were mutable")}
+ if _,err=pool.Exec(ctx,`DELETE FROM order_service_form_answers WHERE order_id=$1`,order.ID);err==nil{t.Fatal("order form answer snapshot was deletable")}
+ if _,err=pool.Exec(ctx,`TRUNCATE order_service_form_answers`);err==nil{t.Fatal("order form answer history was truncatable")}
 }

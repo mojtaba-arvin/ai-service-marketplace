@@ -481,6 +481,7 @@ func (h *Handler) createScheduledOrder(w http.ResponseWriter, r *http.Request) {
         RegionCode string `json:"region_code"`
         CityCode string `json:"city_code"`
         AreaCode string `json:"area_code"`
+        Answers json.RawMessage `json:"answers"`
     }
     if json.NewDecoder(r.Body).Decode(&in) != nil {
         writeError(w,http.StatusBadRequest,"invalid JSON")
@@ -490,13 +491,14 @@ func (h *Handler) createScheduledOrder(w http.ResponseWriter, r *http.Request) {
         writeError(w,http.StatusUnprocessableEntity,"orders are limited to the configured launch market")
         return
     }
-    order, created, err := h.Store.CreateScheduledOrder(r.Context(),actor,r.Header.Get("Idempotency-Key"),
-        in.MenuID,in.ScheduledAt,in.CountryCode,in.RegionCode,in.CityCode,in.AreaCode)
+    order, created, err := h.Store.CreateScheduledOrderWithAnswers(r.Context(),actor,r.Header.Get("Idempotency-Key"),
+        in.MenuID,in.ScheduledAt,in.CountryCode,in.RegionCode,in.CityCode,in.AreaCode,in.Answers)
     if err != nil {
         status := http.StatusUnprocessableEntity
         if errors.Is(err,ErrForbidden) { status=http.StatusForbidden }
         if errors.Is(err,ErrOrderIdempotencyConflict) { status=http.StatusConflict }
-        if errors.Is(err,ErrPriceMenuNotFound) { status=http.StatusNotFound }
+        if errors.Is(err,ErrPriceMenuNotFound) || errors.Is(err,ErrServiceFormNotFound) { status=http.StatusNotFound }
+        if errors.Is(err,ErrServiceFormAnswersRequired) || errors.Is(err,ErrServiceFormAnswersInvalid) { status=http.StatusUnprocessableEntity }
         writeError(w,status,err.Error())
         return
     }
