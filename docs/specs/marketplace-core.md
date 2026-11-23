@@ -31,7 +31,16 @@ The new `internal/serviceforms` package validates versioned, admin-defined quest
 
 Resource limits are explicit: 32 KiB schema definitions, 16 KiB answer payloads, nesting depth 8, 64 properties per object, 128 total fields, 100 array items and 32 enum values. Answers are type-checked and unknown object properties are rejected. Definition identity includes service code, version and locale.
 
-This is a pure validation boundary only. Admin authorization, persistence/publication lifecycle, API endpoints, immutable order schema/answer snapshots, generated client forms and E2E coverage remain unimplemented. The feature must not be marked complete until those integration layers and independent acceptance exist.
+The validation boundary is implemented; migration 027 and draft/publish/read APIs now provide the version lifecycle. Order answer snapshots, generated client forms and end-to-end customer form submission remain open and must not be marked complete.
+
+
+### Service form version lifecycle and publication
+
+Migration 027 adds market/locale-specific form versions keyed by menu, market, locale and version number. Draft versions can be authored only by a platform-tenant operator with catalog-management authority. Publishing is serialized per menu, atomically retires the previous published version, and emits a `catalog.service_form.published` outbox event. A partial unique index allows only one published version per menu/market/locale. Published and retired schemas are immutable and cannot be deleted; replacement requires a new draft version.
+
+The new authenticated operator endpoints create drafts and publish versions; the public catalog endpoint resolves the published form for a menu/market/locale. The validator from `internal/serviceforms` is used before persistence.
+
+This PR does not yet attach the selected form version and submitted answers to an order. CAT-006 remains open: order creation must validate answers against the published schema, store the exact version and answer snapshot, preserve them on idempotent replay, and keep raw answers out of outbox events.
 
 ## Invariants
 
