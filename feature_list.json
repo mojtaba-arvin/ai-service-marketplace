@@ -1651,5 +1651,360 @@
     "passes": false,
     "verified_by": null,
     "notes": "Planned follow-up; not implemented or independently accepted."
+  },
+  {
+    "id": "IDENT-008",
+    "module": "M1 Identity",
+    "title": "Multi-address profile and geocoding",
+    "description": "Manage multiple customer service addresses through a market-specific geocoding/map adapter while keeping exact location access scoped to the order and authorized participants.",
+    "acceptance": [
+      "Customers can create, update, select and delete multiple saved addresses subject to order-history references.",
+      "Address normalization/geocoding uses a configured market adapter and a deterministic local fake for CI.",
+      "Exact coordinates and address details are not exposed to unrelated customers or professionals before assignment and policy authorization."
+    ],
+    "depends_on": [
+      "IDENT-004",
+      "PLAT-002",
+      "PLAT-005"
+    ],
+    "size": "M",
+    "nature": [
+      "CRUD",
+      "SEC",
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+  },
+  {
+    "id": "IDENT-009",
+    "module": "M1 Identity",
+    "title": "Optional external identity provider adapters",
+    "description": "Support market-enabled email, Apple and Google identity providers through replaceable adapters without weakening phone OTP or account-linking security.",
+    "acceptance": [
+      "Provider login is enabled only by market configuration and a verified adapter capability.",
+      "Account linking requires proof of control of both identities and prevents identity takeover or duplicate account creation.",
+      "Offline contract tests cover invalid tokens, issuer/audience mismatch, replay and provider outage."
+    ],
+    "depends_on": [
+      "IDENT-004",
+      "PLAT-001",
+      "PLAT-002"
+    ],
+    "size": "M",
+    "nature": [
+      "INT",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Optional by market; not implemented or independently accepted."
+  },
+  {
+    "id": "ORDER-007",
+    "module": "M3 Customer experience",
+    "title": "Live professional tracking and ETA",
+    "description": "Expose privacy-scoped professional location updates and evaluated ETA estimates to an assigned customer during eligible order states.",
+    "acceptance": [
+      "Only assigned order participants and authorized support can access location updates.",
+      "Location collection and display are state-gated, time-bounded and consent/policy controlled.",
+      "ETA includes freshness and uncertainty; stale or unavailable location is shown explicitly rather than inventing a live position."
+    ],
+    "depends_on": [
+      "ORDER-002",
+      "DISP-003",
+      "PLAT-002",
+      "AI-010"
+    ],
+    "size": "M",
+    "nature": [
+      "RT",
+      "ML-AI",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+  },
+  {
+    "id": "PRO-001",
+    "module": "M4 Professional workspace",
+    "title": "Professional academy and skill assessment",
+    "description": "Deliver structured onboarding, learning modules and service-specific skill assessments linked to professional qualification and periodic review.",
+    "acceptance": [
+      "Professionals complete versioned training and assessments before restricted service categories are enabled.",
+      "Assessment attempts, evidence, reviewer decisions and qualification expiry are auditable.",
+      "Failed, expired or revoked qualifications block matching and acceptance deterministically."
+    ],
+    "depends_on": [
+      "TRUST-001",
+      "CAT-002",
+      "IDENT-004"
+    ],
+    "size": "M",
+    "nature": [
+      "WF",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+  },
+  {
+    "id": "PRO-002",
+    "module": "M4 Professional workspace",
+    "title": "Professional CRM and business reporting",
+    "description": "Provide professionals with customer/job records, invoice creation and income summaries scoped to their own work and permitted organization memberships.",
+    "acceptance": [
+      "Professionals can create and retrieve job/customer records only for authorized assignments and consented relationships.",
+      "Invoices and income reports reconcile to immutable order and ledger references; they cannot alter ledger postings.",
+      "Exports are tenant-scoped, auditable and redact data outside the professional's authorization."
+    ],
+    "depends_on": [
+      "ORDER-004",
+      "FIN-001",
+      "FIN-007",
+      "IDENT-004"
+    ],
+    "size": "M",
+    "nature": [
+      "CRUD",
+      "FIN",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+  },
+  {
+    "id": "PRO-003",
+    "module": "M4 Professional workspace",
+    "title": "Offline-first professional critical workflows",
+    "description": "Support bounded offline work for the professional's critical workflow with an encrypted local queue and safe replay when connectivity returns.",
+    "acceptance": [
+      "Permitted checklist, job notes and status intents can be captured offline with stable idempotency keys.",
+      "Sync revalidates identity, assignment, offer expiry, order state and financial/safety guards before applying mutations.",
+      "Conflicts are visible and recoverable; offline state never grants new authorization or claims an unconfirmed server mutation succeeded."
+    ],
+    "depends_on": [
+      "CLIENT-002",
+      "DISP-003",
+      "ORDER-002",
+      "IDENT-005"
+    ],
+    "size": "M",
+    "nature": [
+      "RT",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+  },
+  {
+    "id": "DISP-006",
+    "module": "M5 Matching & dispatch",
+    "title": "Ranked matching and fair offer distribution",
+    "description": "Rank eligible professionals using configured distance, skill, quality, availability and fairness signals without bypassing deterministic eligibility gates.",
+    "acceptance": [
+      "Ranking is applied only after hard tenant, market, skill, verification and availability filters.",
+      "Ranking inputs, weights/version and tie-break rules are explainable and auditable.",
+      "Fairness constraints and bounded exploration are tested against starvation and concentration regressions."
+    ],
+    "depends_on": [
+      "DISP-002",
+      "DISP-004",
+      "DISP-005",
+      "AN-001"
+    ],
+    "size": "M",
+    "nature": [
+      "RT",
+      "ML-AI",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+  },
+  {
+    "id": "FIN-008",
+    "module": "M6 Payments & finance",
+    "title": "Commission incentives penalties and customer credits",
+    "description": "Implement versioned commission, reward, penalty, coupon and credit rules as deterministic financial inputs with immutable ledger consequences.",
+    "acceptance": [
+      "Rules are market-scoped, versioned, effective-dated and previewable before activation.",
+      "Every applied adjustment has an idempotency key, actor/reason and balanced ledger postings or explicit non-cash entitlement.",
+      "Refunds and reversals compensate original postings; rule edits never mutate historical transactions."
+    ],
+    "depends_on": [
+      "FIN-001",
+      "FIN-002",
+      "PRICE-001",
+      "PLAT-001"
+    ],
+    "size": "M",
+    "nature": [
+      "FIN",
+      "WF",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+  },
+  {
+    "id": "TRUST-008",
+    "module": "M7 Trust & safety",
+    "title": "Background checks and periodic credential review",
+    "description": "Manage market-specific background-check evidence and recurring professional credential reviews with expiry and adverse-result escalation.",
+    "acceptance": [
+      "Required checks are configured by market and service risk, with explicit provider adapters and local fakes.",
+      "Evidence references, consent, reviewer decisions, expiry and recheck history are auditable without storing unnecessary raw sensitive data.",
+      "Expired, revoked or failed checks block eligible dispatch until an authorized review resolves the case."
+    ],
+    "depends_on": [
+      "TRUST-001",
+      "PLAT-002",
+      "PLAT-005"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC",
+      "WF",
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+  },
+  {
+    "id": "MSG-006",
+    "module": "M8 Communications",
+    "title": "Masked virtual voice and call-session adapter",
+    "description": "Provide order-scoped virtual voice sessions with number masking through market-configured communications providers.",
+    "acceptance": [
+      "Only eligible order participants can initiate or join a call session during configured order states.",
+      "Real phone numbers remain hidden from counterparties and call metadata is access-controlled and auditable.",
+      "Provider failures, timeout, session expiry and abuse/rate limits are covered by offline adapter contract tests."
+    ],
+    "depends_on": [
+      "MSG-004",
+      "PLAT-002",
+      "PLAT-005"
+    ],
+    "size": "M",
+    "nature": [
+      "RT",
+      "INT",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+  },
+  {
+    "id": "ADMIN-005",
+    "module": "M9 Admin & operations",
+    "title": "Order operations console and guarded interventions",
+    "description": "Provide operators with an observable order state machine, work queues and audited manual interventions under explicit role and step-up controls.",
+    "acceptance": [
+      "Operators can inspect order timeline, pending offers, payment/ledger references and blockers within their tenant and market scope.",
+      "Manual interventions require an allowed transition, reason and any configured second approval; invalid transitions fail closed.",
+      "Every intervention emits an immutable audit record and idempotent domain event."
+    ],
+    "depends_on": [
+      "ADMIN-001",
+      "ADMIN-004",
+      "ORDER-002",
+      "AN-001"
+    ],
+    "size": "M",
+    "nature": [
+      "WF",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+  },
+  {
+    "id": "PLAT-007",
+    "module": "M13 Platform & compliance",
+    "title": "Consent retention and secret lifecycle governance",
+    "description": "Provide explicit consent records, adopter-configured data retention policies and secret/key lifecycle integrations without inventing legal retention periods.",
+    "acceptance": [
+      "Consent is purpose-specific, versioned, timestamped, revocable and enforced by downstream communication/data access.",
+      "Retention policies are market/legal-entity configurable, reviewed and auditable; no default duration is invented by the platform.",
+      "Secrets are injected from supported secret managers, rotated without repository exposure and never written to logs or telemetry."
+    ],
+    "depends_on": [
+      "IDENT-006",
+      "PLAT-001",
+      "PLAT-002",
+      "PLAT-006"
+    ],
+    "size": "M",
+    "nature": [
+      "SEC",
+      "INT",
+      "WF"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Policy-dependent behavior remains blocked until an adopter supplies valid policy."
+  },
+  {
+    "id": "AI-001",
+    "module": "M14 AI capabilities",
+    "title": "Customer Intake Copilot",
+    "description": "Transform customer text and permitted images into a structured service request, ask only necessary follow-up questions and propose a transparent non-binding estimate.",
+    "acceptance": [
+      "Outputs conform to a versioned schema and cite the catalog/policy context used for suggestions.",
+      "Missing or ambiguous fields trigger bounded follow-up questions; low-confidence extraction is visibly marked for customer confirmation.",
+      "AI cannot submit an order, set a binding price or change safety/financial state without deterministic validation and explicit customer/human approval.",
+      "PII is redacted before external model calls and every supported model/provider path has a local fake and golden evaluation set."
+    ],
+    "depends_on": [
+      "CAT-004",
+      "PLAT-003",
+      "PLAT-004",
+      "PRICE-001"
+    ],
+    "size": "M",
+    "nature": [
+      "ML-AI",
+      "WF",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+  },
+  {
+    "id": "ADMIN-006",
+    "module": "M9 Admin & operations",
+    "title": "Operational demand supply and finance dashboards",
+    "description": "Provide role-scoped operator dashboards for order operations, regional demand/supply and financial performance using canonical, privacy-classified analytics projections.",
+    "acceptance": [
+      "Dashboards consume versioned tenant/market-scoped projections rather than querying another module's operational tables.",
+      "Each metric exposes source, numerator/denominator where applicable, time window, timezone, freshness and projection version.",
+      "Finance metrics reconcile to ledger/projection references; sensitive customer/provider details are minimized and access is audited."
+    ],
+    "depends_on": [
+      "ADMIN-001",
+      "AN-002",
+      "AN-003",
+      "FIN-004"
+    ],
+    "size": "M",
+    "nature": [
+      "DX",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted; dashboards depend on canonical analytics projections."
   }
 ]

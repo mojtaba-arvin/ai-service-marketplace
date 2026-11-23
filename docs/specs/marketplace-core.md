@@ -1,6 +1,6 @@
 # M2–M5 — Catalog/Pricing, Customer Experience, Professional Workspace and Matching Specification
 
-**Feature IDs:** CAT-001–CAT-006, PRICE-001–PRICE-004, ORDER-001–ORDER-006, DISP-001–DISP-005, CLIENT-001–CLIENT-002  
+**Feature IDs:** CAT-001–CAT-006, PRICE-001–PRICE-004, ORDER-001–ORDER-007, DISP-001–DISP-006, PRO-001–PRO-003, CLIENT-001–CLIENT-002  
 **Status:** repository contains foundational slices; full module scope and independent acceptance remain pending.
 
 ## Ownership and boundaries
@@ -22,7 +22,7 @@ The schema is PostgreSQL-first. Other modules must use application interfaces or
 
 ## Public HTTP surface
 
-Current browser/API surfaces provide initial catalog, customer order, professional offer and operator workflows. They are not the full customer/professional product surfaces described in Product Scope. The current route registration is split between `Handler.ServeHTTP` and marketplace route handlers. The implemented HTTP surface is an incomplete subset of the complete product contract, not a product-scope boundary. Contract changes must update the OpenAPI artifact and E2E coverage together.
+Current browser/API surfaces provide initial catalog, customer order, professional offer and operator workflows. They are not the full customer/professional product surfaces described in Product Scope. The current route registration is `Handler.serveMVP` in `mvp_http.go`. Contract changes must update the OpenAPI artifact and E2E coverage together.
 
 
 ## Dynamic service questionnaires
@@ -31,7 +31,7 @@ The new `internal/serviceforms` package validates versioned, admin-defined quest
 
 Resource limits are explicit: 32 KiB schema definitions, 16 KiB answer payloads, nesting depth 8, 64 properties per object, 128 total fields, 100 array items and 32 enum values. Answers are type-checked and unknown object properties are rejected. Definition identity includes service code, version and locale.
 
-The validation boundary is implemented; migration 027 and draft/publish/read APIs provide the market/locale version lifecycle. Migration 028 and scheduled-order creation now validate customer answers against the active published schema and persist the exact form version plus canonical answer JSON in an immutable order snapshot. The customer web questionnaire renderer and structured submission are being implemented in PR #183. Order-history presentation and independent acceptance remain open and must not be marked complete.
+The validation boundary is implemented; migration 027 and draft/publish/read APIs provide the market/locale version lifecycle. Migration 028 and scheduled-order creation now validate customer answers against the active published schema and persist the exact form version plus canonical answer JSON in an immutable order snapshot. Customer web questionnaire rendering and structured submission are in PR #183; order-history presentation and independent acceptance remain open and must not be marked complete.
 
 
 ### Service form version lifecycle and publication
@@ -40,7 +40,16 @@ Migration 027 adds market/locale-specific form versions keyed by menu, market, l
 
 The new authenticated operator endpoints create drafts and publish versions; the public catalog endpoint resolves the published form for a menu/market/locale without exposing operator actor identifiers. The validator from `internal/serviceforms` is used before persistence.
 
-The order API accepts an optional `answers` object. If a published form exists for the service, market and default locale, answers are mandatory and schema-validated before the order is inserted. The exact form version and canonical answers are written in the same transaction as the order; answer snapshots reject UPDATE, DELETE and TRUNCATE. Idempotent replay compares semantic JSON content and returns the original order without switching to a newer published form. Raw answers are deliberately excluded from outbox events. The backend implementation merged in PR #181; customer web rendering is in PR #183. Order-history presentation and independent acceptance remain open.
+The order API accepts an optional `answers` object. If a published form exists for the service, market and default locale, answers are mandatory and schema-validated before the order is inserted. The exact form version and canonical answers are written in the same transaction as the order; answer snapshots reject UPDATE, DELETE and TRUNCATE. Idempotent replay compares semantic JSON content and returns the original order without switching to a newer published form. Raw answers are deliberately excluded from outbox events. The backend implementation merged in PR #181 and customer web rendering/structured submission merged in PR #183. Order-history presentation and independent acceptance remain open.
+
+## Additional customer and professional capabilities
+
+- ORDER-007 owns privacy-scoped live professional location and ETA presentation for assigned orders. Location freshness and uncertainty must be explicit; no stale coordinate is represented as live.
+- PRO-001 owns versioned academy content, skill assessments and qualification expiry linked to TRUST verification.
+- PRO-002 owns professional CRM, invoices and income reporting; reports reconcile to immutable order/ledger references and cannot mutate financial records.
+- PRO-003 owns offline-first professional work capture and idempotent sync. Reconnection always revalidates assignment, expiry, order state and all financial/safety guards.
+- DISP-006 ranks only candidates that have passed deterministic eligibility gates and records ranking/fairness inputs for audit.
+
 
 ## Invariants
 

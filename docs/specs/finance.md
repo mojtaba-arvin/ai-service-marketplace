@@ -31,6 +31,10 @@ All real providers implement the provider-neutral contract through an adapter. P
 - `payment_test.go`: fake provider idempotency, timeouts, declines, webhook signature and persistence.
 - `reconciliation_test.go`: matched/unmatched, amount/currency differences, statement replay and no ledger auto-adjustment.
 
+## Commission, incentive and credit rules
+
+FIN-008 adds versioned market-scoped commission, reward, penalty, coupon and customer-credit rules. Each applied adjustment must be traceable to its rule version and represented by balanced immutable ledger postings or an explicit non-cash entitlement. Historical postings are reversed through compensating entries, never edited. The feature remains planned until implementation and independent Finance QA.
+
 ## Release gates and open gaps
 
 - No production provider adapter or funds movement is enabled in the currently implemented API.
