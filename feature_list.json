@@ -137,7 +137,7 @@
   },
   {
     "id": "PRICE-001",
-    "module": "M3 Pricing",
+    "module": "M2 Catalog & pricing",
     "title": "Versioned fixed-price menus",
     "description": "Implement versioned fixed-price menus within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -157,7 +157,7 @@
   },
   {
     "id": "PRICE-002",
-    "module": "M3 Pricing",
+    "module": "M2 Catalog & pricing",
     "title": "Structured inspection quotes",
     "description": "Implement structured inspection quotes within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -177,7 +177,7 @@
   },
   {
     "id": "PRICE-003",
-    "module": "M3 Pricing",
+    "module": "M2 Catalog & pricing",
     "title": "Customer-approved price variations",
     "description": "Implement customer-approved price variations within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -197,7 +197,7 @@
   },
   {
     "id": "ORDER-001",
-    "module": "M4 Orders",
+    "module": "M3 Customer experience",
     "title": "Order request aggregate",
     "description": "Implement order request aggregate within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -219,7 +219,7 @@
   },
   {
     "id": "ORDER-002",
-    "module": "M4 Orders",
+    "module": "M3 Customer experience",
     "title": "Guarded order state machine",
     "description": "Implement guarded order state machine within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -239,7 +239,7 @@
   },
   {
     "id": "ORDER-003",
-    "module": "M4 Orders",
+    "module": "M3 Customer experience",
     "title": "Cancellation and policy outcomes",
     "description": "Implement cancellation and policy outcomes within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -259,7 +259,7 @@
   },
   {
     "id": "ORDER-004",
-    "module": "M4 Orders",
+    "module": "M3 Customer experience",
     "title": "Order history and timeline",
     "description": "Implement order history and timeline within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -279,7 +279,7 @@
   },
   {
     "id": "DISP-001",
-    "module": "M5 Dispatch",
+    "module": "M5 Matching & dispatch",
     "title": "Provider availability calendar",
     "description": "Implement provider availability calendar within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -299,7 +299,7 @@
   },
   {
     "id": "DISP-002",
-    "module": "M5 Dispatch",
+    "module": "M5 Matching & dispatch",
     "title": "Deterministic candidate eligibility",
     "description": "Implement deterministic candidate eligibility within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -321,7 +321,7 @@
   },
   {
     "id": "DISP-003",
-    "module": "M5 Dispatch",
+    "module": "M5 Matching & dispatch",
     "title": "Offer and acceptance workflow",
     "description": "Implement offer and acceptance workflow within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -342,7 +342,7 @@
   },
   {
     "id": "FIN-001",
-    "module": "M6 Finance",
+    "module": "M6 Payments & finance",
     "title": "Double-entry ledger primitives",
     "description": "Implement double-entry ledger primitives within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -360,7 +360,7 @@
   },
   {
     "id": "FIN-002",
-    "module": "M6 Finance",
+    "module": "M6 Payments & finance",
     "title": "Ledger idempotency and immutability",
     "description": "Implement ledger idempotency and immutability within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -380,7 +380,7 @@
   },
   {
     "id": "FIN-003",
-    "module": "M6 Finance",
+    "module": "M6 Payments & finance",
     "title": "Payment provider adapter contract",
     "description": "Implement payment provider adapter contract within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -400,7 +400,7 @@
   },
   {
     "id": "FIN-004",
-    "module": "M6 Finance",
+    "module": "M6 Payments & finance",
     "title": "Settlement reconciliation",
     "description": "Implement settlement reconciliation within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -503,7 +503,7 @@
   },
   {
     "id": "MSG-001",
-    "module": "M8 Messaging",
+    "module": "M8 Communications",
     "title": "Transactional outbox",
     "description": "Implement transactional outbox within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -523,7 +523,7 @@
   },
   {
     "id": "MSG-002",
-    "module": "M8 Messaging",
+    "module": "M8 Communications",
     "title": "Idempotent publisher and consumer",
     "description": "Implement idempotent publisher and consumer within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -543,7 +543,7 @@
   },
   {
     "id": "MSG-003",
-    "module": "M8 Messaging",
+    "module": "M8 Communications",
     "title": "Notification preferences and adapters",
     "description": "Implement notification preferences and adapters within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -564,7 +564,7 @@
   },
   {
     "id": "SUP-001",
-    "module": "M9 Support",
+    "module": "M8 Communications — support",
     "title": "Support case lifecycle",
     "description": "Implement support case lifecycle within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -584,7 +584,7 @@
   },
   {
     "id": "SUP-002",
-    "module": "M9 Support",
+    "module": "M8 Communications — support",
     "title": "Support action audit trail",
     "description": "Implement support action audit trail within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -604,7 +604,7 @@
   },
   {
     "id": "ADMIN-001",
-    "module": "M10 Admin",
+    "module": "M9 Admin & operations",
     "title": "Operator scoped permissions",
     "description": "Implement operator scoped permissions within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -624,7 +624,7 @@
   },
   {
     "id": "ADMIN-002",
-    "module": "M10 Admin",
+    "module": "M9 Admin & operations",
     "title": "Market and feature-flag configuration",
     "description": "Implement market and feature-flag configuration within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -644,7 +644,7 @@
   },
   {
     "id": "ADMIN-003",
-    "module": "M10 Admin",
+    "module": "M9 Admin & operations",
     "title": "Operational audit search",
     "description": "Implement operational audit search within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -665,7 +665,7 @@
   },
   {
     "id": "GROW-001",
-    "module": "M11 Growth",
+    "module": "M10 Growth",
     "title": "Referral attribution",
     "description": "Implement referral attribution within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -685,7 +685,7 @@
   },
   {
     "id": "GROW-002",
-    "module": "M11 Growth",
+    "module": "M10 Growth",
     "title": "Recurring service plan lifecycle",
     "description": "Implement recurring service plan lifecycle within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -706,7 +706,7 @@
   },
   {
     "id": "AN-001",
-    "module": "M12 Analytics",
+    "module": "M12 Data & analytics",
     "title": "Canonical marketplace event schema",
     "description": "Implement canonical marketplace event schema within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -726,7 +726,7 @@
   },
   {
     "id": "AN-002",
-    "module": "M12 Analytics",
+    "module": "M12 Data & analytics",
     "title": "Funnel and supply metrics",
     "description": "Implement funnel and supply metrics within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -747,7 +747,7 @@
   },
   {
     "id": "B2B-001",
-    "module": "M13 B2B",
+    "module": "M11 B2B",
     "title": "Organization and membership model",
     "description": "Implement organization and membership model within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -767,7 +767,7 @@
   },
   {
     "id": "B2B-002",
-    "module": "M13 B2B",
+    "module": "M11 B2B",
     "title": "Property and location registry",
     "description": "Implement property and location registry within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -787,7 +787,7 @@
   },
   {
     "id": "B2B-003",
-    "module": "M13 B2B",
+    "module": "M11 B2B",
     "title": "Consolidated billing statement",
     "description": "Implement consolidated billing statement within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -808,7 +808,7 @@
   },
   {
     "id": "PLAT-001",
-    "module": "M14 Platform & AI",
+    "module": "M13 Platform & compliance",
     "title": "Market configuration contract",
     "description": "Implement market configuration contract within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -826,7 +826,7 @@
   },
   {
     "id": "PLAT-002",
-    "module": "M14 Platform & AI",
+    "module": "M13 Platform & compliance",
     "title": "External provider adapter framework",
     "description": "Implement external provider adapter framework within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -846,7 +846,7 @@
   },
   {
     "id": "PLAT-003",
-    "module": "M14 Platform & AI",
+    "module": "M13 Platform & compliance",
     "title": "AI intake suggestion boundary",
     "description": "Implement ai intake suggestion boundary within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -867,7 +867,7 @@
   },
   {
     "id": "PLAT-004",
-    "module": "M14 Platform & AI",
+    "module": "M13 Platform & compliance",
     "title": "AI evaluation and prompt governance",
     "description": "Implement ai evaluation and prompt governance within the owning module's public application boundary, including persistence constraints, authorization, observability, and failure handling.",
     "acceptance": [
@@ -950,7 +950,7 @@
   },
   {
     "id": "PRICE-004",
-    "module": "M3 Pricing",
+    "module": "M2 Catalog & pricing",
     "title": "Subscription and service package lifecycle",
     "description": "Model recurring service packages and subscription state transitions.",
     "acceptance": [
@@ -972,7 +972,7 @@
   },
   {
     "id": "ORDER-005",
-    "module": "M4 Orders",
+    "module": "M3 Customer experience",
     "title": "Customer completion approval and reorder",
     "description": "Support customer confirmation of completed work and safe repeat ordering.",
     "acceptance": [
@@ -993,7 +993,7 @@
   },
   {
     "id": "ORDER-006",
-    "module": "M4 Orders",
+    "module": "M3 Customer experience",
     "title": "Customer review and reputation workflow",
     "description": "Support bilateral reviews with abuse-resistant eligibility.",
     "acceptance": [
@@ -1015,7 +1015,7 @@
   },
   {
     "id": "DISP-004",
-    "module": "M5 Dispatch",
+    "module": "M5 Matching & dispatch",
     "title": "Dispatch strategy and reassignment policies",
     "description": "Support broadcast, sequential offer and customer-choice dispatch strategies.",
     "acceptance": [
@@ -1036,7 +1036,7 @@
   },
   {
     "id": "DISP-005",
-    "module": "M5 Dispatch",
+    "module": "M5 Matching & dispatch",
     "title": "Capacity controls and supply forecasting",
     "description": "Manage service/region capacity and generate supply-shortage signals.",
     "acceptance": [
@@ -1057,7 +1057,7 @@
   },
   {
     "id": "FIN-005",
-    "module": "M6 Finance",
+    "module": "M6 Payments & finance",
     "title": "Escrow and payment hold lifecycle",
     "description": "Model authorization/hold, release and expiry as explicit financial workflows.",
     "acceptance": [
@@ -1080,7 +1080,7 @@
   },
   {
     "id": "FIN-006",
-    "module": "M6 Finance",
+    "module": "M6 Payments & finance",
     "title": "Payout, refund and chargeback workflows",
     "description": "Track professional payouts, refunds and chargeback cases against immutable ledger entries.",
     "acceptance": [
@@ -1102,7 +1102,7 @@
   },
   {
     "id": "FIN-007",
-    "module": "M6 Finance",
+    "module": "M6 Payments & finance",
     "title": "Invoice and tax reporting records",
     "description": "Generate versioned invoice records and market-configured tax breakdowns.",
     "acceptance": [
@@ -1189,7 +1189,7 @@
   },
   {
     "id": "MSG-004",
-    "module": "M8 Messaging",
+    "module": "M8 Communications",
     "title": "Realtime chat and contact-data protection",
     "description": "Provide order-scoped chat with realtime delivery and contact leakage controls.",
     "acceptance": [
@@ -1211,7 +1211,7 @@
   },
   {
     "id": "MSG-005",
-    "module": "M8 Messaging",
+    "module": "M8 Communications",
     "title": "Transactional and marketing consent separation",
     "description": "Enforce separate delivery preferences and opt-in state for transactional and marketing messages.",
     "acceptance": [
@@ -1233,7 +1233,7 @@
   },
   {
     "id": "ADMIN-004",
-    "module": "M9 Admin",
+    "module": "M9 Admin & operations",
     "title": "Step-up approval for sensitive operations",
     "description": "Require stronger approval for configured high-impact operator actions.",
     "acceptance": [
@@ -1269,7 +1269,7 @@
     "size": "S",
     "nature": [
       "CRUD",
-      "AI"
+      "ML-AI"
     ],
     "passes": false,
     "verified_by": null,
@@ -1299,7 +1299,7 @@
   },
   {
     "id": "B2B-004",
-    "module": "M13 B2B",
+    "module": "M11 B2B",
     "title": "Maintenance contracts and recurring work",
     "description": "Manage organization maintenance agreements and scheduled work entitlements.",
     "acceptance": [
@@ -1321,7 +1321,7 @@
   },
   {
     "id": "B2B-005",
-    "module": "M13 B2B",
+    "module": "M11 B2B",
     "title": "Building-manager API and webhooks",
     "description": "Expose tenant-scoped integration APIs and signed webhook delivery for organizations.",
     "acceptance": [
@@ -1343,7 +1343,7 @@
   },
   {
     "id": "AN-003",
-    "module": "M12 Analytics",
+    "module": "M12 Data & analytics",
     "title": "Replayable analytics projections and warehouse export",
     "description": "Build idempotent projections and export canonical events for analytics consumers.",
     "acceptance": [
@@ -1365,7 +1365,7 @@
   },
   {
     "id": "PLAT-005",
-    "module": "M14 Platform & AI",
+    "module": "M13 Platform & compliance",
     "title": "Market locale and provider capability matrix",
     "description": "Resolve locale, timezone, direction and adapter capabilities from versioned market config.",
     "acceptance": [
@@ -1388,7 +1388,7 @@
   },
   {
     "id": "AI-005",
-    "module": "M14 Platform & AI",
+    "module": "M14 AI capabilities",
     "title": "Professional Copilot",
     "description": "Provide grounded troubleshooting, execution checklists and quote drafts to professionals.",
     "acceptance": [
@@ -1410,7 +1410,7 @@
   },
   {
     "id": "AI-006",
-    "module": "M14 Platform & AI",
+    "module": "M14 AI capabilities",
     "title": "Dispute triage copilot",
     "description": "Summarize dispute evidence and suggest resolution paths for human adjudicators.",
     "acceptance": [
@@ -1432,7 +1432,7 @@
   },
   {
     "id": "AI-007",
-    "module": "M14 Platform & AI",
+    "module": "M14 AI capabilities",
     "title": "Support copilot",
     "description": "Suggest grounded support responses and permitted operator actions.",
     "acceptance": [
@@ -1454,7 +1454,7 @@
   },
   {
     "id": "AI-008",
-    "module": "M14 Platform & AI",
+    "module": "M14 AI capabilities",
     "title": "Explainable leakage and payment fraud signals",
     "description": "Combine deterministic rules and evaluated models for suspicious behavior signals.",
     "acceptance": [
@@ -1478,7 +1478,7 @@
   },
   {
     "id": "AI-009",
-    "module": "M14 Platform & AI",
+    "module": "M14 AI capabilities",
     "title": "Professional quality coaching",
     "description": "Provide evidence-based quality feedback and coaching recommendations.",
     "acceptance": [
@@ -1500,7 +1500,7 @@
   },
   {
     "id": "AI-010",
-    "module": "M14 Platform & AI",
+    "module": "M14 AI capabilities",
     "title": "Demand ETA and price forecasting",
     "description": "Provide evaluated forecasts for demand, arrival time and price ranges.",
     "acceptance": [
