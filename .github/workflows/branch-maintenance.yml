@@ -83,7 +83,7 @@ jobs:
             remote_ref="refs/remotes/origin/maintenance-pr-$number"
             git update-ref -d "$remote_ref" 2>/dev/null || true
             if ! git fetch --no-tags origin "refs/heads/$branch:$remote_ref"; then
-              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | FETCH_FAILED | Branch disappeared or could not be fetched; skipped safely |\\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | FETCH_FAILED | Branch disappeared or could not be fetched; skipped safely |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
               failures=$((failures + 1))
               continue
             fi
@@ -97,12 +97,14 @@ jobs:
             git switch --force-create "maintenance/pr-$number" "$expected_head" >/dev/null
             if ! git merge-base "$expected_head" "$base_sha" >/dev/null; then
               printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | BLOCKED | No common ancestor with current main |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+              failures=$((failures + 1))
               continue
             fi
 
             if ! git rebase "$base_sha"; then
               git rebase --abort || true
               printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CONFLICT | Rebase conflict; branch left unchanged |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+              failures=$((failures + 1))
               continue
             fi
 
