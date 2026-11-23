@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 360
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with:
           fetch-depth: 0
           persist-credentials: true
@@ -80,8 +80,14 @@ jobs:
             fi
 
             printf '\nPR #%s: %s (%s)\n' "$number" "$title" "$branch"
-            git fetch --no-tags origin "refs/heads/$branch:refs/remotes/origin/maintenance-pr-$number"
-            actual_head="$(git rev-parse "refs/remotes/origin/maintenance-pr-$number")"
+            remote_ref="refs/remotes/origin/maintenance-pr-$number"
+            git update-ref -d "$remote_ref" 2>/dev/null || true
+            if ! git fetch --no-tags origin "refs/heads/$branch:$remote_ref"; then
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | FETCH_FAILED | Branch disappeared or could not be fetched; skipped safely |\\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+              failures=$((failures + 1))
+              continue
+            fi
+            actual_head="$(git rev-parse "$remote_ref")"
 
             if [[ "$actual_head" != "$expected_head" ]]; then
               printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | SKIPPED | Head changed during discovery; observed `%s` |\n' "$number" "$branch" "$number" "$branch" "$expected_head" "$actual_head" >> "$summary"
