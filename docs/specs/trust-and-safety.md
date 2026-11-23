@@ -15,6 +15,10 @@ Verification evidence is represented by a private object reference, not a public
 
 Support case records and events are tenant-scoped. Support assignment must target an active support-agent record in the same tenant. Support actions must be attributable and append-only.
 
+## Background checks and periodic review
+
+TRUST-008 extends professional verification with market- and service-risk-specific background-check adapters, consent/evidence minimization, expiry, re-review and deterministic dispatch blocking for failed or expired checks. The platform does not invent check providers or legal criteria; adopters configure approved sources and policy.
+
 ## Invariants
 
 1. A professional can submit evidence only for their own profile in their tenant.
