@@ -49,7 +49,7 @@ func boundedRedaction(ctx context.Context,r Redactor,value string,max int)(strin
  safe=strings.TrimSpace(safe);if safe==""||len(safe)>max{return "",ErrInvalidCase};return safe,nil
 }
 func (s Service) Triage(ctx context.Context,req Request)(Triage,error){
- if s.Evidence==nil||s.Redactor==nil||s.Model==nil||s.Timeout<=0||strings.TrimSpace(req.Market)==""||strings.TrimSpace(req.Locale)==""||strings.TrimSpace(req.DisputeType)==""{return Triage{},ErrInvalidCase}
+ if s.Evidence==nil||s.Redactor==nil||s.Model==nil||s.Timeout<=0||strings.TrimSpace(req.Market)==""||strings.TrimSpace(req.Locale)==""||strings.TrimSpace(req.DisputeType)==""||len(req.Market)>128||len(req.Locale)>128||len(req.DisputeType)>128{return Triage{},ErrInvalidCase}
  reason,err:=boundedRedaction(ctx,s.Redactor,req.Reason,6000);if err!=nil{return Triage{},err}
  retrievalCtx,cancelRetrieval:=context.WithTimeout(ctx,s.Timeout)
  evidence,err:=s.Evidence.Retrieve(retrievalCtx,req.Market,req.Locale,req.DisputeType,reason);cancelRetrieval()
