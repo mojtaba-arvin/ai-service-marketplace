@@ -138,8 +138,8 @@ func (s *Store) RotateSession(ctx context.Context, refreshToken string, pepper [
 	tokens := SessionTokens{SessionID: newSessionID, AccessToken: access, RefreshToken: refresh,
 		AccessExpiresAt: now.Add(accessTTL), RefreshExpiresAt: now.Add(refreshTTL)}
 	_, err = tx.Exec(ctx, `
-		INSERT INTO auth_sessions(id,family_id,phone_identity_id,access_token_hash,refresh_token_hash,access_expires_at,refresh_expires_at)
-		VALUES($1,$2,$3,$4,$5,$6,$7)
+		INSERT INTO auth_sessions(id,family_id,phone_identity_id,device_id,access_token_hash,refresh_token_hash,access_expires_at,refresh_expires_at)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8)
 	`, newSessionID, familyID, identityID, deviceID, sessionDigest(access, pepper), sessionDigest(refresh, pepper), tokens.AccessExpiresAt, tokens.RefreshExpiresAt)
 	if err != nil { return SessionTokens{}, fmt.Errorf("persist rotated session: %w", err) }
 	if _, err = tx.Exec(ctx, `UPDATE auth_sessions SET revoked_at=now(),replaced_by=$2 WHERE id=$1`, oldID, newSessionID); err != nil { return SessionTokens{}, err }
