@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS market_config_audit (
     market_code text NOT NULL REFERENCES markets(code) ON DELETE RESTRICT,
     actor_tenant_id text NOT NULL,
     actor_subject_id text NOT NULL,
+    actor_role text NOT NULL CHECK (actor_role = 'operator'),
     action text NOT NULL CHECK (action IN ('created', 'updated')),
     previous_version integer,
     new_version integer NOT NULL CHECK (new_version > 0),
