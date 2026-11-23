@@ -180,10 +180,12 @@ func (s *Store) CreateScheduledOrderWithAnswers(ctx context.Context,actor Actor,
 
 	// Booking creation does not represent a payment authorization or funds hold.
 	// Financial postings are created only by an explicit payment workflow.
-	payload,_:=json.Marshal(map[string]any{
-		"order_id":id,"status":"requested","price_version_id":version.ID,
-		"scheduled_at":scheduledAt,"country_code":country,"region_code":region,"city_code":city,"area_code":area,
-	})
+	eventData:=map[string]any{
+ "order_id":id,"status":"requested","price_version_id":version.ID,
+ "scheduled_at":scheduledAt,"country_code":country,"region_code":region,"city_code":city,"area_code":area,
+}
+if formID!="" { eventData["service_form_version_id"]=formID }
+payload,_:=json.Marshal(eventData)
 	if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('order',$1,'order.created',$2::jsonb)`,id,payload); err!=nil {
 		return Order{},false,err
 	}
