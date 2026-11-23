@@ -77,8 +77,8 @@ func (s *Store) IssueSession(ctx context.Context, verified VerifiedIdentity, pep
 	tokens := SessionTokens{SessionID: sessionID, AccessToken: access, RefreshToken: refresh,
 		AccessExpiresAt: now.Add(accessTTL), RefreshExpiresAt: now.Add(refreshTTL)}
 	_, err = s.DB.Exec(ctx, `
-		INSERT INTO auth_sessions(id,family_id,phone_identity_id,device_id,access_token_hash,refresh_token_hash,access_expires_at,refresh_expires_at)
-		VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+		INSERT INTO auth_sessions(id,family_id,phone_identity_id,access_token_hash,refresh_token_hash,access_expires_at,refresh_expires_at)
+		VALUES($1,$2,$3,$4,$5,$6,$7)
 	`, sessionID, familyID, identityID, sessionDigest(access, pepper), sessionDigest(refresh, pepper), tokens.AccessExpiresAt, tokens.RefreshExpiresAt)
 	if err != nil { return SessionTokens{}, fmt.Errorf("persist session: %w", err) }
 	return tokens, nil
