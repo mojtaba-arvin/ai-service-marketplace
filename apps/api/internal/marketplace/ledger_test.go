@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -61,6 +62,51 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 	if err=pool.QueryRow(ctx,`SELECT side FROM ledger_entries WHERE journal_id=$1 AND account_code=$2`,journal.ID,cash.Code).Scan(&originalSide); err!=nil { t.Fatal(err) }
 	if err=pool.QueryRow(ctx,`SELECT side FROM ledger_entries WHERE journal_id=$1 AND account_code=$2`,reversal.ID,cash.Code).Scan(&reversalSide); err!=nil { t.Fatal(err) }
 	if originalSide!="debit" || reversalSide!="credit" { t.Fatalf("reversal did not invert original line: %s -> %s",originalSide,reversalSide) }
+
+	// Concurrent identical journal requests must converge on one immutable
+	// journal and one pair of ledger entries.
+	raceKey := "ledger-race-" + suffix
+	type postResult struct {
+		journal LedgerJournal
+		err     error
+	}
+	start := make(chan struct{})
+	results := make(chan postResult, 2)
+	var wg sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			posted, postErr := store.PostJournal(ctx, raceKey, "OMR", "Concurrent provider payable", lines)
+			results <- postResult{journal: posted, err: postErr}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	var raceJournalID string
+	for result := range results {
+		if result.err != nil {
+			t.Fatalf("concurrent identical journal post failed: %v", result.err)
+		}
+		if raceJournalID == "" {
+			raceJournalID = result.journal.ID
+		}
+		if result.journal.ID != raceJournalID {
+			t.Fatalf("idempotent race returned different journals: %s and %s", raceJournalID, result.journal.ID)
+		}
+	}
+	var raceJournals, raceEntries int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM ledger_journals WHERE idempotency_key=$1`, raceKey).Scan(&raceJournals); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM ledger_entries WHERE journal_id=$1`, raceJournalID).Scan(&raceEntries); err != nil {
+		t.Fatal(err)
+	}
+	if raceJournals != 1 || raceEntries != 2 {
+		t.Fatalf("concurrent journal idempotency must persist one journal/two entries: journals=%d entries=%d", raceJournals, raceEntries)
+	}
 
 	if _,err=store.PostJournal(ctx,"unbalanced-"+suffix,"OMR","Unbalanced",[]JournalLine{
 		{AccountCode:cash.Code,Side:"debit",AmountMinor:100,Currency:"OMR"},
