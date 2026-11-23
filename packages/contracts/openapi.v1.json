@@ -3018,7 +3018,7 @@
                   ],
                   "properties": {
                     "form": {
-                      "$ref": "#/components/schemas/ServiceFormVersion"
+                      "$ref": "#/components/schemas/PublishedServiceForm"
                     }
                   }
                 }
@@ -3879,6 +3879,47 @@
             "type": "string"
           },
           "retired_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PublishedServiceForm": {
+        "type": "object",
+        "required": [
+          "id",
+          "menu_id",
+          "service_code",
+          "market_code",
+          "locale",
+          "version",
+          "schema",
+          "published_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "menu_id": {
+            "type": "string"
+          },
+          "service_code": {
+            "type": "string"
+          },
+          "market_code": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "schema": {
+            "type": "object"
+          },
+          "published_at": {
             "type": "string",
             "format": "date-time"
           }
