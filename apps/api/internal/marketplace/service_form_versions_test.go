@@ -6,6 +6,7 @@ import(
  "os"
  "path/filepath"
  "strings"
+ "sync"
  "testing"
  "time"
 
@@ -57,4 +58,12 @@ func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
  if oldStatus!="published"{t.Fatal("new version is not active")}
  if _,err=pool.Exec(ctx,`UPDATE service_form_versions SET status='draft' WHERE id=$1`,second.ID);err==nil{t.Fatal("published form was reactivated")}
  if _,err=pool.Exec(ctx,`TRUNCATE TABLE service_form_versions`);err==nil{t.Fatal("service form history truncate was allowed")}
+ var wg sync.WaitGroup
+ versions:=make(chan int,2)
+ failures:=make(chan error,2)
+ for i:=0;i<2;i++{wg.Add(1);go func(){defer wg.Done();v,e:=store.CreateServiceFormDraft(ctx,platform,menuID,marketCode,"en",schema1);if e!=nil{failures<-e;return};versions<-v.Version}()}
+ wg.Wait();close(versions);close(failures)
+ for e:=range failures{t.Fatal(e)}
+ got:=map[int]bool{};for v:=range versions{got[v]=true}
+ if !got[3]||!got[4]{t.Fatalf("concurrent draft versions were not serialized: %#v",got)}
 }
