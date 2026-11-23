@@ -17,7 +17,7 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 - PR #162: platform-only global market configuration mutation, transactional before/after audit snapshots and append-only audit history including TRUNCATE protection.
 - PR #168: bounded dynamic service-form schema/answer validator. Persistence/publication, API/UI and order snapshots are separate layers.
 - PR #171: initial 77-feature full-product inventory; all entries remain passes=false.
-- PR #184: expanded the inventory to 93 features after checking the M1–M14 requirements against existing acceptance criteria; added 13 explicit capabilities for addresses, external identity, live tracking, professional academy/CRM/offline sync, ranked fair dispatch, finance adjustments, background checks, masked voice, operator interventions, consent/retention/secrets Intake Copilot and operator analytics dashboards. No passes value was changed.
+- PR #184: expanded the inventory to 93 features after checking the M1–M14 requirements against existing acceptance criteria; added 14 explicit capabilities for addresses, external identity, live tracking, professional academy/CRM/offline sync, ranked fair dispatch, finance adjustments, background checks, masked voice, operator interventions, consent/retention/secrets Intake Copilot and operator analytics dashboards. No passes value was changed.
 - PR #175: session-bound device inventory/revocation; refresh rotation preserves binding. Not hardware attestation or trusted-device proof.
 - PR #177: evidence-grounded Dispute Triage advisory boundary with redaction, evidence-cited facts/options, mandatory human adjudication and golden evaluation.
 
@@ -29,7 +29,7 @@ These are repository capabilities, not evidence that every domain is complete or
 - PR #181: scheduled order answer validation and immutable form-version snapshots; current-head Required Checks are pending. CAT-004/CAT-006 remain passes=false.
 - PR #183: dynamic customer questionnaire rendering and structured submission; current-main Required Checks pending.
 - PR #182: correct adopter-facing full-product language and stale MVP framing; Required Checks pending.
-- PR #184: 13 missing M1–M14 capabilities decomposed into the feature inventory and linked module issues; current-main Required Checks pending, no acceptance claimed.
+- PR #184: 14 missing M1–M14 capabilities decomposed into the feature inventory and linked module issues; current-main Required Checks pending, no acceptance claimed.
 
 ## Product workstreams and gates
 
