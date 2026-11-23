@@ -1,6 +1,6 @@
 # M1 — Identity and Access Specification
 
-**Feature IDs:** IDENT-001–IDENT-004  
+**Feature IDs:** IDENT-001–IDENT-007 (inventory and trusted-device capabilities are being decomposed)  
 **Status:** implementation exists; independent feature acceptance remains pending.
 
 ## Ownership
@@ -21,10 +21,11 @@ Primary implementation:
 - `otp_challenges`: keyed OTP digest, expiry, attempts, consumption and supersession state.
 - `auth_sessions`: opaque access/refresh token digests, expiry, rotation-family and revocation state.
 - `identity_memberships`: identity, tenant and role membership. A phone identity can have distinct memberships; a membership is not global authorization.
+- `auth_devices`: user-labeled device registrations associated with authenticated sessions; revocation invalidates every session bound to that device.
 
 ## Public boundary
 
-The HTTP authentication surface currently includes OTP request/verification, session refresh/revoke, and `/v1/auth/me`. Internal module callers use `Store.ResolveActor` / `Store.ListIdentityRoles` and pass an `Actor` into module operations.
+The HTTP authentication surface includes OTP request/verification, session refresh/revoke, `/v1/auth/me`, and authenticated device registration/list/revocation at `/v1/auth/devices`. Internal module callers use `Store.ResolveActor` / `Store.ListIdentityRoles` and pass an `Actor` into module operations.
 
 No endpoint may accept a tenant or role from an untrusted request and use it without resolving a matching membership. Test-only OTP endpoints must remain unreachable outside test mode.
 
@@ -37,6 +38,9 @@ No endpoint may accept a tenant or role from an untrusted request and use it wit
 5. Role resolution requires an explicit identity + tenant + role membership.
 6. Authorization is server-side and deny-by-default; tenant equality is checked before role policy.
 7. Cookie-authenticated mutations enforce same-origin CSRF/Origin protections; auth responses are non-cacheable.
+8. A device registration can only be attached to the caller's active session and identity; client-supplied identity/device IDs are never trusted.
+9. Revoking a device revokes all sessions bound to it; refresh rotation preserves the device binding.
+10. Device labels are bounded user-visible metadata. A registration is not, by itself, proof of hardware identity or a step-up authentication policy.
 
 ## Events and failure behavior
 
@@ -46,12 +50,15 @@ Authentication failures return generic client-facing errors and must not disclos
 
 Relevant tests:
 - `identity_test.go`, `sessions_test.go`, `memberships_test.go`
-- `http_auth_test.go`, `session_cookies_test.go`
+- `http_auth_test.go`, `session_cookies_test.go`, `devices_test.go`
 - `mvp_http_test.go` for role-scoped workflow access
 
 Required independent negatives: invalid/expired/replayed OTP, exhausted attempts, OTP delivery failure, refresh replay, revoked session, missing role membership, cross-tenant actor, and CSRF/Origin failure. Do not set any IDENT feature to passing until evidence is attached by an independent verifier.
 
 ## Open gaps
+
+- Device inventory and session-bound revocation are implemented in PR #158; required CI and independent acceptance are pending. Device registration does not claim hardware attestation or trusted-device status.
+- Define an explicit trusted-device attestation and step-up policy before treating any device as trusted; do not infer trust from a client-provided label.
 
 - Define explicit membership administration and revocation lifecycle.
 - Add abuse/rate-limit observability and retention/deletion controls for identity records.
