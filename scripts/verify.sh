@@ -21,6 +21,9 @@ while IFS= read -r -d '' file; do
   echo "    OK $file"
 done < <(find . -type f -name '*.json' -not -path './.git/*' -print0)
 
+echo "==> Checking OpenAPI contract invariants"
+python3 scripts/check_openapi.py
+
 echo "==> Checking feature-list invariants"
 python3 scripts/check_feature_list.py
 
