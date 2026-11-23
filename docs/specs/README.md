@@ -6,11 +6,11 @@ These specifications define module ownership, public boundaries, data ownership,
 
 | Domain | Modules / feature IDs | Specification |
 |---|---|---|
-| Identity and access | M1 / IDENT-001–004 | [identity-and-access.md](identity-and-access.md) |
-| Marketplace core | M2–M5 / CAT, PRICE, ORDER, DISP | [marketplace-core.md](marketplace-core.md) |
-| Trust, safety and support | M7, M9 / TRUST, SUP | [trust-and-safety.md](trust-and-safety.md) |
-| Finance | M6 / FIN-001–004 | [finance.md](finance.md) |
-| Platform, messaging, admin, growth, analytics, B2B and AI | M8, M10–M14 / MSG, ADMIN, GROW, AN, B2B, PLAT | [platform-analytics-b2b-ai.md](platform-analytics-b2b-ai.md) |
+| Identity and access | M1 / IDENT-001–009 | [identity-and-access.md](identity-and-access.md) |
+| Marketplace core | M2–M5 / CAT, PRICE, ORDER, DISP, PRO, CLIENT | [marketplace-core.md](marketplace-core.md) |
+| Trust, safety and support | M7, M9 / TRUST, SUP, ADMIN | [trust-and-safety.md](trust-and-safety.md) |
+| Finance | M6 / FIN-001–008 | [finance.md](finance.md) |
+| Platform, messaging, admin, growth, analytics, B2B and AI | M8, M10–M14 / MSG, ADMIN, GROW, AN, B2B, PLAT, AI | [platform-analytics-b2b-ai.md](platform-analytics-b2b-ai.md) |
 
 ## Sources of truth
 
