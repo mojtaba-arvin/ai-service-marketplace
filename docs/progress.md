@@ -139,3 +139,8 @@ This is agent-led QA, not independent third-party sign-off. Feature inventory re
 
 - PR #166 introduces a bounded, typed service-form schema/answer validator for admin-defined questionnaires, with strict schema decoding, closed objects, resource limits and negative-path tests.
 - This is validation logic only. Version persistence/publication, admin authorization, API/rendering, immutable order snapshots and independent acceptance remain open; CAT-004 is not passing.
+
+
+## 2026-11-23 — Dispute Triage advisory boundary
+
+A new backend package provides evidence-grounded case summaries, established facts, missing-information checklists and next-step suggestions. It redacts user/evidence text, limits citations to retrieved sources, rejects verdict/refund/settlement fields, always requires human adjudication and includes a deterministic golden evaluator. Persistence, private evidence storage, API/UI, appeals and independent adjudicator integration remain open; TRUST-003 is not passing.
