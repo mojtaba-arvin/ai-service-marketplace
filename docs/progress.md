@@ -137,5 +137,5 @@ This is agent-led QA, not independent third-party sign-off. Feature inventory re
 
 ## 2026-11-23 — Dynamic service questionnaire foundation
 
-- PR #164 introduces a bounded, typed service-form schema/answer validator for admin-defined questionnaires, with strict schema decoding, closed objects, resource limits and negative-path tests.
+- PR #166 introduces a bounded, typed service-form schema/answer validator for admin-defined questionnaires, with strict schema decoding, closed objects, resource limits and negative-path tests.
 - This is validation logic only. Version persistence/publication, admin authorization, API/rendering, immutable order snapshots and independent acceptance remain open; CAT-004 is not passing.
