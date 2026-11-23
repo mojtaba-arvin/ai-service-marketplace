@@ -22,15 +22,22 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 These are repository capabilities, not evidence that every domain is complete or that a production marketplace is publicly deployed.
 
-## Active implementation PR
+## Integrated product changes
 
-- PR #180 merged to main (`164592e51b45e83706d43a84cdd50a98134dac3d`): market/locale-specific service form version lifecycle, platform-operator draft/publish/read APIs, immutable published/retired schemas, serialized version allocation and publish outbox event.
-- PR #181: scheduled order answer validation and immutable form-version snapshots; current-head Required Checks and integration tests are pending after migration/test-fixture corrections. CAT-004/CAT-006 remain passes=false.
+- PR #180 merged: market/locale-specific service form version lifecycle and publication APIs.
+- PR #181 merged (`6167b8fcbf79cbe24e26296237373453ab701910`): scheduled order answer validation, immutable form-version snapshots, semantic idempotent replay and raw-answer exclusion from events. CAT-004/CAT-006 remain passes=false pending independent acceptance.
+
+## Active implementation PRs
+
+- PR #183: dynamic customer questionnaire rendering and structured answer submission; current-main Required Checks pending.
+- PR #182: adopter-facing language, web security documentation and deployment-scope corrections; current-main Required Checks pending.
+- PR #184: 13 additional feature records to complete M1–M14 decomposition; current-main Required Checks pending.
+
 
 ## Product workstreams and gates
 
 1. **M1 Identity/privacy:** trusted-device attestation/step-up policy; privacy export/deletion only under approved policy.
-2. **M2 Catalog/pricing:** form version lifecycle and order answer snapshots, immutable price rules/snapshots, packages/subscriptions and localized SEO.
+2. **M2 Catalog/pricing:** form version lifecycle and immutable order answer snapshots, generated customer form rendering, immutable price rules/snapshots, packages/subscriptions and localized SEO.
 3. **M3/M4 Customer/professional:** full intake, scheduling, estimates, tracking, masked communications, completion/variations/reviews/reorder; onboarding/KYC/academy, quotes, earnings, CRM and offline-safe mobile.
 4. **M5 Matching:** broadcast/sequential/customer-choice strategies, reassignment, capacity and advisory demand/supply forecasts.
 5. **M6 Finance:** escrow/holds, payouts/refunds/chargebacks, tax/invoices/reconciliation; gated on independent Order/Ledger QA.
