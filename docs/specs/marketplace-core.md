@@ -1,14 +1,14 @@
-# M2–M5 — Catalog, Pricing, Orders and Dispatch Specification
+# M2–M5 — Catalog/Pricing, Customer Experience, Professional Workspace and Matching Specification
 
-**Feature IDs:** CAT-001–CAT-003, PRICE-001–PRICE-003, ORDER-001–ORDER-004, DISP-001–DISP-003  
-**Status:** core vertical slice is implemented; independent acceptance remains pending.
+**Feature IDs:** CAT-001–CAT-004, PRICE-001–PRICE-004, ORDER-001–ORDER-006, DISP-001–DISP-005, CLIENT-001–CLIENT-002  
+**Status:** repository contains foundational slices; full module scope and independent acceptance remain pending.
 
 ## Ownership and boundaries
 
-- **Catalog (M2):** taxonomy, service eligibility, professional skills/service areas, market visibility and translations. Sources: `catalog.go`, `providers.go`, `catalog_localization.go`.
-- **Pricing (M3):** immutable price versions, inspection quotes, customer-approved variations. Sources: `pricing.go`, `quotes.go`, `variations.go`.
-- **Orders (M4):** customer-owned order aggregate, schedule and price snapshot, state transitions, cancellation and timeline. Sources: `scheduled_orders.go`, `store.go`, `cancellation.go`, `order_history.go`.
-- **Dispatch (M5):** provider availability, deterministic candidate eligibility, bounded offer rounds, acceptance and booking. Sources: `availability.go`, `dispatch_candidates.go`, `dispatch_offers.go`.
+- **Catalog and pricing (M2):** taxonomy, admin-defined services, versioned dynamic forms, service eligibility, immutable price versions, quotes, variations and market visibility. Sources: `catalog.go`, `providers.go`, `catalog_localization.go`, `pricing.go`, `quotes.go`, `variations.go`, and the `serviceforms` package.
+- **Customer experience (M3):** customer-owned order aggregate, schedule/price snapshots, intake, state/timeline, cancellation, completion approval, reviews and reorder. Current sources include `scheduled_orders.go`, `store.go`, `cancellation.go` and `order_history.go`.
+- **Professional workspace (M4):** professional profile, skills, availability, offers and fulfillment workflows. Current sources include `providers.go`, `availability.go` and `dispatch_offers.go`.
+- **Matching and dispatch (M5):** deterministic candidate eligibility, bounded offer rounds, acceptance, booking and capacity foundations. Sources: `availability.go`, `dispatch_candidates.go`, `dispatch_offers.go`.
 
 ## Data ownership
 
@@ -22,7 +22,16 @@ The schema is PostgreSQL-first. Other modules must use application interfaces or
 
 ## Public HTTP surface
 
-The current web MVP exposes a public catalog; customer order create/history/timeline/cancel; professional profile, qualification, assigned orders, offers and transitions; operator provider/order queues, verification and dispatch. The authoritative route registration is `Handler.serveMVP` in `mvp_http.go`. Contract changes must update the OpenAPI artifact and E2E coverage together.
+Current browser/API surfaces provide initial catalog, customer order, professional offer and operator workflows. They are not the full customer/professional product surfaces described in Product Scope. The current route registration is `Handler.serveMVP` in `mvp_http.go`. Contract changes must update the OpenAPI artifact and E2E coverage together.
+
+
+## Dynamic service questionnaires
+
+The new `internal/serviceforms` package validates versioned, admin-defined questionnaire definitions and submitted answers. It supports a bounded JSON Schema subset: typed objects, strings, integers/numbers, booleans and arrays; required fields; closed objects; enums; string length; numeric bounds; array item bounds; and nested schemas. Unsupported schema keywords are rejected rather than silently ignored.
+
+Resource limits are explicit: 32 KiB schema definitions, 16 KiB answer payloads, nesting depth 8, 64 properties per object, 128 total fields, 100 array items and 32 enum values. Answers are type-checked and unknown object properties are rejected. Definition identity includes service code, version and locale.
+
+This is a pure validation boundary only. Admin authorization, persistence/publication lifecycle, API endpoints, immutable order schema/answer snapshots, generated client forms and E2E coverage remain unimplemented. The feature must not be marked complete until those integration layers and independent acceptance exist.
 
 ## Invariants
 
@@ -43,7 +52,7 @@ Invalid transitions, changed idempotency payloads, unavailable market/catalog en
 
 ## Verification matrix
 
-- Catalog: `catalog_test.go`, `catalog_localization_test.go`
+- Catalog: `catalog_test.go`, `catalog_localization_test.go`, `internal/serviceforms/serviceforms_test.go`
 - Pricing/quotes: `pricing_test.go`, `quotes_test.go`, `variations_test.go`
 - Orders: `scheduled_orders_test.go`, `cancellation_test.go`, `order_history_test.go`
 - Dispatch: `availability_test.go`, `dispatch_candidates_test.go`, `dispatch_offers_test.go`
