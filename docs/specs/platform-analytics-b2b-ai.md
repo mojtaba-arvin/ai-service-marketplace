@@ -1,9 +1,9 @@
 # M8, M10–M14 — Platform, Messaging, Admin, Analytics, B2B and AI Specification
 
-**Feature IDs:** MSG-001–MSG-003, ADMIN-001–ADMIN-003, GROW-001–GROW-002, AN-001–AN-002, B2B-001–B2B-003, PLAT-001–PLAT-004  
+**Feature IDs:** MSG-001–MSG-006, ADMIN-001–ADMIN-005, GROW-001–GROW-004, AN-001–AN-003, B2B-001–B2B-005, PLAT-001–PLAT-007, AI-001, AI-005–AI-010  
 **Status:** adapter, outbox, market-config and AI intake/evaluation foundations exist. Growth, analytics, B2B and several admin capabilities remain backlog.
 
-## Platform and adapters (M14)
+## Platform and adapters (M13)
 
 Market configuration is explicit and immutable after registry construction. Country/market code, locale, currency, IANA timezone and policy version are required; resolution is exact and fails closed. Implementation: `internal/marketconfig`, `internal/adapters`.
 
@@ -111,3 +111,11 @@ This is an advisory backend boundary only. It does not persist a dispute, adjudi
 ## Explicitly deferred
 
 Do not mark GROW, AN, B2B or unimplemented ADMIN/MSG/PLAT features complete based on these foundations. Each requires a focused spec, data contract, authorization model, migration plan, offline tests and independent acceptance evidence.
+
+
+## Additional full-product capabilities
+
+- **AI-001 Intake Copilot:** schema-constrained text/image extraction, bounded clarifying questions, catalog/policy provenance, PII redaction and golden evaluations. It cannot submit orders or bind prices; customer confirmation and deterministic policy remain authoritative.
+- **MSG-006 Masked voice:** order-scoped call sessions use market-configured adapters, participant authorization, number masking, bounded duration and auditable expiry.
+- **ADMIN-005 Operations console:** operators inspect order timelines and queues; manual transitions require permission, reason and configured step-up approval, then append immutable audit/domain events.
+- **PLAT-007 Consent/retention/secrets:** purpose-specific consent and revocation are enforced; retention is configured by the adopter's valid legal policy; secret injection/rotation is externalized and never logged.
