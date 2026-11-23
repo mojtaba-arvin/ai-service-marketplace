@@ -46,7 +46,7 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
         "012_settlement_reconciliation.sql","013_inspection_quotes.sql","014_quote_variations.sql",
         "015_order_schedule.sql","016_cancellation_policy.sql","017_provider_availability.sql",
         "018_dispatch_offers.sql","019_outbox_delivery.sql","020_professional_verification.sql",
-        "021_support_cases.sql","022_identity_memberships.sql","023_order_tenant_scope.sql",
+        "021_support_cases.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","025_auth_devices.sql",
     }
     for _, name := range migrations {
         raw, readErr := os.ReadFile(filepath.Join("..","..","migrations",name))
