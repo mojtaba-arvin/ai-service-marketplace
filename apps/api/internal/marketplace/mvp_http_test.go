@@ -337,33 +337,6 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     if timelineResponse.Code != http.StatusOK || timeline["order"].(map[string]any)["status"]!="completed" {
         t.Fatalf("customer timeline: status=%d body=%s",timelineResponse.Code,timelineResponse.Body.String())
     }
-    newPrice,err := store.CreatePriceVersion(ctx,menu.ID,5100,"USD")
-    if err != nil { t.Fatalf("publish updated price before reorder: %v",err) }
-    reorderAt := time.Now().UTC().Add(8*time.Hour).Truncate(time.Microsecond)
-    reorderPayload := map[string]any{"scheduled_at":reorderAt.Format(time.RFC3339Nano)}
-    reorderResponse,reorderBody := call(http.MethodPost,"/v1/orders/"+orderID+"/reorder",tokens["customer"],"mvp-reorder-1-"+suffix,reorderPayload)
-    if reorderResponse.Code != http.StatusCreated {
-        t.Fatalf("reorder completed order: status=%d body=%s",reorderResponse.Code,reorderResponse.Body.String())
-    }
-    reordered := reorderBody["order"].(map[string]any)
-    if reordered["id"] == orderID || reordered["amount_minor"] != float64(newPrice.AmountMinor) {
-        t.Fatalf("reorder must create a distinct order using the current price: %#v",reordered)
-    }
-    reorderReplay,reorderReplayBody := call(http.MethodPost,"/v1/orders/"+orderID+"/reorder",tokens["customer"],"mvp-reorder-1-"+suffix,reorderPayload)
-    if reorderReplay.Code != http.StatusOK || reorderReplayBody["created"] != false ||
-        reorderReplayBody["order"].(map[string]any)["id"] != reordered["id"] {
-        t.Fatalf("reorder idempotency replay failed: status=%d body=%s",reorderReplay.Code,reorderReplay.Body.String())
-    }
-    unavailablePayload := map[string]any{"scheduled_at":time.Now().UTC().Add(24*time.Hour).Format(time.RFC3339Nano)}
-    unavailableResponse,_ := call(http.MethodPost,"/v1/orders/"+orderID+"/reorder",tokens["customer"],"mvp-reorder-unavailable-"+suffix,unavailablePayload)
-    if unavailableResponse.Code != http.StatusConflict {
-        t.Fatalf("reorder must reject a slot without eligible professional availability: status=%d body=%s",unavailableResponse.Code,unavailableResponse.Body.String())
-    }
-    otherReorder,_ := call(http.MethodPost,"/v1/orders/"+orderID+"/reorder",tokens["other"],"mvp-reorder-other-"+suffix,reorderPayload)
-    if otherReorder.Code != http.StatusNotFound {
-        t.Fatalf("another customer must not reorder a customer order: status=%d body=%s",otherReorder.Code,otherReorder.Body.String())
-    }
-
     if timeline["completion_approval"] == nil {
         t.Fatalf("customer timeline must expose the immutable completion approval: %s",timelineResponse.Body.String())
     }
@@ -398,6 +371,34 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     if listErr != nil || len(otherTenantOrders)!=1 || otherTenantOrders[0].ID!=otherTenantOrder.ID {
         t.Fatalf("other tenant operator queue: orders=%#v err=%v",otherTenantOrders,listErr)
     }
+
+    newPrice,err := store.CreatePriceVersion(ctx,menu.ID,5100,"USD")
+    if err != nil { t.Fatalf("publish updated price before reorder: %v",err) }
+    reorderAt := time.Now().UTC().Add(8*time.Hour).Truncate(time.Microsecond)
+    reorderPayload := map[string]any{"scheduled_at":reorderAt.Format(time.RFC3339Nano)}
+    reorderResponse,reorderBody := call(http.MethodPost,"/v1/orders/"+orderID+"/reorder",tokens["customer"],"mvp-reorder-1-"+suffix,reorderPayload)
+    if reorderResponse.Code != http.StatusCreated {
+        t.Fatalf("reorder completed order: status=%d body=%s",reorderResponse.Code,reorderResponse.Body.String())
+    }
+    reordered := reorderBody["order"].(map[string]any)
+    if reordered["id"] == orderID || reordered["amount_minor"] != float64(newPrice.AmountMinor) {
+        t.Fatalf("reorder must create a distinct order using the current price: %#v",reordered)
+    }
+    reorderReplay,reorderReplayBody := call(http.MethodPost,"/v1/orders/"+orderID+"/reorder",tokens["customer"],"mvp-reorder-1-"+suffix,reorderPayload)
+    if reorderReplay.Code != http.StatusOK || reorderReplayBody["created"] != false ||
+        reorderReplayBody["order"].(map[string]any)["id"] != reordered["id"] {
+        t.Fatalf("reorder idempotency replay failed: status=%d body=%s",reorderReplay.Code,reorderReplay.Body.String())
+    }
+    unavailablePayload := map[string]any{"scheduled_at":time.Now().UTC().Add(24*time.Hour).Format(time.RFC3339Nano)}
+    unavailableResponse,_ := call(http.MethodPost,"/v1/orders/"+orderID+"/reorder",tokens["customer"],"mvp-reorder-unavailable-"+suffix,unavailablePayload)
+    if unavailableResponse.Code != http.StatusConflict {
+        t.Fatalf("reorder must reject a slot without eligible professional availability: status=%d body=%s",unavailableResponse.Code,unavailableResponse.Body.String())
+    }
+    otherReorder,_ := call(http.MethodPost,"/v1/orders/"+orderID+"/reorder",tokens["other"],"mvp-reorder-other-"+suffix,reorderPayload)
+    if otherReorder.Code != http.StatusNotFound {
+        t.Fatalf("another customer must not reorder a customer order: status=%d body=%s",otherReorder.Code,otherReorder.Body.String())
+    }
+
 
     scheduleTwo := time.Now().UTC().Add(4*time.Hour).Truncate(time.Microsecond)
     orderInput["scheduled_at"] = scheduleTwo.Format(time.RFC3339Nano)
