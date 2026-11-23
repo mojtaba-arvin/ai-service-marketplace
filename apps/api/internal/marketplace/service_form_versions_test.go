@@ -54,6 +54,9 @@ func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
  var eventCount int
  if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE aggregate_type='service_form' AND aggregate_id=$1 AND event_type='catalog.service_form.published'`,second.ID).Scan(&eventCount);err!=nil{t.Fatal(err)}
  if eventCount!=1{t.Fatalf("expected one publish event, got %d",eventCount)}
+ var eventType,tenantID,dataFormID string
+ if err=pool.QueryRow(ctx,`SELECT payload->>'type',payload->>'tenant_id',payload->'data'->>'form_version_id' FROM outbox_events WHERE aggregate_type='service_form' AND aggregate_id=$1 AND event_type='catalog.service_form.published'`,second.ID).Scan(&eventType,&tenantID,&dataFormID);err!=nil{t.Fatal(err)}
+ if eventType!="catalog.service_form.published"||tenantID!=platformTenantID||dataFormID!=second.ID{t.Fatalf("invalid canonical publication event: %s %s %s",eventType,tenantID,dataFormID)}
  if err=pool.QueryRow(ctx,`SELECT status FROM service_form_versions WHERE id=$1`,second.ID).Scan(&oldStatus);err!=nil{t.Fatal(err)}
  if oldStatus!="published"{t.Fatal("new version is not active")}
  if _,err=pool.Exec(ctx,`UPDATE service_form_versions SET status='draft' WHERE id=$1`,second.ID);err==nil{t.Fatal("published form was reactivated")}
