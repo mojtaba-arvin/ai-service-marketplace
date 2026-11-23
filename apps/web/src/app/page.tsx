@@ -51,7 +51,7 @@ type DynamicFieldProps = { name: string; path: string; schema: FormSchema; value
 
 function defaultFieldValue(schema: FormSchema): unknown {
   if (schema.type === "object") return {};
-  if (schema.type === "array") return [];
+  if (schema.type === "array") return Array.from({ length: schema.minItems ?? 0 }, () => schema.items ? defaultFieldValue(schema.items) : null);
   if (schema.type === "boolean") return false;
   if (schema.type === "integer" || schema.type === "number") return 0;
   return "";
