@@ -162,6 +162,7 @@ PR #143 matched a repeated deferred-note string and placed the support-case audi
 - #151: Privacy-safe HTTP telemetry, including panic and streaming response behavior.
 - #152: Market locale, currency/timezone formatting and RTL/LTR direction.
 - #154: Offline contract tests for the deployment smoke script.
+- #155: Platform-scoped append-only market configuration audit with before/after snapshots; required checks pending.
 - #133 remains blocked: no runtime analytics consumer is wired, and projection-generation identity is absent from the read model schema.
 - #110 remains blocked pending external-consumer compatibility confirmation.
 - #137 remains blocked pending an explicit compatibility policy for legacy cancellation-event consumers.
