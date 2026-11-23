@@ -84,6 +84,10 @@ func(s *Store)PublishServiceFormVersion(ctx context.Context,actor Actor,formID s
  if err:=authorizeCatalogMutation(actor);err!=nil{return ServiceFormVersion{},err}
  formID=strings.TrimSpace(formID);if formID==""{return ServiceFormVersion{},ErrServiceFormNotFound}
  tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return ServiceFormVersion{},err};defer tx.Rollback(ctx)
+ var menuID string
+ if err=tx.QueryRow(ctx,`SELECT menu_id FROM service_form_versions WHERE id=$1`,formID).Scan(&menuID);errors.Is(err,pgx.ErrNoRows){return ServiceFormVersion{},ErrServiceFormNotFound}else if err!=nil{return ServiceFormVersion{},err}
+ var lockedMenuID string
+ if err=tx.QueryRow(ctx,`SELECT id FROM service_price_menus WHERE id=$1 FOR UPDATE`,menuID).Scan(&lockedMenuID);err!=nil{return ServiceFormVersion{},err}
  target,err:=scanServiceForm(tx.QueryRow(ctx,`SELECT `+serviceFormColumns+` FROM service_form_versions f JOIN service_price_menus m ON m.id=f.menu_id WHERE f.id=$1 FOR UPDATE OF f`,formID))
  if errors.Is(err,pgx.ErrNoRows){return ServiceFormVersion{},ErrServiceFormNotFound};if err!=nil{return ServiceFormVersion{},err}
  if target.Status=="published"{if err=tx.Commit(ctx);err!=nil{return ServiceFormVersion{},err};return target,nil}
