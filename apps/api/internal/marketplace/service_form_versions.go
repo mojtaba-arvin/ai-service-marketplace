@@ -20,6 +20,17 @@ var(
  ErrInvalidServiceForm=errors.New("invalid service form version")
  ErrServiceFormNotPublished=errors.New("service form version is not publishable")
 )
+type PublishedServiceForm struct{
+ ID string `json:"id"`
+ MenuID string `json:"menu_id"`
+ ServiceCode string `json:"service_code"`
+ MarketCode string `json:"market_code"`
+ Locale string `json:"locale"`
+ Version int `json:"version"`
+ Schema json.RawMessage `json:"schema"`
+ PublishedAt time.Time `json:"published_at"`
+}
+func publicServiceForm(v ServiceFormVersion)PublishedServiceForm{return PublishedServiceForm{ID:v.ID,MenuID:v.MenuID,ServiceCode:v.ServiceCode,MarketCode:v.MarketCode,Locale:v.Locale,Version:v.Version,Schema:v.Schema,PublishedAt:*v.PublishedAt}}
 type ServiceFormVersion struct{
  ID string `json:"id"`
  MenuID string `json:"menu_id"`
