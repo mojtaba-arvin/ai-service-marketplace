@@ -116,3 +116,52 @@ func TestHTTPOTPDeliveryUsesHTTPSAndStableIdempotencyKey(t *testing.T){
  if err=delivery.SendOTP(context.Background(),"+96890000000","123456","otp:challenge-1");err!=nil{t.Fatal(err)}
  if _,err=NewHTTPOTPDelivery("http://example.test","secret-token",nil);!errors.Is(err,ErrOTPDeliveryConfig){t.Fatalf("insecure endpoint accepted: %v",err)}
 }
+
+func TestHTTPDeviceManagementIsIdentityScopedAndRevokesSessionsPostgres(t *testing.T) {
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" { t.Skip("TEST_DATABASE_URL is not configured") }
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil { t.Fatal(err) }
+	defer pool.Close()
+	for _, name := range []string{"002_identity.sql", "003_sessions.sql", "025_auth_devices.sql"} {
+		raw, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
+		if readErr != nil { t.Fatal(readErr) }
+		if _, err = execMigrationScript(ctx, pool, raw); err != nil { t.Fatalf("apply %s: %v", name, err) }
+	}
+	pepper := []byte("http-device-test-session-pepper-at-least-32-bytes")
+	phone := fmt.Sprintf("+1993%011d", time.Now().UnixNano()%100000000000)
+	if _, err = pool.Exec(ctx, `INSERT INTO phone_identities(id,phone_e164) VALUES('http-device-identity',$1)`, phone); err != nil { t.Fatal(err) }
+	token := "http-device-access-token"
+	if _, err = pool.Exec(ctx, `
+		INSERT INTO auth_sessions(id,family_id,phone_identity_id,access_token_hash,refresh_token_hash,access_expires_at,refresh_expires_at)
+		VALUES('http-device-session','http-device-family','http-device-identity',$1,$2,now()+interval '15 minutes',now()+interval '1 day')
+	`, sessionDigest(token, pepper), sessionDigest("http-device-refresh", pepper)); err != nil { t.Fatal(err) }
+	h := &Handler{Store:&Store{DB:pool},SessionPepper:pepper}
+
+	request := func(method, path, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		if body != "" { req.Header.Set("Content-Type", "application/json") }
+		recorder := httptest.NewRecorder()
+		h.ServeHTTP(recorder, req)
+		return recorder
+	}
+	created := request(http.MethodPost, "/v1/auth/devices", `{"label":"Workstation"}`)
+	if created.Code != http.StatusCreated { t.Fatalf("register device: status=%d body=%s", created.Code, created.Body.String()) }
+	var createdBody struct { Device AuthDevice `json:"device"` }
+	if err = json.Unmarshal(created.Body.Bytes(), &createdBody); err != nil { t.Fatal(err) }
+	if createdBody.Device.ID == "" { t.Fatal("device id missing") }
+
+	listed := request(http.MethodGet, "/v1/auth/devices", "")
+	if listed.Code != http.StatusOK { t.Fatalf("list devices: status=%d body=%s", listed.Code, listed.Body.String()) }
+	var listBody struct { Devices []AuthDevice `json:"devices"` }
+	if err = json.Unmarshal(listed.Body.Bytes(), &listBody); err != nil { t.Fatal(err) }
+	if len(listBody.Devices) != 1 || listBody.Devices[0].ID != createdBody.Device.ID { t.Fatalf("unexpected device list: %#v", listBody.Devices) }
+
+	revoked := request(http.MethodDelete, "/v1/auth/devices/"+createdBody.Device.ID, "")
+	if revoked.Code != http.StatusNoContent { t.Fatalf("revoke device: status=%d body=%s", revoked.Code, revoked.Body.String()) }
+	me := request(http.MethodGet, "/v1/auth/me", "")
+	if me.Code != http.StatusUnauthorized { t.Fatalf("device-revoked session still authenticated: %d", me.Code) }
+}
