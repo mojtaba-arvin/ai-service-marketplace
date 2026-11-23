@@ -8,23 +8,21 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 ## Integrated on main
 
+- Main at snapshot: `f7431d3570030f6ac0d4d70bc4c9fab76e0df7f0`.
 - Go/PostgreSQL modular-monolith API; Next.js customer web; React/Vite operator UI; Flutter mobile direction; isolated Python AI workloads.
 - Identity/tenant memberships, customer order workflows, professional eligibility, scheduling, availability, dispatch, cancellation, history and transactional outbox.
 - Immutable ledger primitives, payment adapter boundaries, market configuration/localization, B2B foundations, migrations, Compose deployment, CI, E2E, backup/restore, CodeQL, Dependency Review and Agent Guard.
-- PR #156: full fourteen-domain product definition, README, business/technical vision and dependency-aware roadmap.
+- PR #156: complete fourteen-domain product definition, adopter-facing README, business/technical vision and dependency-aware roadmap.
 - PRs #159/#162: grounded Professional Copilot and append-only market-configuration audit with before/after snapshots.
 - PRs #168/#180: dynamic service-form validation and market/locale version publication lifecycle.
-- PR #171: initial 77-feature inventory; all records remain passes=false.
+- PR #171: initial 77-feature inventory; all entries remained passes=false.
 - PRs #175/#177: session-bound device inventory/revocation and evidence-grounded Dispute Triage advisory boundary.
-- PR #181 merged (`6167b8fcbf79cbe24e26296237373453ab701910`): validate order answers against the published schema; store immutable form-version/answer snapshots; semantic idempotent replay; no raw answers in events.
-- PR #182 merged (`57ad0061c4f621a141b2169ccce5534cf8f4321e`): remove MVP framing from adopter-facing docs/UI, correct web security docs and deployment-scope language.
-- PR #183 merged (`2eada2b6242276c0719e778ab5d77aa743418bb0`): recursive customer questionnaire renderer and structured answer submission.
+- PR #181 (`6167b8fcbf79cbe24e26296237373453ab701910`): published-form answer validation, immutable order snapshots and semantic idempotent replay.
+- PR #182 (`57ad0061c4f621a141b2169ccce5534cf8f4321e`): corrected full-product language, web security docs and deployment/contract boundaries.
+- PR #183 (`2eada2b6242276c0719e778ab5d77aa743418bb0`): recursive customer questionnaire renderer and structured answer submission.
+- PR #184 (`f7431d3570030f6ac0d4d70bc4c9fab76e0df7f0`): expanded the inventory from 79 to 93 features with 14 additional M1–M14 capabilities; updated module specs and issue epics.
 
 These are repository capabilities, not evidence that every domain is complete or that a production marketplace is publicly deployed.
-
-## Active implementation PR
-
-- PR #184: expand the inventory from 79 to 93 features with 14 explicit M1–M14 capabilities; update module specs and issue epics. Current-head Required Checks are pending; all new records remain passes=false.
 
 ## Product workstreams and gates
 
@@ -40,8 +38,8 @@ These are repository capabilities, not evidence that every domain is complete or
 
 ## Hard blockers and safety boundaries
 
-- #110: external consumer compatibility for canonical order events; #181 adds optional `service_form_version_id` to the order event payload and this field must be included in consumer compatibility review.
-- #133: executable analytics projector and generation semantics; #137: canonical event payload compatibility.
+- #110: external consumer compatibility for canonical order events; include optional `service_form_version_id` from #181 in the consumer compatibility review.
+- #133: executable analytics projector and generation semantics; #137: canonical cancellation-event compatibility.
 - B2B billing waits for independent Order/Ledger gates (#57/#10) and canonical event readiness (#87).
 - No retention duration, privacy policy, fairness threshold, tax/legal rule or regulated-provider approval is invented.
 - GitHub security settings require owner-side confirmation; AI affecting money, safety, identity, access or reputation remains advisory until deterministic policy and/or authorized human approval.
@@ -49,7 +47,7 @@ These are repository capabilities, not evidence that every domain is complete or
 
 ## Acceptance and execution rules
 
-- feature_list.json is the structured 93-feature inventory; all new capabilities stay passes=false until implementation, negative-path tests, exact-head CI and independent acceptance evidence exist.
+- feature_list.json is the structured 93-feature inventory; all 14 new capabilities remain passes=false until implementation, negative-path tests, exact-head CI and independent acceptance evidence exist.
 - Keep module ownership and public API/event boundaries; use small independent PRs and work on other tasks while CI runs.
 - Required checks must pass on current PR head and current main base. Do not bypass branch protection, security gates or independent QA.
 - progress.md records evidence; roadmap records intended outcomes. Neither substitutes for issue-level acceptance.
