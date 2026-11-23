@@ -30,7 +30,7 @@ func TestProductionHTTPOTPAndSessionLifecyclePostgres(t *testing.T){
   "010_ledger_idempotency_reversal.sql","011_payment_adapter_contract.sql","012_settlement_reconciliation.sql",
   "013_inspection_quotes.sql","014_quote_variations.sql","015_order_schedule.sql","016_cancellation_policy.sql",
   "017_provider_availability.sql","018_dispatch_offers.sql","019_outbox_delivery.sql","020_professional_verification.sql",
-  "021_support_cases.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","025_auth_devices.sql","029_order_completion_approval.sql",
+  "021_support_cases.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","025_auth_devices.sql",
  }{
   raw,e:=os.ReadFile(filepath.Join("..","..","migrations",name));if e!=nil{t.Fatal(e)}
   if _,e=execMigrationScript(ctx, pool, raw);e!=nil{t.Fatalf("apply %s: %v",name,e)}

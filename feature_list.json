@@ -989,7 +989,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Customer completion approval backend is implemented in PR branch feat/order-customer-completion-approval-20261123: customer/tenant ownership is enforced, approval is one-per-order and immutable, retries return the original record, and the customer timeline exposes it. Safe reorder from an explicit prior snapshot with current catalog/price/availability revalidation remains unimplemented. passes remains false pending the remaining scope and independent QA."
+    "notes": "Backend completion approval and safe reorder are implemented in PR branch feat/order-customer-completion-approval-20261123: approval is customer/tenant-authorized, one-per-order, immutable and idempotent; reorder reuses the explicit service/area/answer snapshot, requires a new schedule, checks current provider availability and revalidates current catalog, price and published form. passes remains false pending exact-head CI, independent QA and remaining acceptance."
   },
   {
     "id": "ORDER-006",

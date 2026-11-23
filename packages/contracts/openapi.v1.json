@@ -3113,6 +3113,93 @@
           }
         }
       }
+    },
+    "/v1/orders/{order_id}/reorder": {
+      "post": {
+        "summary": "Reorder a completed customer order",
+        "description": "Creates a new order from the original service, service-area and questionnaire-answer snapshot. The new schedule is required. Current provider availability is checked before creation; current active catalog, price and published questionnaire are revalidated by the normal order-creation transaction. Availability is a preflight, not a slot reservation; dispatch and booking revalidate it again. Idempotency is scoped to the source order and Idempotency-Key.",
+        "operationId": "reorder_customer_order",
+        "tags": [
+          "Marketplace"
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CSRFToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderOrder"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Existing order returned for an idempotent retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "New order created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4011,6 +4098,23 @@
           "approved_at": {
             "type": "string",
             "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReorderOrder": {
+        "type": "object",
+        "required": [
+          "scheduled_at"
+        ],
+        "properties": {
+          "scheduled_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "answers": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "additionalProperties": false

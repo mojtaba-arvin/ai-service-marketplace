@@ -387,6 +387,8 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.createScheduledOrder(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/orders":
         h.orderHistory(w,r); return true
+    case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/orders/") && strings.HasSuffix(path,"/reorder"):
+        h.reorderScheduledOrder(w,r); return true
     case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/orders/") && strings.HasSuffix(path,"/completion-approval"):
         h.approveOrderCompletion(w,r); return true
     case r.Method == http.MethodGet && strings.HasPrefix(path,"/v1/orders/"):
@@ -551,6 +553,34 @@ func (h *Handler) orderTimeline(w http.ResponseWriter, r *http.Request) {
     writeJSON(w,http.StatusOK,item)
 }
 
+func (h *Handler) reorderScheduledOrder(w http.ResponseWriter, r *http.Request) {
+    actor, err := h.actorForRole(r, RoleCustomer)
+    if err != nil { writeError(w, http.StatusForbidden, "customer membership is required"); return }
+    parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+    if len(parts) != 4 || parts[0] != "v1" || parts[1] != "orders" || parts[2] == "" || parts[3] != "reorder" {
+        writeError(w, http.StatusNotFound, "not found"); return
+    }
+    key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+    if key == "" { writeError(w, http.StatusBadRequest, "Idempotency-Key is required"); return }
+    var in struct { ScheduledAt time.Time `json:"scheduled_at"`; Answers json.RawMessage `json:"answers,omitempty"` }
+    decoder := json.NewDecoder(r.Body)
+    decoder.DisallowUnknownFields()
+    if decoder.Decode(&in) != nil || decoder.Decode(new(any)) != io.EOF {
+        writeError(w, http.StatusBadRequest, "invalid reorder payload"); return
+    }
+    order, created, err := h.Store.ReorderScheduledOrder(r.Context(), actor, parts[2], key, in.ScheduledAt, h.DefaultMarketCode, in.Answers)
+    if err != nil {
+        status := http.StatusUnprocessableEntity
+        if errors.Is(err, ErrForbidden) { status = http.StatusForbidden }
+        if errors.Is(err, ErrOrderNotFound) || errors.Is(err, ErrPriceMenuNotFound) { status = http.StatusNotFound }
+        if errors.Is(err, ErrOrderIdempotencyConflict) || errors.Is(err, ErrProviderUnavailable) { status = http.StatusConflict }
+        if errors.Is(err, ErrMarketUnavailable) || errors.Is(err, ErrPriceUnavailable) || errors.Is(err, ErrServiceFormAnswersRequired) || errors.Is(err, ErrServiceFormAnswersInvalid) { status = http.StatusUnprocessableEntity }
+        writeError(w, status, err.Error()); return
+    }
+    status := http.StatusOK
+    if created { status = http.StatusCreated }
+    writeJSON(w, status, map[string]any{"order": order, "created": created})
+}
 func (h *Handler) approveOrderCompletion(w http.ResponseWriter, r *http.Request) {
     actor, err := h.actorForRole(r, RoleCustomer)
     if err != nil {
