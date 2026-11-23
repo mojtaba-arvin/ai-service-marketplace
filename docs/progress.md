@@ -133,3 +133,9 @@ QA evidence on exact PR #108 head `249d0eb68f991c34e5d138e8f7c0de97c5dcf266`:
 - Agent Guard [#45022503404](https://github.com/mojtaba-arvin/ai-service-marketplace/actions/runs/45022503404): success.
 
 This is agent-led QA, not independent third-party sign-off. Feature inventory remains `passes: false`; issue #88 remains open until the gated order/finance relationship and consolidated statement work is implemented and verified.
+
+
+## 2026-11-23 — Dynamic service questionnaire foundation
+
+- PR #166 introduces a bounded, typed service-form schema/answer validator for admin-defined questionnaires, with strict schema decoding, closed objects, resource limits and negative-path tests.
+- This is validation logic only. Version persistence/publication, admin authorization, API/rendering, immutable order snapshots and independent acceptance remain open; CAT-004 is not passing.
