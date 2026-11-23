@@ -4,6 +4,7 @@ import (
     "context"
     "encoding/json"
     "errors"
+    "io"
     "net/http"
     "strconv"
     "strings"
@@ -425,7 +426,9 @@ func (h *Handler) platformOperatorForRequest(r *http.Request)(Actor,error){
 func (h *Handler) createServiceFormDraft(w http.ResponseWriter,r *http.Request){
  actor,err:=h.platformOperatorForRequest(r);if err!=nil{writeError(w,http.StatusForbidden,"platform operator membership is required");return}
  var in struct{MenuID string `json:"menu_id"`;MarketCode string `json:"market_code"`;Locale string `json:"locale"`;Schema json.RawMessage `json:"schema"`}
- if json.NewDecoder(r.Body).Decode(&in)!=nil||len(in.Schema)==0{writeError(w,http.StatusBadRequest,"invalid service form payload");return}
+ dec:=json.NewDecoder(r.Body);dec.DisallowUnknownFields()
+ if dec.Decode(&in)!=nil||len(in.Schema)==0{writeError(w,http.StatusBadRequest,"invalid service form payload");return}
+ if dec.Decode(new(any))!=io.EOF{writeError(w,http.StatusBadRequest,"invalid service form payload");return}
  form,err:=h.Store.CreateServiceFormDraft(r.Context(),actor,in.MenuID,in.MarketCode,in.Locale,in.Schema)
  if err!=nil{status:=http.StatusUnprocessableEntity;if errors.Is(err,ErrForbidden){status=http.StatusForbidden};if errors.Is(err,ErrPriceMenuNotFound){status=http.StatusNotFound};if errors.Is(err,ErrMarketUnavailable){status=http.StatusUnprocessableEntity};writeError(w,status,err.Error());return}
  writeJSON(w,http.StatusCreated,map[string]any{"form":form})
