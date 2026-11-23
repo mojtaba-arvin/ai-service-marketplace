@@ -457,7 +457,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Deferred beyond the current MVP unless a release dependency is identified. Independent QA evidence is required before passes can become true."
+    "notes": "Implementation is present in support_cases.go and migration 021: case creation, assignment, and status transitions append actor/action/reason/before-after events in the same transaction; PostgreSQL rejects UPDATE/DELETE. Integration coverage verifies the lifecycle and event count. Independent QA evidence is still pending; passes remains false."
   },
   {
     "id": "TRUST-003",
