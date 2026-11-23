@@ -45,7 +45,13 @@ func TestDeviceRegistrationListingAndRevocationPostgres(t *testing.T) {
 	listed, err = store.ListDevices(ctx, "device-identity")
 	if err != nil || len(listed) != 1 || listed[0].Label != "Renamed laptop" { t.Fatalf("device update: %#v %v", listed, err) }
 	if err = store.RevokeDevice(ctx, "another-identity", device.ID); !errors.Is(err, ErrDeviceNotFound) { t.Fatalf("cross-identity revoke should be hidden: %v", err) }
+	rotated, err := store.RotateSession(ctx, refresh, pepper, 15*time.Minute, 24*time.Hour)
+	if err != nil { t.Fatalf("rotate device-bound session: %v", err) }
+	var carriedDeviceID string
+	if err = pool.QueryRow(ctx, `SELECT device_id FROM auth_sessions WHERE id=$1`, rotated.SessionID).Scan(&carriedDeviceID); err != nil { t.Fatal(err) }
+	if carriedDeviceID != device.ID { t.Fatalf("refresh rotation lost device binding: got %q want %q", carriedDeviceID, device.ID) }
+	if _, err = store.AuthenticateAccessToken(ctx, rotated.AccessToken, pepper); err != nil { t.Fatalf("rotated session should authenticate before device revocation: %v", err) }
 	if err = store.RevokeDevice(ctx, "device-identity", device.ID); err != nil { t.Fatal(err) }
-	if _, err = store.AuthenticateAccessToken(ctx, access, pepper); !errors.Is(err, ErrSessionInvalid) { t.Fatalf("revoked device session still authenticates: %v", err) }
+	if _, err = store.AuthenticateAccessToken(ctx, rotated.AccessToken, pepper); !errors.Is(err, ErrSessionInvalid) { t.Fatalf("revoked device session still authenticates: %v", err) }
 	if err = store.RevokeDevice(ctx, "device-identity", device.ID); err != nil { t.Fatalf("repeated revoke should be idempotent: %v", err) }
 }
