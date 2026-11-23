@@ -85,6 +85,13 @@ func TestMarketConfigurationAndLocaleResolutionPostgres(t *testing.T) {
 	if _,err=pool.Exec(ctx,`DELETE FROM market_config_audit WHERE actor_subject_id=$1`,operator.SubjectID); err==nil {
 		t.Fatal("market config audit must reject DELETE")
 	}
+	tx,err:=pool.Begin(ctx)
+	if err!=nil { t.Fatal(err) }
+	if _,err=tx.Exec(ctx,`TRUNCATE market_config_audit`); err==nil {
+		_ = tx.Rollback(ctx)
+		t.Fatal("market config audit must reject TRUNCATE")
+	}
+	_ = tx.Rollback(ctx)
 	config.Timezone="Not/A_Timezone"
 	if _,err=store.SaveMarket(ctx,operator,config); !errors.Is(err,ErrInvalidMarket) { t.Fatalf("invalid timezone must fail: %v",err) }
 }
