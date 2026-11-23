@@ -57,6 +57,8 @@ func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
  if err=pool.QueryRow(ctx,`SELECT status FROM service_form_versions WHERE id=$1`,second.ID).Scan(&oldStatus);err!=nil{t.Fatal(err)}
  if oldStatus!="published"{t.Fatal("new version is not active")}
  if _,err=pool.Exec(ctx,`UPDATE service_form_versions SET status='draft' WHERE id=$1`,second.ID);err==nil{t.Fatal("published form was reactivated")}
+ if _,err=pool.Exec(ctx,`UPDATE service_form_versions SET published_by='attacker' WHERE id=$1`,second.ID);err==nil{t.Fatal("published metadata mutation was allowed")}
+ if _,err=pool.Exec(ctx,`UPDATE service_form_versions SET retired_by='attacker' WHERE id=$1`,draft.ID);err==nil{t.Fatal("retirement metadata mutation was allowed")}
  if _,err=pool.Exec(ctx,`TRUNCATE TABLE service_form_versions`);err==nil{t.Fatal("service form history truncate was allowed")}
  var wg sync.WaitGroup
  versions:=make(chan int,2)
