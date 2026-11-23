@@ -6,13 +6,13 @@ This directory is the versioned public contract surface for clients, integration
 
 - `../../schemas/domain-event.schema.json` defines the target v1 canonical event envelope.
 - `../schemas/examples/order-created.v1.json` is a PII-minimized example conforming to that envelope.
-- `openapi.v1.json` is the initial source-aligned OpenAPI snapshot for the implemented MVP HTTP routes. Generic response schemas are explicitly provisional; the handler and E2E tests remain the source of truth until DTO schemas are fully specified.
+- `openapi.v1.json` is the source-aligned OpenAPI snapshot for the currently implemented public HTTP routes. Some generic response schemas remain provisional; handler and E2E tests are authoritative until every public DTO is fully specified. This artifact is an implemented subset, not the complete M1–M14 API contract.
 
 The canonical event schema is a contract target; current outbox producers still emit legacy payload shapes. Do not claim full adoption until producers, publisher metadata and consumers are migrated with compatibility tests.
 
 ## HTTP API
 
-The current MVP routes are implemented in `apps/api/internal/marketplace/http.go` and `mvp_http.go`. A complete generated OpenAPI document is not yet published. Until it is, changes to those routes must be reflected in the module specifications, handler tests and browser E2E. Do not hand-author undocumented response fields or assume internal store structs are public DTOs.
+The currently implemented HTTP routes are registered in `apps/api/internal/marketplace/http.go` and the marketplace route handlers. The complete generated contract for all M1–M14 capabilities is not yet published. Changes to implemented routes must be reflected in OpenAPI, module specifications, handler tests and browser E2E. Do not hand-author undocumented response fields or assume internal store structs are public DTOs.
 
 ## Compatibility rules
 
