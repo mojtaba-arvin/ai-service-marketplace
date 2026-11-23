@@ -24,7 +24,7 @@ These are repository capabilities, not evidence that every domain is complete or
 
 ## Active implementation PR
 
-- #178: market/locale-specific service form version lifecycle, platform-operator draft/publish/read APIs, immutable published/retired schemas, serialized version allocation and publish outbox event. CAT-005 is under review; CAT-006 order answer snapshot remains unimplemented.
+- #179: market/locale-specific service form version lifecycle, platform-operator draft/publish/read APIs, immutable published/retired schemas, serialized version allocation and publish outbox event. CAT-005 is under review; CAT-006 order answer snapshot remains unimplemented.
 
 ## Product workstreams and gates
 
