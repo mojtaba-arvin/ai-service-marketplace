@@ -24,7 +24,8 @@ These are repository capabilities, not evidence that every domain is complete or
 
 ## Active implementation PR
 
-- #180: market/locale-specific service form version lifecycle, platform-operator draft/publish/read APIs, immutable published/retired schemas, serialized version allocation and publish outbox event. CAT-005 is under review; CAT-006 order answer snapshot remains unimplemented.
+- PR #180 merged to main (`164592e51b45e83706d43a84cdd50a98134dac3d`): market/locale-specific service form version lifecycle, platform-operator draft/publish/read APIs, immutable published/retired schemas, serialized version allocation and publish outbox event.
+- PR #181: scheduled order answer validation and immutable form-version snapshots; current-head Required Checks and integration tests are pending after migration/test-fixture corrections. CAT-004/CAT-006 remain passes=false.
 
 ## Product workstreams and gates
 
