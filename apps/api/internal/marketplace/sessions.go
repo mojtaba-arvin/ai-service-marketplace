@@ -90,7 +90,9 @@ func (s *Store) AuthenticateAccessToken(ctx context.Context, token string, peppe
 	err := s.DB.QueryRow(ctx, `
 		SELECT s.id, p.id, p.phone_e164
 		FROM auth_sessions s JOIN phone_identities p ON p.id=s.phone_identity_id
+		LEFT JOIN auth_devices d ON d.id=s.device_id
 		WHERE s.access_token_hash=$1 AND s.revoked_at IS NULL AND s.access_expires_at > now()
+		  AND (s.device_id IS NULL OR d.revoked_at IS NULL)
 	`, sessionDigest(token, pepper)).Scan(&principal.SessionID, &principal.IdentityID, &principal.Phone)
 	if errors.Is(err, pgx.ErrNoRows) { return SessionPrincipal{}, ErrSessionInvalid }
 	if err != nil { return SessionPrincipal{}, err }
@@ -105,13 +107,14 @@ func (s *Store) RotateSession(ctx context.Context, refreshToken string, pepper [
 	defer tx.Rollback(ctx)
 
 	var oldID, familyID, identityID string
+	var deviceID *string
 	var refreshExpiresAt time.Time
 	var revoked, replaced bool
 	err = tx.QueryRow(ctx, `
-		SELECT id,family_id,phone_identity_id,refresh_expires_at,
+		SELECT id,family_id,phone_identity_id,device_id,refresh_expires_at,
 		       revoked_at IS NOT NULL,replaced_by IS NOT NULL
 		FROM auth_sessions WHERE refresh_token_hash=$1 FOR UPDATE
-	`, sessionDigest(refreshToken, pepper)).Scan(&oldID, &familyID, &identityID, &refreshExpiresAt, &revoked, &replaced)
+	`, sessionDigest(refreshToken, pepper)).Scan(&oldID, &familyID, &identityID, &deviceID, &refreshExpiresAt, &revoked, &replaced)
 	if errors.Is(err, pgx.ErrNoRows) { return SessionTokens{}, ErrSessionInvalid }
 	if err != nil { return SessionTokens{}, err }
 	if revoked || replaced {
@@ -135,9 +138,9 @@ func (s *Store) RotateSession(ctx context.Context, refreshToken string, pepper [
 	tokens := SessionTokens{SessionID: newSessionID, AccessToken: access, RefreshToken: refresh,
 		AccessExpiresAt: now.Add(accessTTL), RefreshExpiresAt: now.Add(refreshTTL)}
 	_, err = tx.Exec(ctx, `
-		INSERT INTO auth_sessions(id,family_id,phone_identity_id,access_token_hash,refresh_token_hash,access_expires_at,refresh_expires_at)
-		VALUES($1,$2,$3,$4,$5,$6,$7)
-	`, newSessionID, familyID, identityID, sessionDigest(access, pepper), sessionDigest(refresh, pepper), tokens.AccessExpiresAt, tokens.RefreshExpiresAt)
+		INSERT INTO auth_sessions(id,family_id,phone_identity_id,device_id,access_token_hash,refresh_token_hash,access_expires_at,refresh_expires_at)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+	`, newSessionID, familyID, identityID, deviceID, sessionDigest(access, pepper), sessionDigest(refresh, pepper), tokens.AccessExpiresAt, tokens.RefreshExpiresAt)
 	if err != nil { return SessionTokens{}, fmt.Errorf("persist rotated session: %w", err) }
 	if _, err = tx.Exec(ctx, `UPDATE auth_sessions SET revoked_at=now(),replaced_by=$2 WHERE id=$1`, oldID, newSessionID); err != nil { return SessionTokens{}, err }
 	if err = tx.Commit(ctx); err != nil { return SessionTokens{}, err }
