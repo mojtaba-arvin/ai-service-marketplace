@@ -417,8 +417,13 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
 }
 
 
+func (h *Handler) platformOperatorForRequest(r *http.Request)(Actor,error){
+ principal,err:=h.principal(r);if err!=nil{return Actor{},err}
+ if h.TestMode{return Actor{SubjectID:principal.IdentityID,TenantID:platformTenantID,Role:RoleOperator},nil}
+ return h.Store.ResolveActor(r.Context(),principal.IdentityID,platformTenantID,RoleOperator)
+}
 func (h *Handler) createServiceFormDraft(w http.ResponseWriter,r *http.Request){
- actor,err:=h.actorForRole(r,RoleOperator);if err!=nil{writeError(w,http.StatusForbidden,"platform operator membership is required");return}
+ actor,err:=h.platformOperatorForRequest(r);if err!=nil{writeError(w,http.StatusForbidden,"platform operator membership is required");return}
  var in struct{MenuID string `json:"menu_id"`;MarketCode string `json:"market_code"`;Locale string `json:"locale"`;Schema json.RawMessage `json:"schema"`}
  if json.NewDecoder(r.Body).Decode(&in)!=nil||len(in.Schema)==0{writeError(w,http.StatusBadRequest,"invalid service form payload");return}
  form,err:=h.Store.CreateServiceFormDraft(r.Context(),actor,in.MenuID,in.MarketCode,in.Locale,in.Schema)
