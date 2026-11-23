@@ -133,3 +133,11 @@ QA evidence on exact PR #108 head `249d0eb68f991c34e5d138e8f7c0de97c5dcf266`:
 - Agent Guard [#45022503404](https://github.com/mojtaba-arvin/ai-service-marketplace/actions/runs/45022503404): success.
 
 This is agent-led QA, not independent third-party sign-off. Feature inventory remains `passes: false`; issue #88 remains open until the gated order/finance relationship and consolidated statement work is implemented and verified.
+
+
+## 2026-11-23 — Full product scope and AI capability progress
+
+- PR #156 merged the corrected full-product README, fourteen-domain product catalogue, business vision, technical plan and dependency-aware roadmap.
+- PR #159 merged the Professional Copilot backend boundary: market/locale/service-scoped knowledge retrieval, PII redaction of request and evidence, strict bounded output, retrieved-evidence-only citations, provenance, mandatory professional review, and offline golden evaluation.
+- Professional Copilot is a reusable backend boundary only; production provider wiring, API/UI integration and independent acceptance remain open. The feature inventory remains not passing.
+- PR #163 expands the coarse inventory to 77 records; all 33 new records remain passes=false pending implementation and evidence.
