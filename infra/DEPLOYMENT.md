@@ -56,9 +56,9 @@ docker compose --env-file .env.production -f infra/compose.production.yml exec -
   -v market_code="$DEFAULT_MARKET_CODE" \
   -v tenant_id="$DEFAULT_TENANT_ID" \
   -v locale=en -v currency=OMR -v timezone=Asia/Muscat -v policy_version=sample-policy-v1 \
-  -v category_id=sample-home-cleaning -v category_slug=home-cleaning \
+  -v category_id=mvp-home-cleaning -v category_slug=home-cleaning \
   -v category_name="Home cleaning" -v category_description="Standard home cleaning service" \
-  -v menu_id=sample-home-cleaning-standard -v service_code=standard-cleaning \
+  -v menu_id=mvp-home-cleaning-standard -v service_code=standard-cleaning \
   -v price_version_id=sample-home-cleaning-standard-v1 -v price_minor=2500 \
   -v operator_phone="$BOOTSTRAP_OPERATOR_PHONE" \
   -v professional_phone="+96890000001" -v professional_name="Demo Professional" \

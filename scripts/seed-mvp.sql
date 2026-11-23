@@ -1,6 +1,6 @@
--- Example single-market seed for the MVP.
--- Run only after migrations have completed. Replace the example market, tenant,
--- phones, price, and service area with the actual launch configuration.
+-- Example single-market seed for a self-hosted deployment profile.
+-- This is sample data, not a product-scope limitation. Run only after migrations
+-- have completed; replace market, tenant, phones, price and service area values.
 BEGIN;
 
 INSERT INTO markets(code,default_locale,currency,timezone,policy_version,enabled)
