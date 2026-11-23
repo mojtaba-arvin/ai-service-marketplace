@@ -2,6 +2,7 @@ package marketplace
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -33,6 +34,40 @@ type MarketConfig struct {
 	Locales       []string `json:"locales"`
 }
 
+const platformTenantID = "platform"
+
+// loadMarketConfigTx returns the full previous configuration, including disabled
+// markets, while holding a row lock when the market already exists.
+func loadMarketConfigTx(ctx context.Context, tx pgx.Tx, code string) (*MarketConfig, error) {
+	var config MarketConfig
+	err := tx.QueryRow(ctx, `
+		SELECT code,default_locale,currency,timezone,policy_version,enabled,version
+		FROM markets WHERE code=$1 FOR UPDATE
+	`, code).Scan(&config.Code,&config.DefaultLocale,&config.Currency,&config.Timezone,&config.PolicyVersion,&config.Enabled,&config.Version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, `SELECT locale FROM market_locales WHERE market_code=$1 ORDER BY locale`, code)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var locale string
+		if err := rows.Scan(&locale); err != nil {
+			return nil, err
+		}
+		config.Locales = append(config.Locales, locale)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
 func normalizeMarketLocale(locale string) string {
 	parts:=strings.Split(strings.TrimSpace(locale),"-")
 	if len(parts)==1 { return strings.ToLower(parts[0]) }
@@ -46,7 +81,9 @@ func (s *Store) SaveMarket(ctx context.Context, actor Actor, config MarketConfig
 	config.Currency=strings.ToUpper(strings.TrimSpace(config.Currency))
 	config.Timezone=strings.TrimSpace(config.Timezone)
 	config.PolicyVersion=strings.TrimSpace(config.PolicyVersion)
-	if err:=Authorize(actor,Resource{TenantID:actor.TenantID},ActionMarketConfigure); err!=nil { return MarketConfig{},err }
+	// Market definitions are global, not tenant-owned. Only a platform-tenant
+	// operator may mutate them.
+	if err:=Authorize(actor,Resource{TenantID:platformTenantID},ActionMarketConfigure); err!=nil { return MarketConfig{},err }
 	if !marketCodePattern.MatchString(config.Code) || !marketLocalePattern.MatchString(config.DefaultLocale) ||
 		ValidateAmount(1,config.Currency)!=nil || config.PolicyVersion=="" || len(config.PolicyVersion)>80 {
 		return MarketConfig{},ErrInvalidMarket
@@ -62,6 +99,11 @@ func (s *Store) SaveMarket(ctx context.Context, actor Actor, config MarketConfig
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{})
 	if err!=nil { return MarketConfig{},err }
 	defer tx.Rollback(ctx)
+	if _,err=tx.Exec(ctx,`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,"market-config:"+config.Code); err!=nil {
+		return MarketConfig{},err
+	}
+	before,err:=loadMarketConfigTx(ctx,tx,config.Code)
+	if err!=nil { return MarketConfig{},fmt.Errorf("read previous market config: %w",err) }
 	err=tx.QueryRow(ctx,`
 		INSERT INTO markets(code,default_locale,currency,timezone,policy_version,enabled)
 		VALUES($1,$2,$3,$4,$5,$6)
@@ -84,10 +126,30 @@ func (s *Store) SaveMarket(ctx context.Context, actor Actor, config MarketConfig
 			return MarketConfig{},err
 		}
 	}
-	if err=tx.Commit(ctx); err!=nil { return MarketConfig{},err }
 	config.Locales=make([]string,0,len(locales))
 	for locale:=range locales { config.Locales=append(config.Locales,locale) }
 	sort.Strings(config.Locales)
+
+	var beforeJSON []byte
+	var previousVersion any
+	action := "created"
+	if before != nil {
+		action = "updated"
+		previousVersion = before.Version
+		beforeJSON,err=json.Marshal(before)
+		if err!=nil { return MarketConfig{},fmt.Errorf("encode previous market config: %w",err) }
+	}
+	afterJSON,err:=json.Marshal(config)
+	if err!=nil { return MarketConfig{},fmt.Errorf("encode new market config: %w",err) }
+	if _,err=tx.Exec(ctx,`
+		INSERT INTO market_config_audit(
+			market_code,actor_tenant_id,actor_subject_id,actor_role,action,
+			previous_version,new_version,before_config,after_config
+		) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+	`,config.Code,actor.TenantID,actor.SubjectID,string(actor.Role),action,previousVersion,config.Version,beforeJSON,afterJSON); err!=nil {
+		return MarketConfig{},fmt.Errorf("append market config audit: %w",err)
+	}
+	if err=tx.Commit(ctx); err!=nil { return MarketConfig{},err }
 	return config,nil
 }
 
