@@ -5,6 +5,7 @@ import(
  "errors"
  "os"
  "path/filepath"
+ "strings"
  "testing"
  "time"
 
@@ -19,7 +20,7 @@ func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
   if _,e=execMigrationScript(ctx,pool,raw);e!=nil{t.Fatalf("apply %s: %v",name,e)}
  }
  suffix,err:=newID();if err!=nil{t.Fatal(err)}
- marketCode:="OM"
+ marketCode:="T"+strings.ToUpper(strings.NewReplacer("0","A","1","B","2","C","3","D","4","E","5","F","6","G","7","H","8","I","9","J").Replace(suffix[:7]))
  if _,err=pool.Exec(ctx,`INSERT INTO markets(code,default_locale,currency,timezone,policy_version,enabled,version) VALUES($1,'en','OMR','Asia/Muscat','v1',true,1) ON CONFLICT(code) DO NOTHING`,marketCode);err!=nil{t.Fatal(err)}
  if _,err=pool.Exec(ctx,`INSERT INTO market_locales(market_code,locale,is_default) VALUES($1,'en',true) ON CONFLICT DO NOTHING`,marketCode);err!=nil{t.Fatal(err)}
  categoryID,menuID:="form-category-"+suffix,"form-menu-"+suffix
