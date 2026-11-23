@@ -133,3 +133,40 @@ QA evidence on exact PR #108 head `249d0eb68f991c34e5d138e8f7c0de97c5dcf266`:
 - Agent Guard [#45022503404](https://github.com/mojtaba-arvin/ai-service-marketplace/actions/runs/45022503404): success.
 
 This is agent-led QA, not independent third-party sign-off. Feature inventory remains `passes: false`; issue #88 remains open until the gated order/finance relationship and consolidated statement work is implemented and verified.
+
+## Live execution update — 2026-11-23
+
+Verified main at the time of this update: `0773972310f5e2a58b1a46e2ce61198cf4698049`.
+
+### Merged with required checks successful
+
+| PR | Verified result | Merge commit |
+|---|---|---|
+| #142 | Performance health baseline script | `11f4e3e3cf25e128381fa6b61409d3b0f7c095b4` |
+| #144 | Offline OpenAPI 3.1 contract validator wired into `scripts/verify.sh` | `c616685b3f1f791dcc014983556d6a9a8857d423` |
+| #145 | HTTPS deployment smoke script and release acceptance matrix | `f320845d6003fbec682733b644cdbfe701578869` |
+| #143 | Feature inventory note update; its duplicate-note targeting error is corrected by #153 | `42ab78f106b14c874a2e3b3cfd410b96f642c6f8` |
+| #147 | PostgreSQL concurrent ledger idempotency regression test | `0773972310f5e2a58b1a46e2ce61198cf4698049` |
+
+The ledger test is automated regression coverage, not independent finance QA. Performance baseline execution is not a production capacity/SLO certification.
+
+### Corrective inventory update
+
+PR #143 matched a repeated deferred-note string and placed the support-case audit note under TRUST-002 rather than SUP-002. PR #153 corrects the mapping: TRUST-002 remains deferred, SUP-002 records the existing support-case event audit implementation, and both retain `passes: false` and `verified_by: null`.
+
+### Active work and gates
+
+- #146: Security workflow concurrency isolation.
+- #148–#149: AI timeout/output bounds and adversarial golden corpus.
+- #150: Bounded historical outbox replay. Its cursor is not a live-tail watermark because sequence IDs can commit out of order.
+- #151: Privacy-safe HTTP telemetry, including panic and streaming response behavior.
+- #152: Market locale, currency/timezone formatting and RTL/LTR direction.
+- #154: Offline contract tests for the deployment smoke script.
+- #133 remains blocked: no runtime analytics consumer is wired, and projection-generation identity is absent from the read model schema.
+- #110 remains blocked pending external-consumer compatibility confirmation.
+- #137 remains blocked pending an explicit compatibility policy for legacy cancellation-event consumers.
+- B2B/order/ledger attribution remains gated by independent Order and Finance QA (#57 and #10) and canonical-event compatibility (#87).
+- Deployment recovery/public smoke evidence still depends on the external host, DNS/TLS and backup/restore access in #56. Repository security-setting changes remain owner-controlled under #2.
+
+No feature acceptance flag was set to passing on the basis of a PR being opened or a workflow being queued. Independent QA remains outstanding. A local checkout/test run was unavailable in this execution environment because GitHub DNS resolution failed; CI results are tracked per PR above and below.
+
