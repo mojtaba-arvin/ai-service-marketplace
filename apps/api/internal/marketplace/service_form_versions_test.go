@@ -80,7 +80,7 @@ func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
  if _,err=pool.Exec(ctx,`INSERT INTO market_category_visibility(market_code,category_id,visible) VALUES($1,$2,true) ON CONFLICT(market_code,category_id) DO UPDATE SET visible=true`,marketCode,categoryID);err!=nil{t.Fatal(err)}
  _,err=store.CreatePriceVersion(ctx,menuID,12500,"OMR");if err!=nil{t.Fatal(err)}
  identityID,err:=newID();if err!=nil{t.Fatal(err)}
- phone:="+1999"+suffix[:10]
+ phone:=fmt.Sprintf("+1994%011d",time.Now().UnixNano()%100_000_000_000)
  if _,err=pool.Exec(ctx,`INSERT INTO phone_identities(id,phone_e164) VALUES($1,$2)`,identityID,phone);err!=nil{t.Fatal(err)}
  customer:=Actor{SubjectID:identityID,TenantID:"tenant-form-"+suffix,Role:RoleCustomer}
  scheduled:=time.Now().UTC().Add(2*time.Hour).Truncate(time.Microsecond)
