@@ -52,3 +52,12 @@ DROP TRIGGER IF EXISTS service_form_versions_guard ON service_form_versions;
 CREATE TRIGGER service_form_versions_guard
 BEFORE UPDATE OR DELETE ON service_form_versions
 FOR EACH ROW EXECUTE FUNCTION guard_service_form_version_mutation();
+
+CREATE OR REPLACE FUNCTION reject_service_form_versions_truncate() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'service form version history cannot be truncated';
+END $$;
+DROP TRIGGER IF EXISTS service_form_versions_no_truncate ON service_form_versions;
+CREATE TRIGGER service_form_versions_no_truncate
+BEFORE TRUNCATE ON service_form_versions
+FOR EACH STATEMENT EXECUTE FUNCTION reject_service_form_versions_truncate();
