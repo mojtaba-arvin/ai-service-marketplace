@@ -1,6 +1,6 @@
 # M2–M5 — Catalog/Pricing, Customer Experience, Professional Workspace and Matching Specification
 
-**Feature IDs:** CAT-001–CAT-004, PRICE-001–PRICE-004, ORDER-001–ORDER-006, DISP-001–DISP-005, CLIENT-001–CLIENT-002  
+**Feature IDs:** CAT-001–CAT-006, PRICE-001–PRICE-004, ORDER-001–ORDER-006, DISP-001–DISP-005, CLIENT-001–CLIENT-002  
 **Status:** repository contains foundational slices; full module scope and independent acceptance remain pending.
 
 ## Ownership and boundaries
@@ -36,9 +36,9 @@ The validation boundary is implemented; migration 027 and draft/publish/read API
 
 ### Service form version lifecycle and publication
 
-Migration 027 adds market/locale-specific form versions keyed by menu, market, locale and version number. Draft versions can be authored only by a platform-tenant operator with catalog-management authority. Publishing is serialized per menu, atomically retires the previous published version, and emits a `catalog.service_form.published` outbox event. A partial unique index allows only one published version per menu/market/locale. Published and retired schemas are immutable and cannot be deleted; replacement requires a new draft version.
+Migration 027 adds market/locale-specific form versions keyed by menu, market, locale and version number. Draft versions can be authored only by a platform-tenant operator with catalog-management authority. Publishing is serialized per menu, atomically retires the previous published version, and emits a canonical tenant-scoped `catalog.service_form.published` v1 outbox event. A partial unique index allows only one published version per menu/market/locale. Published and retired schemas are immutable and cannot be deleted; replacement requires a new draft version.
 
-The new authenticated operator endpoints create drafts and publish versions; the public catalog endpoint resolves the published form for a menu/market/locale. The validator from `internal/serviceforms` is used before persistence.
+The new authenticated operator endpoints create drafts and publish versions; the public catalog endpoint resolves the published form for a menu/market/locale without exposing operator actor identifiers. The validator from `internal/serviceforms` is used before persistence.
 
 This PR does not yet attach the selected form version and submitted answers to an order. CAT-006 remains open: order creation must validate answers against the published schema, store the exact version and answer snapshot, preserve them on idempotent replay, and keep raw answers out of outbox events.
 
