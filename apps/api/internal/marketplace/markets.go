@@ -143,10 +143,10 @@ func (s *Store) SaveMarket(ctx context.Context, actor Actor, config MarketConfig
 	if err!=nil { return MarketConfig{},fmt.Errorf("encode new market config: %w",err) }
 	if _,err=tx.Exec(ctx,`
 		INSERT INTO market_config_audit(
-			market_code,actor_tenant_id,actor_subject_id,action,
+			market_code,actor_tenant_id,actor_subject_id,actor_role,action,
 			previous_version,new_version,before_config,after_config
-		) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
-	`,config.Code,actor.TenantID,actor.SubjectID,action,previousVersion,config.Version,beforeJSON,afterJSON); err!=nil {
+		) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+	`,config.Code,actor.TenantID,actor.SubjectID,string(actor.Role),action,previousVersion,config.Version,beforeJSON,afterJSON); err!=nil {
 		return MarketConfig{},fmt.Errorf("append market config audit: %w",err)
 	}
 	if err=tx.Commit(ctx); err!=nil { return MarketConfig{},err }
