@@ -13,6 +13,9 @@ func (s *Store) ReorderScheduledOrder(ctx context.Context, actor Actor, original
     if actor.Role != RoleCustomer || actor.SubjectID == "" || actor.TenantID == "" || strings.TrimSpace(originalOrderID) == "" {
         return Order{}, false, ErrForbidden
     }
+    if err := Authorize(actor, Resource{TenantID: actor.TenantID, OwnerID: actor.SubjectID}, ActionOrderCreate); err != nil {
+        return Order{}, false, err
+    }
     idempotencyKey = strings.TrimSpace(idempotencyKey)
     marketCode = strings.ToUpper(strings.TrimSpace(marketCode))
     scheduledAt = scheduledAt.UTC().Truncate(time.Microsecond)
