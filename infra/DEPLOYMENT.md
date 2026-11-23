@@ -1,10 +1,10 @@
-# Single-host MVP deployment
+# Single-host self-hosted deployment
 
-This deployment profile is intentionally small: one Go API process, one Next.js web process, one dispatch-expiry worker, PostgreSQL/PostGIS, and Caddy for automatic HTTPS. An optional outbox publisher worker can be enabled when an HTTPS event sink is configured. The default profile does not introduce Kubernetes, Valkey, or NATS.
+This is one low-operations deployment topology, not a limitation on the platform's full M1–M14 product scope. It uses: one Go API process, one Next.js web process, one dispatch-expiry worker, PostgreSQL/PostGIS, and Caddy for automatic HTTPS. An optional outbox publisher worker can be enabled when an HTTPS event sink is configured. The default profile does not introduce Kubernetes, Valkey, or NATS.
 
-## Release boundary
+## Deployment and capability boundary
 
-The repository now contains the first customer/professional/operator API and browser workflow. Treat it as an MVP release candidate until the full CI suite, configured OTP delivery, host deployment, and end-to-end acceptance gate have all passed. Do not expose test OTP/session endpoints or treat ledger primitives as evidence of real payment processing.
+This Compose profile provides one deployable topology for the currently implemented capabilities. It is not an MVP definition, a restriction of product scope, or evidence that every M1–M14 capability is complete. Use the feature inventory, module specifications, exact-head CI and independent acceptance evidence to assess individual capabilities. Do not expose test OTP/session endpoints or treat ledger primitives as evidence of real payment processing.
 
 Database migrations run in a dedicated one-shot `migrate` Compose service before the API is allowed to start. The runner takes a PostgreSQL advisory lock, applies each migration in its own transaction, and records completed versions in `schema_migrations`. API replicas no longer execute DDL during startup; this removes the single-replica restriction caused by concurrent startup migrations. Keep the migration service serialized and do not run manual DDL concurrently with it.
 
@@ -41,7 +41,7 @@ BOOTSTRAP_OPERATOR_PHONE=+96890000000
 
 Use URL encoding for reserved characters in the PostgreSQL password embedded in DATABASE_URL. Generate peppers on the host, for example with openssl rand -hex 32. Never commit .env.production.
 
-## Seed the initial single-market catalog and professional
+## Seed the initial market catalog and professional
 
 The following example uses Oman values because the repository's existing examples use +968 and OMR. Replace them if the launch market is different. The market code must be a two-letter ISO country code; DEFAULT_TENANT_ID is an internal tenant identifier and must match across the API and seed data.
 
@@ -55,11 +55,11 @@ docker compose --env-file .env.production -f infra/compose.production.yml exec -
   psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   -v market_code="$DEFAULT_MARKET_CODE" \
   -v tenant_id="$DEFAULT_TENANT_ID" \
-  -v locale=en -v currency=OMR -v timezone=Asia/Muscat -v policy_version=mvp-1 \
+  -v locale=en -v currency=OMR -v timezone=Asia/Muscat -v policy_version=sample-policy-v1 \
   -v category_id=mvp-home-cleaning -v category_slug=home-cleaning \
   -v category_name="Home cleaning" -v category_description="Standard home cleaning service" \
   -v menu_id=mvp-home-cleaning-standard -v service_code=standard-cleaning \
-  -v price_version_id=mvp-home-cleaning-standard-v1 -v price_minor=2500 \
+  -v price_version_id=sample-home-cleaning-standard-v1 -v price_minor=2500 \
   -v operator_phone="$BOOTSTRAP_OPERATOR_PHONE" \
   -v professional_phone="+96890000001" -v professional_name="Demo Professional" \
   -v region_code=Muscat -v city_code=Muscat -v area_code=Al-Khuwair \

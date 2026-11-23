@@ -22,10 +22,16 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 These are repository capabilities, not evidence that every domain is complete or that a production marketplace is publicly deployed.
 
-## Active implementation PR
+## Integrated product changes
 
-- #180: market/locale-specific service form version lifecycle, platform-operator draft/publish/read APIs, immutable published/retired schemas, serialized version allocation and publish outbox event. CAT-005 is under review.
-- #181 (stacked on #180): scheduled order creation validates required answers against the active published form and atomically persists the exact form version plus canonical answers in an append-only snapshot table. Idempotent replay compares semantic answers; raw answers are excluded from events. CI and integration evidence are pending; CAT-004/CAT-006 remain passes=false.
+- PR #180 merged: market/locale-specific service form version lifecycle and publication APIs.
+- PR #181 merged (`6167b8fcbf79cbe24e26296237373453ab701910`): scheduled order answer validation, immutable form-version snapshots, semantic idempotent replay and raw-answer exclusion from events. CAT-004/CAT-006 remain passes=false pending independent acceptance.
+
+## Active implementation PRs
+
+- PR #183: dynamic customer questionnaire rendering and structured answer submission; current-main Required Checks pending.
+- PR #182: adopter-facing language, web security documentation and deployment-scope corrections; current-main Required Checks pending.
+- PR #184: 13 additional feature records to complete M1–M14 decomposition; current-main Required Checks pending.
 
 
 ## Product workstreams and gates

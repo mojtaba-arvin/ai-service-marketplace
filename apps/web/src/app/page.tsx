@@ -433,7 +433,7 @@ export default function HomePage() {
           )}
           {error && <p className="notice error">{error}</p>}
           {notice && <p className="notice success">{notice}</p>}
-          <p className="footnote">Sign-in uses the configured OTP delivery provider. This MVP does not process payments.</p>
+          <p className="footnote">Sign-in uses the configured OTP delivery provider. Payments are not enabled in this deployment.</p>
         </section>
       </main>
     );
@@ -444,7 +444,7 @@ export default function HomePage() {
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark small">M</div>
-          <div><strong>Marketplace</strong><span>{catalog?.market ?? "Single-market MVP"}</span></div>
+          <div><strong>Marketplace</strong><span>{catalog?.market ?? "Market"}</span></div>
         </div>
         <div className="account">
           <span>{me.phone}</span>
@@ -625,7 +625,7 @@ export default function HomePage() {
       )}
 
       <footer className="app-footer">
-        <span>Marketplace MVP · {catalog?.market ?? "Single market"}</span>
+        <span>Marketplace · {catalog?.market ?? "Single market"}</span>
         <span>Payments are not enabled. Cancellation policy outcomes do not move funds.</span>
       </footer>
     </main>

@@ -3,7 +3,7 @@
   "info": {
     "title": "AI Service Marketplace HTTP API",
     "version": "1.0.0",
-    "description": "Initial source-aligned contract for the implemented public MVP HTTP surface. Test-only endpoints are intentionally excluded. Response DTOs are being progressively formalized; where marked generic, the current handler and integration tests remain the compatibility reference."
+    "description": "Source-aligned contract for the currently implemented public HTTP surface. This is a progressively formalized subset of the complete M1–M14 platform contract. Test-only endpoints are intentionally excluded. Response DTOs are being progressively formalized; where marked generic, the current handler and integration tests remain the compatibility reference."
   },
   "servers": [
     {
