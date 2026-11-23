@@ -431,7 +431,7 @@ func (h *Handler) createServiceFormDraft(w http.ResponseWriter,r *http.Request){
  writeJSON(w,http.StatusCreated,map[string]any{"form":form})
 }
 func (h *Handler) publishServiceFormVersion(w http.ResponseWriter,r *http.Request){
- actor,err:=h.actorForRole(r,RoleOperator);if err!=nil{writeError(w,http.StatusForbidden,"platform operator membership is required");return}
+ actor,err:=h.platformOperatorForRequest(r);if err!=nil{writeError(w,http.StatusForbidden,"platform operator membership is required");return}
  parts:=strings.Split(strings.Trim(r.URL.Path,"/"),"/")
  if len(parts)!=5||parts[0]!="v1"||parts[1]!="operator"||parts[2]!="service-forms"||parts[3]==""||parts[4]!="publish"{writeError(w,http.StatusNotFound,"not found");return}
  form,err:=h.Store.PublishServiceFormVersion(r.Context(),actor,parts[3])
