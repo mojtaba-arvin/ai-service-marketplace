@@ -94,12 +94,19 @@ Every suggestion is marked `requires_professional_review=true`. The package has 
 
 This is a reusable service boundary, not yet a production API/UI integration or evidence of independent AI acceptance. Provider wiring, real knowledge-source integration, operator/professional UX and independent evaluation remain open.
 
+
+### Dispute Triage Copilot
+
+The `internal/disputetriage` package summarizes dispute cases, lists established facts and missing information, and suggests possible next steps using market/locale/type-scoped evidence retrieval. User reason and retrieved evidence are redacted before inference; citations are restricted to retrieved evidence; strict output rejects verdict, refund, settlement and other authority-bearing fields. Every result requires human adjudication. A versioned golden set covers critical evidence references.
+
+This is an advisory backend boundary only. It does not persist a dispute, adjudicate liability, issue a refund, mutate an order or implement evidence storage, API/UI, appeals or adjudicator assignment. Those remain separate TRUST-003 work. No retention policy is assumed.
+
 ## Cross-cutting verification
 
 - Outbox: `internal/outbox/*_test.go`, `outbox_integration_test.go`.
 - Adapters: `internal/adapters/runner_test.go`.
 - Market config: `internal/marketconfig/config_test.go`.
-- AI: `internal/aieval/evaluation_test.go`, `internal/aiintake/service_test.go`, `internal/procopilot/service_test.go`, `internal/procopilot/evaluation_test.go`.
+- AI: `internal/aieval/evaluation_test.go`, `internal/aiintake/service_test.go`, `internal/procopilot/service_test.go`, `internal/procopilot/evaluation_test.go`, `internal/disputetriage/service_test.go`, `internal/disputetriage/evaluation_test.go`.
 
 ## Explicitly deferred
 
