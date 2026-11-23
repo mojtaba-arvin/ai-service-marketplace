@@ -29,6 +29,8 @@ func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
  if _,err=pool.Exec(ctx,`INSERT INTO service_price_menus(id,category_id,service_code) VALUES($1,$2,'ac-repair')`,menuID,categoryID);err!=nil{t.Fatal(err)}
  store:=&Store{DB:pool}
  platform:=Actor{SubjectID:"form-admin-"+suffix,TenantID:platformTenantID,Role:RoleOperator}
+ invalidSchema:=[]byte(`{"type":"object","properties":{},"patternProperties":{}}`)
+ if _,err=store.CreateServiceFormDraft(ctx,platform,menuID,marketCode,"en",invalidSchema);!errors.Is(err,ErrInvalidServiceForm){t.Fatalf("unsupported schema keyword accepted: %v",err)}
  schema1:=[]byte(`{"type":"object","required":["rooms"],"properties":{"rooms":{"type":"integer","minimum":1,"maximum":20},"unit_model":{"type":"string","maxLength":80}}}`)
  draft,err:=store.CreateServiceFormDraft(ctx,platform,menuID,marketCode,"en",schema1);if err!=nil{t.Fatal(err)}
  if draft.Version!=1||draft.Status!="draft"||draft.PublishedAt!=nil{t.Fatalf("unexpected draft: %#v",draft)}
@@ -48,7 +50,7 @@ func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
  var oldStatus string
  if err=pool.QueryRow(ctx,`SELECT status FROM service_form_versions WHERE id=$1`,draft.ID).Scan(&oldStatus);err!=nil{t.Fatal(err)}
  if oldStatus!="retired"{t.Fatalf("previous published version was not retired: %s",oldStatus)}
- if _,err=store.GetPublishedServiceForm(ctx,menuID,marketCode,"en");err!=nil{t.Fatal(err)}
+ active,err=store.GetPublishedServiceForm(ctx,menuID,marketCode,"en");if err!=nil{t.Fatal(err)};if active.ID!=second.ID{t.Fatalf("new version is not active: %#v",active)}
  if _,err=pool.Exec(ctx,`UPDATE service_form_versions SET schema='{"type":"object","properties":{"bad":{"type":"string"}}}'::jsonb WHERE id=$1`,draft.ID);err==nil{t.Fatal("retired form schema mutation was allowed")}
  if _,err=pool.Exec(ctx,`DELETE FROM service_form_versions WHERE id=$1`,draft.ID);err==nil{t.Fatal("service form version deletion was allowed")}
  var eventCount int
