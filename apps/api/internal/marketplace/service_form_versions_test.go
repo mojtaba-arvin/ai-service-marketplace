@@ -84,6 +84,7 @@ func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
  if _,err=pool.Exec(ctx,`INSERT INTO phone_identities(id,phone_e164) VALUES($1,$2)`,identityID,phone);err!=nil{t.Fatal(err)}
  customer:=Actor{SubjectID:identityID,TenantID:"tenant-form-"+suffix,Role:RoleCustomer}
  scheduled:=time.Now().UTC().Add(2*time.Hour).Truncate(time.Microsecond)
+ if !validOrderArea(marketCode,"Region","City","Area") || scheduled.Before(time.Now().UTC().Add(30*time.Minute)) || scheduled.After(time.Now().UTC().Add(90*24*time.Hour)) { t.Fatalf("test fixture invalid: market=%q area=%v scheduled=%s",marketCode,validOrderArea(marketCode,"Region","City","Area"),scheduled) }
  if _,_,err=store.CreateScheduledOrderWithAnswers(ctx,customer,"form-missing-"+suffix,menuID,scheduled,marketCode,"Region","City","Area",nil);!errors.Is(err,ErrServiceFormAnswersRequired){t.Fatalf("published form must require answers: %v",err)}
  invalidAnswers:=[]byte(`{"rooms":0,"urgent":true}`)
  if _,_,err=store.CreateScheduledOrderWithAnswers(ctx,customer,"form-invalid-"+suffix,menuID,scheduled,marketCode,"Region","City","Area",invalidAnswers);!errors.Is(err,ErrServiceFormAnswersInvalid){t.Fatalf("invalid form answers accepted: %v",err)}
