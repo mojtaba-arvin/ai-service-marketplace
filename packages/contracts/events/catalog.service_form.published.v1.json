@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CatalogServiceFormPublishedV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["form_version_id", "menu_id", "service_code", "market_code", "locale", "version"],
+  "properties": {
+    "form_version_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "menu_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "service_code": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,79}$"},
+    "market_code": {"type": "string", "pattern": "^[A-Z]{2,8}$"},
+    "locale": {"type": "string", "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"},
+    "version": {"type": "integer", "minimum": 1}
+  }
+}
