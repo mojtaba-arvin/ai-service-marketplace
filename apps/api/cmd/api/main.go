@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/marketplace"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/observability"
 )
 
 func requiredSecret(name string) []byte {
@@ -99,7 +101,7 @@ func main() {
 		addr = ":8080"
 	}
 	server := &http.Server{
-		Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second,
+		Addr: addr, Handler: observability.HTTP(handler, slog.New(slog.NewJSONHandler(os.Stdout, nil))), ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second,
 	}
 	log.Printf("marketplace API listening on %s (environment=%s)", addr, appEnv)
