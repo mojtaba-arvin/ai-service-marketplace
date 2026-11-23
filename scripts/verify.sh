@@ -47,4 +47,7 @@ if [[ "$FULL" -eq 1 ]]; then
   echo "    PostgreSQL, Valkey, and NATS are healthy"
 fi
 
+echo "==> Testing deployment smoke script with a fake HTTP client"
+bash scripts/test-smoke-deployment.sh
+
 echo "==> Verification completed"
