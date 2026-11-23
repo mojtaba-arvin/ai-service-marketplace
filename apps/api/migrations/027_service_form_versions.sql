@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS service_form_versions (
     FOREIGN KEY (market_code,locale) REFERENCES market_locales(market_code,locale) ON DELETE RESTRICT,
     CHECK ((status='draft' AND published_at IS NULL AND published_by IS NULL AND retired_at IS NULL AND retired_by IS NULL)
         OR (status='published' AND published_at IS NOT NULL AND published_by IS NOT NULL AND retired_at IS NULL AND retired_by IS NULL)
-        OR (status='retired' AND retired_at IS NOT NULL AND retired_by IS NOT NULL))
+        OR (status='retired' AND published_at IS NOT NULL AND published_by IS NOT NULL AND retired_at IS NOT NULL AND retired_by IS NOT NULL))
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS service_form_one_published_per_market_locale
