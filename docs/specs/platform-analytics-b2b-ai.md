@@ -85,12 +85,21 @@ AI intake is a non-authoritative suggestion boundary. It receives redacted text,
 
 Golden datasets are versioned and deterministic. Critical-case failures fail evaluation even if aggregate scores pass. No real customer PII or secrets belong in datasets. Model calls are not required for offline CI.
 
+
+### Professional Copilot boundary
+
+The new `internal/procopilot` package defines an evidence-grounded, advisory boundary for troubleshooting summaries, safety warnings, execution steps, checklists and quote-scope drafts. Retrieval is scoped by market, locale and service code. User text and retrieved evidence are redacted before model invocation; output citations must refer to evidence returned by the retrieval adapter. Strict structured output rejects unknown fields (including payable amounts), invented citations and unbounded content.
+
+Every suggestion is marked `requires_professional_review=true`. The package has no persistence or command execution capability and cannot approve a quote, mutate an order, set a payable amount or decide safety. The versioned golden set and deterministic evaluator are in `internal/procopilot/golden/v1`; offline tests cover redaction, citation provenance, unknown money fields and critical-case regressions.
+
+This is a reusable service boundary, not yet a production API/UI integration or evidence of independent AI acceptance. Provider wiring, real knowledge-source integration, operator/professional UX and independent evaluation remain open.
+
 ## Cross-cutting verification
 
 - Outbox: `internal/outbox/*_test.go`, `outbox_integration_test.go`.
 - Adapters: `internal/adapters/runner_test.go`.
 - Market config: `internal/marketconfig/config_test.go`.
-- AI: `internal/aieval/evaluation_test.go`, `internal/aiintake/service_test.go`.
+- AI: `internal/aieval/evaluation_test.go`, `internal/aiintake/service_test.go`, `internal/procopilot/service_test.go`, `internal/procopilot/evaluation_test.go`.
 
 ## Explicitly deferred
 
