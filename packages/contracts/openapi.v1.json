@@ -2839,6 +2839,212 @@
           }
         ]
       }
+    },
+    "/v1/operator/service-forms": {
+      "post": {
+        "summary": "Create a draft version of a market-specific service questionnaire",
+        "operationId": "create_service_form_draft",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceFormDraftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Draft form version created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "form"
+                  ],
+                  "properties": {
+                    "form": {
+                      "$ref": "#/components/schemas/ServiceFormVersion"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/service-forms/{form_id}/publish": {
+      "post": {
+        "summary": "Publish a draft service form version and retire the previous published version",
+        "operationId": "publish_service_form_version",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "form_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published service form version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "form"
+                  ],
+                  "properties": {
+                    "form": {
+                      "$ref": "#/components/schemas/ServiceFormVersion"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/catalog/service-forms": {
+      "get": {
+        "summary": "Get the published service questionnaire for a menu and market",
+        "operationId": "get_published_service_form",
+        "tags": [
+          "Catalog"
+        ],
+        "parameters": [
+          {
+            "name": "menu_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "market",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "OM"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published service form",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "form"
+                  ],
+                  "properties": {
+                    "form": {
+                      "$ref": "#/components/schemas/ServiceFormVersion"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3578,6 +3784,103 @@
             "items": {
               "$ref": "#/components/schemas/AuthDevice"
             }
+          }
+        }
+      },
+      "ServiceFormDraftRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "menu_id",
+          "market_code",
+          "locale",
+          "schema"
+        ],
+        "properties": {
+          "menu_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "market_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{2,8}$"
+          },
+          "locale": {
+            "type": "string",
+            "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"
+          },
+          "schema": {
+            "type": "object",
+            "description": "Supported bounded JSON Schema subset; unsupported keywords are rejected."
+          }
+        }
+      },
+      "ServiceFormVersion": {
+        "type": "object",
+        "required": [
+          "id",
+          "menu_id",
+          "service_code",
+          "market_code",
+          "locale",
+          "version",
+          "schema",
+          "status",
+          "created_by",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "menu_id": {
+            "type": "string"
+          },
+          "service_code": {
+            "type": "string"
+          },
+          "market_code": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "schema": {
+            "type": "object"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "retired"
+            ]
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "published_by": {
+            "type": "string"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "retired_by": {
+            "type": "string"
+          },
+          "retired_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }
