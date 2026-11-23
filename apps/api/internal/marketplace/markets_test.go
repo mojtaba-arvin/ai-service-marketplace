@@ -52,15 +52,15 @@ func TestMarketConfigurationAndLocaleResolutionPostgres(t *testing.T) {
 	}
 
 	rows,err:=pool.Query(ctx,`
-		SELECT action,COALESCE(previous_version,0),new_version,before_config,after_config
+		SELECT action,actor_role,COALESCE(previous_version,0),new_version,before_config,after_config
 		FROM market_config_audit WHERE actor_subject_id=$1 ORDER BY id
 	`,operator.SubjectID)
 	if err!=nil { t.Fatal(err) }
-	type auditRow struct { action string; previousVersion,newVersion int; before,after []byte }
+	type auditRow struct { action,actorRole string; previousVersion,newVersion int; before,after []byte }
 	var audit []auditRow
 	for rows.Next() {
 		var row auditRow
-		if err=rows.Scan(&row.action,&row.previousVersion,&row.newVersion,&row.before,&row.after); err!=nil {
+		if err=rows.Scan(&row.action,&row.actorRole,&row.previousVersion,&row.newVersion,&row.before,&row.after); err!=nil {
 			rows.Close()
 			t.Fatal(err)
 		}
@@ -70,7 +70,7 @@ func TestMarketConfigurationAndLocaleResolutionPostgres(t *testing.T) {
 	rows.Close()
 	if len(audit)!=2 || audit[0].newVersion!=config.Version || audit[1].action!="updated" ||
 		audit[1].previousVersion!=config.Version || audit[1].newVersion!=updated.Version ||
-		len(audit[1].before)==0 || len(audit[1].after)==0 {
+		len(audit[1].before)==0 || len(audit[1].after)==0 || audit[1].actorRole!="operator" {
 		t.Fatalf("unexpected append-only market config audit: %#v",audit)
 	}
 	var beforeConfig,afterConfig map[string]any
