@@ -8,7 +8,6 @@ import(
  "testing"
  "time"
 
- "github.com/jackc/pgx/v5"
  "github.com/jackc/pgx/v5/pgxpool"
 )
 func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
@@ -56,5 +55,4 @@ func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
  if err=pool.QueryRow(ctx,`SELECT status FROM service_form_versions WHERE id=$1`,second.ID).Scan(&oldStatus);err!=nil{t.Fatal(err)}
  if oldStatus!="published"{t.Fatal("new version is not active")}
  if _,err=pool.Exec(ctx,`UPDATE service_form_versions SET status='draft' WHERE id=$1`,second.ID);err==nil{t.Fatal("published form was reactivated")}
- if !errors.Is(pgx.ErrNoRows,pgx.ErrNoRows){t.Fatal("unreachable")}
 }
