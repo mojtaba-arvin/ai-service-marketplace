@@ -17,7 +17,7 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 - PR #162: platform-only global market configuration mutation, transactional before/after audit snapshots and append-only audit history including TRUNCATE protection.
 - PR #168: bounded dynamic service-form schema/answer validator. Persistence/publication, API/UI and order snapshots are separate layers.
 - PR #171: initial 77-feature full-product inventory; all entries remain passes=false.
-- PR #184: expanded the inventory to 92 features after checking the M1–M14 requirements against existing acceptance criteria; added 13 explicit capabilities for addresses, external identity, live tracking, professional academy/CRM/offline sync, ranked fair dispatch, finance adjustments, background checks, masked voice, operator interventions, consent/retention/secrets and Intake Copilot. No passes value was changed.
+- PR #184: expanded the inventory to 93 features after checking the M1–M14 requirements against existing acceptance criteria; added 13 explicit capabilities for addresses, external identity, live tracking, professional academy/CRM/offline sync, ranked fair dispatch, finance adjustments, background checks, masked voice, operator interventions, consent/retention/secrets Intake Copilot and operator analytics dashboards. No passes value was changed.
 - PR #175: session-bound device inventory/revocation; refresh rotation preserves binding. Not hardware attestation or trusted-device proof.
 - PR #177: evidence-grounded Dispute Triage advisory boundary with redaction, evidence-cited facts/options, mandatory human adjudication and golden evaluation.
 
@@ -55,7 +55,7 @@ These are repository capabilities, not evidence that every domain is complete or
 
 ## Acceptance and execution rules
 
-- feature_list.json is the structured 92-feature inventory; all new capabilities stay passes=false until implementation, negative-path tests, exact-head CI and independent acceptance evidence exist.
+- feature_list.json is the structured 93-feature inventory; all new capabilities stay passes=false until implementation, negative-path tests, exact-head CI and independent acceptance evidence exist.
 - Keep module ownership and public API/event boundaries; use small independent PRs and work on other tasks while CI runs.
 - Required checks must pass on current PR head and current main base. Do not bypass branch protection, security gates or independent QA.
 - progress.md records evidence; roadmap records intended outcomes. Neither substitutes for issue-level acceptance.
