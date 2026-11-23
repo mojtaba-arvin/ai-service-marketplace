@@ -1,54 +1,68 @@
-# Technical Plan — Performance- and Cost-Conscious Platform
+# Technical Plan — Full-Scale Extensible Marketplace Platform
 
 ## Architectural direction
-Use a **modular monolith** for the transactional core, with explicit module boundaries and extraction paths. Optimize measured latency, throughput, CPU, memory, IO, and infrastructure cost; avoid premature distributed systems. Correctness, privacy, and safety are hard constraints that performance cannot override.
 
-## Selected baseline stack
-- Core API: Go, PostgreSQL driver/SQL tooling, explicit domain/application/transport layers.
-- Customer web: Next.js + TypeScript, server rendering and caching for local SEO.
-- Admin: React + Vite + TypeScript.
-- Mobile: Flutter for customer and professional apps.
-- AI workloads: Python worker service, isolated behind an internal AI gateway.
-- Primary database: PostgreSQL + PostGIS. Add pgvector only for evaluated retrieval needs.
-- Async messaging: transactional outbox plus NATS JetStream when asynchronous delivery is required.
-- Ephemeral cache/coordination: Valkey, introduced only for justified workloads.
-- Contracts: OpenAPI for HTTP APIs; JSON Schema for events and structured payloads.
-- Local infrastructure: Docker Compose; deployment initially via containers and a low-operations reverse proxy. Kubernetes requires evidence.
+Build the complete product as a modular monolith for transactional domains, with explicit module boundaries, versioned public contracts and extraction paths. One repository and coherent deployment model should enable parallel development without turning every domain into a distributed service. Extract a service only when measured scaling, isolation, ownership or reliability requirements justify an ADR.
 
-## Why Go for the core
-Go offers predictable deployment, low runtime overhead, efficient concurrency, and a mature backend ecosystem. Using Go for the transactional core avoids introducing Rust and Go simultaneously before there are independently justified hot paths. Python remains isolated to AI/data tasks where its ecosystem materially improves delivery. TypeScript is limited to web clients and tooling.
+The architecture supports all fourteen domains in [Product Scope](../product-scope.md), not only the current customer-to-professional workflow.
 
-## Domain modules
-Identity; catalog; pricing; orders; dispatch; payments/ledger; trust and safety; messaging; support; admin; growth; analytics; B2B; platform/market configuration.
+## Current implementation baseline and stack decision
 
-Modules communicate through public application interfaces and versioned domain events. Direct imports of another module's internals are forbidden. Database ownership and transaction boundaries must be explicit.
+The repository already has a Go/PostgreSQL API and migrations, Next.js/TypeScript web client, React/Vite admin surface, Flutter mobile direction and isolated Python AI workloads. This is the current baseline.
 
-## Reliability and data
-- PostgreSQL is the source of truth for transactional state.
-- Transactional outbox writes domain events atomically with state changes.
-- Consumers are idempotent and tolerate redelivery and reordering.
-- Order state transitions are explicit, guarded, audited, and tested.
-- Financial entries are immutable, double-entry, idempotent, and denominated in integer minor units.
-- Corrections use compensating entries; reconciliation is mandatory.
-- External providers are accessed through adapters with fakes and contract tests.
+The original proposal suggested TypeScript end-to-end (NestJS/Fastify, Drizzle/Prisma, pnpm/Turborepo, Expo), which conflicts with the implementation already integrated here. This plan does not silently rewrite the stack. Go + PostgreSQL remains the default until an explicit ADR compares migration cost, ecosystem benefits, contributor ergonomics, generated contracts and long-term maintenance. No parallel API stack is introduced without an ADR.
 
-## Security and privacy
-Least privilege, server-side authorization, secure session handling, rate limits, audit trails, encrypted sensitive documents, data minimization, retention/deletion workflows, dependency and secret scanning, and threat modeling for identity, payments, location, and trust workflows. Never commit credentials or production personal data.
+## Domain modules and ownership
 
-## AI safety and evaluation
-Use an internal AI gateway for provider abstraction, structured output validation, redaction, observability, cost controls, and evaluations. Maintain golden datasets for each AI capability. AI may assist intake, support, quote drafting, and dispute triage; it must not independently authorize payment, identity, safety, or reputation decisions. Human approval and deterministic policy gates are mandatory for consequential actions.
+Modules: identity, catalog, pricing, orders, dispatch, payments/ledger, trust, messaging, support, admin-api, growth, analytics, b2b and platform.
 
-## Performance approach
-Measure before optimizing. Keep hot paths indexed and bounded; isolate analytics and model inference from synchronous order flows; use pagination and query budgets; throttle location updates; cache only data with clear invalidation semantics. Add load tests and resource budgets as representative workloads become available.
+Each module owns its domain invariants, application boundary, persistence/migrations, transport registration, public events, tests, observability and operational docs. Modules interact only through documented public application interfaces or versioned events. Direct imports of another module's internals are prohibited and checked in CI. Cross-module database access must preserve ownership rules.
 
-## Verification strategy
-- `make verify`: deterministic, offline-friendly formatting/lint/type/unit/contract checks.
-- `make verify-full`: adds real local infrastructure, integration tests, and end-to-end smoke tests.
-- CI must not depend on live third-party credentials.
-- Feature status is changed only after independent verification evidence.
+## Contracts and data
 
-## Market adapters
-Market configuration covers country, currency, tax, language/direction, legal policies, working hours, payment, SMS, maps, KYC, and notifications. Provider-specific behavior belongs behind adapter contracts, never scattered market conditionals.
+- OpenAPI is source of truth for HTTP APIs; JSON Schema for events and structured payloads.
+- Contract changes are versioned and compatibility-checked. Generate clients/DTOs where practical.
+- PostgreSQL is transactional source of truth; PostGIS supports service areas and proximity.
+- Money uses integer minor units plus ISO currency; never floating point.
+- Core entities include users/roles/sessions/devices/addresses, professional profiles/KYC/skills/areas, category/service/form/price rule/plan, order/events/quote/variation/assignment/offer, ledger accounts/entries/holds/payouts/invoices, reviews/disputes/evidence/claims, threads/messages/tickets, outbox events, flags/market config/audit, organizations/properties/memberships and consent/privacy records.
+- Retention, export, deletion and audit immutability are explicitly modeled; no retention duration is invented.
 
-## Release and operations
-Use short-lived branches, Conventional Commits, focused PRs, protected main, required CI, dependency/security scanning, release notes, staged rollout, observability, backups, and documented recovery procedures. Production release and market activation require human approval.
+## Events and asynchronous work
+
+Outbox writes commit in the same transaction as domain changes. Consumers are idempotent, bounded, observable and tolerate retries/reordering. Event schemas are canonical and versioned. NATS JetStream and Valkey are available choices; introduce/expand them only for documented workloads. Background work includes notification delivery, dispatch timeouts, scheduled plans, reconciliation, analytics projections, AI inference and privacy workflows.
+
+## Order and financial invariants
+
+Order transitions have actor permissions, reasons, append-only history, emitted events and idempotency. Variations require customer approval before scope/price changes. Cancellation/rescheduling is policy-versioned.
+
+Finance is non-negotiable: balanced double-entry postings; integer minor units; idempotency/replay; immutable entries and compensating reversals; explicit escrow/hold lifecycle; PSP callback/timeout reconciliation; daily provider-to-ledger reconciliation; and no real money movement through fake adapters. Finance acceptance requires property-based invariants, concurrency/failure recovery and independent QA. B2B billing stays gated until order/property attribution and ledger ownership are verified.
+
+## Adapters
+
+Provider interfaces cover payment, SMS, email, push, maps/geocoding, KYC/background checks, telephony/masked contact, storage/CDN and AI model providers. Each adapter declares capabilities, has deterministic local fakes and contract tests, and documents timeout/retry/idempotency. CI needs no external credentials. Unknown/incomplete market configuration fails closed.
+
+## Realtime and clients
+
+WebSocket/SSE or the selected transport supports dispatch offers, chat, order tracking, ETA and operations updates. Location sharing is consented, purpose-limited and access-controlled. Customer web is SEO-oriented; professional/admin clients expose role-appropriate workflows. Mobile offline support uses explicit local command queues, sync conflict rules and idempotency; money/safety-critical actions cannot be silently finalized offline.
+
+## AI gateway and evaluations
+
+All AI features use an internal gateway with provider abstraction, schema-constrained output, prompt/version tracking, PII redaction, policy checks, cost/time budgets, observability and safe fallback. Golden evaluations cover intake extraction, professional guidance/quote drafting, dispute triage, support assistance, fraud/leakage, quality coaching and demand/ETA/price forecasts.
+
+AI output affecting money, safety, identity, access or reputation is advisory. Deterministic policy and/or authorized human approval is mandatory. Evaluation regression blocks merge; AI cannot directly mutate ledger, KYC, dispute outcome or safety state.
+
+## Security, privacy and operations
+
+Least-privilege RBAC and tenant/organization/property scoping; short-lived credentials and refresh rotation; trusted-device and abuse controls; encryption for sensitive documents; secret manager/KMS; append-only audit; explicit consent/export/deletion and policy-governed retention; OWASP threat modeling; dependency/secret/code scanning; OpenTelemetry-compatible logs/metrics/traces; health/readiness/alerting/runbooks; reproducible backup/restore and adopter-defined RPO/RTO; infrastructure as code. No secrets in Git.
+
+## Verification
+
+- make verify: deterministic formatting/lint/static/unit/contract checks.
+- make verify-full: local PostgreSQL and other required infrastructure, integration and E2E smoke checks.
+- CI uses fakes rather than live third-party credentials.
+- High-risk modules add property-based, race/concurrency, authorization-negative, replay and fault-injection tests.
+- A feature passes only after required checks and independent acceptance evidence. PR creation or implementation merge alone is not acceptance.
+
+## Deployment and evolution
+
+Start with documented Docker-based self-hosting and a low-operations topology. Keep secrets external, migrations serialized and recovery procedures explicit. Kubernetes is optional and evidence-driven. Real PSP/KYC/tax/background-check activation requires market-specific review and explicit operator action.
