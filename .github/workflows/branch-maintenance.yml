@@ -129,7 +129,7 @@ jobs:
               checks_json="$(gh api "repos/$GITHUB_REPOSITORY/commits/$new_head/check-runs?per_page=100" 2>/dev/null || printf '{"check_runs":[]}')"
               checks_complete=true
               required_checks=("verify" "detect" "codeql (python)" "codeql (javascript-typescript)" "CodeQL (go)" "dependency-review" "guard")
-              for required_check in "\${required_checks[@]}"; do
+              for required_check in "${required_checks[@]}"; do
                 if ! jq -e --arg name "$required_check" '.check_runs | any(.[]; .name == $name and .status == "completed" and .conclusion == "success")' <<< "$checks_json" >/dev/null; then
                   checks_complete=false
                   break
