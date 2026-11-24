@@ -42,6 +42,10 @@ The new authenticated operator endpoints create drafts and publish versions; the
 
 The order API accepts an optional `answers` object. If a published form exists for the service, market and default locale, answers are mandatory and schema-validated before the order is inserted. The exact form version and canonical answers are written in the same transaction as the order; answer snapshots reject UPDATE, DELETE and TRUNCATE. Idempotent replay compares semantic JSON content and returns the original order without switching to a newer published form. Raw answers are deliberately excluded from outbox events. The backend implementation merged in PR #181 and customer web rendering/structured submission merged in PR #183. Order-history presentation and independent acceptance remain open.
 
+## Customer completion approval
+
+The customer can approve a professional-completed order through `POST /v1/orders/{order_id}/completion-approval`. The operation locks the order, verifies customer/tenant ownership and the completed state, then records one immutable approval per order. Repeated requests return the original approval; another customer cannot approve it. The approval is exposed in the customer order timeline. A completed order can also be reordered with `POST /v1/orders/{order_id}/reorder` and a new `scheduled_at`: the service, service-area and prior answer snapshot are reused, while current provider availability, active catalog/price and published questionnaire are revalidated. An optional `answers` object lets the customer update answers when the active form changes. Availability is a preflight rather than a reservation; dispatch and booking recheck it before assignment. This is a workflow acknowledgement only: it does not authorize payment capture, escrow release or settlement, which remain behind the Finance gate.
+
 ## Additional customer and professional capabilities
 
 - ORDER-007 owns privacy-scoped live professional location and ETA presentation for assigned orders. Location freshness and uncertainty must be explicit; no stale coordinate is represented as live.

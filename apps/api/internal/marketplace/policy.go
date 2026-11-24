@@ -19,6 +19,7 @@ const (
 	ActionOrderAccept       Action = "order:accept"
 	ActionOrderStart        Action = "order:start"
 	ActionOrderComplete     Action = "order:complete"
+	ActionOrderApproveCompletion Action = "order:completion:approve"
 	ActionOrderAssign       Action = "order:assign"
 	ActionQuoteApprove      Action = "quote:approve"
 	ActionQuoteAccept       Action = "quote:accept"
@@ -74,7 +75,7 @@ func Authorize(actor Actor, resource Resource, action Action) error {
 		switch action {
 		case ActionOrderCreate:
 			allowed = true
-		case ActionOrderRead, ActionOrderCancel, ActionQuoteApprove:
+		case ActionOrderRead, ActionOrderCancel, ActionQuoteApprove, ActionOrderApproveCompletion:
 			allowed = resource.OwnerID != "" && resource.OwnerID == actor.SubjectID
 		}
 	case RoleProfessional:

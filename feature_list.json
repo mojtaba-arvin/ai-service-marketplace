@@ -946,7 +946,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Implementation merged in PR #168: bounded dynamic questionnaire schemas validate conditional fields and typed answers. passes remains false pending independent QA."
   },
   {
     "id": "PRICE-004",
@@ -989,7 +989,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Backend completion approval and safe reorder are implemented in PR branch feat/order-customer-completion-approval-20261123: approval is customer/tenant-authorized, one-per-order, immutable and idempotent; reorder reuses the explicit service/area/answer snapshot, requires a new schedule, checks current provider availability and revalidates current catalog, price and published form. passes remains false pending exact-head CI, independent QA and remaining acceptance."
   },
   {
     "id": "ORDER-006",
@@ -1628,7 +1628,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation is in the current service-form lifecycle PR; exact-head CI and independent acceptance are pending."
+    "notes": "Implementation merged in PR #180: market/locale form draft and publication lifecycle serializes version numbers, retires prior active versions and protects published schemas. passes remains false pending independent QA."
   },
   {
     "id": "CAT-006",
@@ -1650,7 +1650,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Planned follow-up; not implemented or independently accepted."
+    "notes": "Implementation merged in PR #181: scheduled order creation validates against the active published form and persists an immutable versioned answer snapshot with semantic idempotent replay. passes remains false pending independent QA."
   },
   {
     "id": "IDENT-008",
