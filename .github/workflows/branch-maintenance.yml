@@ -10,9 +10,7 @@ on:
         default: false
   schedule:
     - cron: "41 3 * * *"
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  push:
     branches: [main]
 
 permissions:
@@ -26,7 +24,6 @@ concurrency:
 
 jobs:
   rebase-open-pull-requests:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     name: Rebase open PRs onto main and verify exact heads
     runs-on: ubuntu-latest
     timeout-minutes: 360
@@ -137,7 +134,7 @@ jobs:
             # Dispatch all required branch checks explicitly against the new exact SHA.
             started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             if ! gh workflow run ci.yml --ref "$branch" ||
-               ! gh workflow run security.yml --ref "$branch" ||
+               ! gh workflow run security.yml --ref "$branch" -f base_ref="$base_sha" ||
                ! gh workflow run agent-guard.yml --ref "$branch" -f base_ref=main -f head_ref="$branch"; then
               printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | DISPATCH_FAILED | Rebased to `%s`; one or more exact-head workflows could not be dispatched |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
               failures=$((failures + 1))
