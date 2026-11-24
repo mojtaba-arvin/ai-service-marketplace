@@ -33,6 +33,8 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
+          # A PAT is required: GITHUB_TOKEN pushes do not start pull_request workflows.
+          token: ${{ secrets.MARKETPLACE_AUTOMATION_TOKEN || github.token }}
 
       - name: Configure Git identity
         run: |
@@ -41,11 +43,16 @@ jobs:
 
       - name: Rebase eligible pull requests and run exact-head CI
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.MARKETPLACE_AUTOMATION_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run || false }}
         shell: bash
         run: |
           set -uo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::Configure repository secret MARKETPLACE_AUTOMATION_TOKEN. Use a fine-grained PAT with Contents read/write, Pull requests read, Actions read/write, and Workflows read/write."
+            exit 1
+          fi
 
           summary="$RUNNER_TEMP/branch-maintenance.md"
           printf '# Branch maintenance report\n\n' > "$summary"
