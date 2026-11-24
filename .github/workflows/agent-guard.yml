@@ -3,6 +3,17 @@ name: Agent Guard
 on:
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "Base branch used for protected-path comparison"
+        required: false
+        default: main
+        type: string
+      head_ref:
+        description: "Head branch being verified"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -17,8 +28,8 @@ jobs:
           fetch-depth: 0
       - name: Enforce protected paths for implementation-agent branches
         env:
-          BASE_REF: ${{ github.base_ref }}
-          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref || inputs.base_ref || 'main' }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref || inputs.head_ref || github.ref_name }}
         run: |
           if [[ "$HEAD_REF" != agent/* ]]; then
             echo "Branch '$HEAD_REF' is not agent-managed; protected-path restrictions do not apply."
