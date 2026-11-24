@@ -10,6 +10,10 @@ on:
         default: false
   schedule:
     - cron: "41 3 * * *"
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: write
@@ -22,6 +26,7 @@ concurrency:
 
 jobs:
   rebase-open-pull-requests:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     name: Rebase open PRs onto main and verify exact heads
     runs-on: ubuntu-latest
     timeout-minutes: 360
@@ -128,39 +133,56 @@ jobs:
             processed=$((processed + 1))
             printf 'Updated PR #%s: %s -> %s\n' "$number" "$expected_head" "$new_head"
 
-            # A push made with GITHUB_TOKEN does not trigger pull_request workflows.
-            # Explicitly dispatch the repository CI workflow against this exact branch.
+            # GITHUB_TOKEN pushes do not trigger pull_request workflows.
+            # Dispatch all required branch checks explicitly against the new exact SHA.
             started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            if ! gh workflow run ci.yml --ref "$branch"; then
-              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | DISPATCH_FAILED | Rebased to `%s`; could not dispatch exact-head CI |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
+            if ! gh workflow run ci.yml --ref "$branch" ||
+               ! gh workflow run security.yml --ref "$branch" ||
+               ! gh workflow run agent-guard.yml --ref "$branch" -f base_ref=main -f head_ref="$branch"; then
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | DISPATCH_FAILED | Rebased to `%s`; one or more exact-head workflows could not be dispatched |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
               failures=$((failures + 1))
               continue
             fi
 
-            run_json=""
+            ci_run=""
+            security_run=""
+            guard_run=""
+            all_done=false
             for attempt in $(seq 1 120); do
-              run_json="$(gh run list --workflow ci.yml --branch "$branch" --event workflow_dispatch --limit 20 --json databaseId,headSha,status,conclusion,createdAt,url | jq -c --arg sha "$new_head" --arg started "$started_at" '[.[] | select(.headSha == $sha and .createdAt >= $started)] | first // empty')"
-              if [[ -n "$run_json" ]]; then
-                run_status="$(jq -r '.status' <<< "$run_json")"
-                if [[ "$run_status" == "completed" ]]; then
-                  conclusion="$(jq -r '.conclusion // "unknown"' <<< "$run_json")"
-                  run_url="$(jq -r '.url' <<< "$run_json")"
-                  if [[ "$conclusion" == "success" ]]; then
-                    printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | REBASED + CI PASSED | [`%s`](%s) |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" "$run_url" >> "$summary"
-                  else
-                    printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CI FAILED: %s | [`%s`](%s) |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$conclusion" "$new_head" "$run_url" >> "$summary"
-                    failures=$((failures + 1))
-                  fi
-                  break
-                fi
+              ci_run="$(gh run list --workflow ci.yml --branch "$branch" --event workflow_dispatch --limit 20 --json databaseId,headSha,status,conclusion,createdAt,url | jq -c --arg sha "$new_head" --arg started "$started_at" '[.[] | select(.headSha == $sha and .createdAt >= $started)] | first // empty')"
+              security_run="$(gh run list --workflow security.yml --branch "$branch" --event workflow_dispatch --limit 20 --json databaseId,headSha,status,conclusion,createdAt,url | jq -c --arg sha "$new_head" --arg started "$started_at" '[.[] | select(.headSha == $sha and .createdAt >= $started)] | first // empty')"
+              guard_run="$(gh run list --workflow agent-guard.yml --branch "$branch" --event workflow_dispatch --limit 20 --json databaseId,headSha,status,conclusion,createdAt,url | jq -c --arg sha "$new_head" --arg started "$started_at" '[.[] | select(.headSha == $sha and .createdAt >= $started)] | first // empty')"
+
+              if [[ -n "$ci_run" && -n "$security_run" && -n "$guard_run" ]] &&
+                 [[ "$(jq -r '.status' <<< "$ci_run")" == "completed" ]] &&
+                 [[ "$(jq -r '.status' <<< "$security_run")" == "completed" ]] &&
+                 [[ "$(jq -r '.status' <<< "$guard_run")" == "completed" ]]; then
+                all_done=true
+                break
               fi
-              if [[ "$attempt" -eq 120 ]]; then
-                printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CI TIMEOUT | Rebased to `%s`; run not completed within 30 minutes |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
-                failures=$((failures + 1))
-              else
-                sleep 15
-              fi
+
+              if [[ "$attempt" -lt 120 ]]; then sleep 15; fi
             done
+
+            if [[ "$all_done" != "true" ]]; then
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CHECK TIMEOUT | Rebased to `%s`; CI/Security/Agent Guard did not all complete within 30 minutes |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
+              failures=$((failures + 1))
+              continue
+            fi
+
+            ci_conclusion="$(jq -r '.conclusion // "unknown"' <<< "$ci_run")"
+            security_conclusion="$(jq -r '.conclusion // "unknown"' <<< "$security_run")"
+            guard_conclusion="$(jq -r '.conclusion // "unknown"' <<< "$guard_run")"
+            ci_url="$(jq -r '.url' <<< "$ci_run")"
+            security_url="$(jq -r '.url' <<< "$security_run")"
+            guard_url="$(jq -r '.url' <<< "$guard_run")"
+
+            if [[ "$ci_conclusion" == "success" && "$security_conclusion" == "success" && "$guard_conclusion" == "success" ]]; then
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | REBASED + ALL CHECKS PASSED | [CI](%s), [Security](%s), [Agent Guard](%s) on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$ci_url" "$security_url" "$guard_url" "$new_head" >> "$summary"
+            else
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CHECK FAILED | CI=%s, Security=%s, Agent Guard=%s on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$ci_conclusion" "$security_conclusion" "$guard_conclusion" "$new_head" >> "$summary"
+              failures=$((failures + 1))
+            fi
           done < <(jq -c '.[]' "$RUNNER_TEMP/pulls.json")
 
           {
