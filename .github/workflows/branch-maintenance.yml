@@ -111,24 +111,44 @@ jobs:
             fi
 
             new_head="$(git rev-parse HEAD)"
+            already_current=false
             if [[ "$new_head" == "$expected_head" ]]; then
-              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CURRENT | Already based on current main |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
-              continue
+              already_current=true
             fi
 
             if [[ "$DRY_RUN" == "true" ]]; then
-              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | DRY RUN | Would update to `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
+              if [[ "$already_current" == "true" ]]; then
+                printf '| [#%s](https://github.com/%s/pull/%s) | \`%s\` | \`%s\` | CURRENT | Already based on current main; dry run does not dispatch checks |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+              else
+                printf '| [#%s](https://github.com/%s/pull/%s) | \`%s\` | \`%s\` | DRY RUN | Would update to \`%s\` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
+              fi
               continue
             fi
 
-            if ! git push origin "HEAD:refs/heads/$branch" "--force-with-lease=refs/heads/$branch:$expected_head"; then
-              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | PUSH_REJECTED | Lease or repository protection rejected update; no retry |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
-              failures=$((failures + 1))
-              continue
+            if [[ "$already_current" == "true" ]]; then
+              checks_json="$(gh api "repos/$GITHUB_REPOSITORY/commits/$new_head/check-runs?per_page=100" 2>/dev/null || printf '{"check_runs":[]}')"
+              checks_complete=true
+              required_checks=("verify" "detect" "codeql (python)" "codeql (javascript-typescript)" "CodeQL (go)" "dependency-review" "guard")
+              for required_check in "${required_checks[@]}"; do
+                if ! jq -e --arg name "$required_check" '.check_runs | any(.[]; .name == $name and .status == "completed" and .conclusion == "success")' <<< "$checks_json" >/dev/null; then
+                  checks_complete=false
+                  break
+                fi
+              done
+              if [[ "$checks_complete" == "true" ]]; then
+                printf '| [#%s](https://github.com/%s/pull/%s) | \`%s\` | \`%s\` | CURRENT | Already based on current main; exact-head required checks already passed |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+                continue
+              fi
+              printf 'PR #%s is current but required checks are missing or unsuccessful; dispatching exact-head checks.\\n' "$number"
+            else
+              if ! git push origin "HEAD:refs/heads/$branch" "--force-with-lease=refs/heads/$branch:$expected_head"; then
+                printf '| [#%s](https://github.com/%s/pull/%s) | \`%s\` | \`%s\` | PUSH_REJECTED | Lease or repository protection rejected update; no retry |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+                failures=$((failures + 1))
+                continue
+              fi
+              processed=$((processed + 1))
+              printf 'Updated PR #%s: %s -> %s\\n' "$number" "$expected_head" "$new_head"
             fi
-
-            processed=$((processed + 1))
-            printf 'Updated PR #%s: %s -> %s\n' "$number" "$expected_head" "$new_head"
 
             # GITHUB_TOKEN pushes do not trigger pull_request workflows.
             # Dispatch all required branch checks explicitly against the new exact SHA.
@@ -175,7 +195,12 @@ jobs:
             guard_url="$(jq -r '.url' <<< "$guard_run")"
 
             if [[ "$ci_conclusion" == "success" && "$security_conclusion" == "success" && "$guard_conclusion" == "success" ]]; then
-              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | REBASED + ALL CHECKS PASSED | [CI](%s), [Security](%s), [Agent Guard](%s) on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$ci_url" "$security_url" "$guard_url" "$new_head" >> "$summary"
+              if [[ "$already_current" == "true" ]]; then
+                result_label="CURRENT + ALL CHECKS PASSED"
+              else
+                result_label="REBASED + ALL CHECKS PASSED"
+              fi
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | %s | [CI](%s), [Security](%s), [Agent Guard](%s) on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$result_label" "$ci_url" "$security_url" "$guard_url" "$new_head" >> "$summary"
             else
               printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CHECK FAILED | CI=%s, Security=%s, Agent Guard=%s on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$ci_conclusion" "$security_conclusion" "$guard_conclusion" "$new_head" >> "$summary"
               failures=$((failures + 1))
