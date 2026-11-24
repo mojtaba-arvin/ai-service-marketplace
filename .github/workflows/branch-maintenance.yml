@@ -147,7 +147,7 @@ jobs:
               done
 
               if [[ "$checks_complete" == "true" ]]; then
-                printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CURRENT | Pull-request-triggered required workflows already passed on the exact head |\\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+                printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CURRENT | Pull-request-triggered required workflows already passed on the exact head |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
                 continue
               fi
 
@@ -156,7 +156,7 @@ jobs:
               git commit --allow-empty -m "ci: retrigger required pull request checks"
               new_head="$(git rev-parse HEAD)"
               if ! git push origin "HEAD:refs/heads/$branch" "--force-with-lease=refs/heads/$branch:$expected_head"; then
-                printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | PUSH_REJECTED | Could not refresh the PR check SHA; no retry |\\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+                printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | PUSH_REJECTED | Could not refresh the PR check SHA; no retry |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
                 failures=$((failures + 1))
                 continue
               fi
@@ -164,7 +164,7 @@ jobs:
               printf 'Refreshed checks for PR #%s with empty commit %s\n' "$number" "$new_head"
             else
               if ! git push origin "HEAD:refs/heads/$branch" "--force-with-lease=refs/heads/$branch:$expected_head"; then
-                printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | PUSH_REJECTED | Lease or repository protection rejected update; no retry |\\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+                printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | PUSH_REJECTED | Lease or repository protection rejected update; no retry |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
                 failures=$((failures + 1))
                 continue
               fi
@@ -195,7 +195,7 @@ jobs:
             done
 
             if [[ "$all_done" != "true" ]]; then
-              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CHECK TIMEOUT | Rebased to `%s`; pull_request CI/Security/Agent Guard did not all complete within 30 minutes |\\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CHECK TIMEOUT | Rebased to `%s`; pull_request CI/Security/Agent Guard did not all complete within 30 minutes |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
               failures=$((failures + 1))
               continue
             fi
