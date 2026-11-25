@@ -1,6 +1,6 @@
 # Development Progress
 
-> Rolling evidence snapshot: 2026-11-25 (updated after PR #208). Git history and PRs retain detailed history. Never mark a feature QA-passing without independent evidence.
+> Rolling evidence snapshot: 2026-11-25 (updated after PR #210 and TRUST-002 intake implementation). Git history and PRs retain detailed history. Never mark a feature QA-passing without independent evidence.
 
 ## Product direction
 
@@ -8,7 +8,7 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 ## Integrated on main
 
-- Main at snapshot: `b2e961d91c0362b98c3f20b8dbbd450d9338c30a` (after PR #208).
+- Main at snapshot: `f3197510b94ab7b29d348cd97d0a58b3cd4cb95b` (after PR #211).
 - PRs #146, #150, #149, #152, #148, #193, #194, #195, #196, #197, #198, #199, #200, #201, #202, #203, #204, #206 and #208 are merged. #205 and #207 were closed as superseded by refreshed PRs #206 and #208. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance. #195/#197 record analytics runtime and release-gate decisions; #198 delivers the historical rebuild/rollback command; #199 records that delivery and its remaining gates; #200 refreshes deployment and analytics operations guidance.
 - PR #194: migration 030, tenant/generation-scoped immutable analytics facts and quarantine, per-tenant active-generation pointer, bounded live analytics worker, active-generation-only summaries with pending-event readiness, production image and optional Compose profile. PostgreSQL integration tests cover restart, generation mismatch, idempotency, shadow isolation and pointer cutover; CI/E2E/Security/CodeQL/Agent Guard passed on exact head.
 - PR #196: authenticated `GET /v1/operator/analytics/summary`, operator-only `analytics:read`, tenant taken exclusively from the authenticated principal, RFC3339 bounded-window validation, `Cache-Control: private, no-store`, OpenAPI/metric contracts, and PostgreSQL privacy/quarantine/immutability/idempotency plus route-authorization tests. Exact-head Go tests, E2E, Compose validation, API/web image builds, Security/CodeQL and Agent Guard passed.
@@ -102,3 +102,16 @@ These are repository capabilities, not evidence that every domain is complete or
 - TRUST-002: incident intake is not an emergency response channel. Derive tenant from the persisted order, authorize reporters against order participation, and never accept a tenant ID from request input. AI may advise but must not decide severity, liability, refund or closure.
 - Event contracts: retain #110/#137 branches while external compatibility is unresolved. Internal tests are not evidence of consumer migration approval.
 - Do not mark any feature `passes=true` from CI, merged code or architecture documentation alone.
+
+
+## Latest delivery — 2026-11-25 (ADMIN-001 audit integrity / TRUST-002 intake)
+
+- PR #210 merged with merge commit `73a0a32c02afdcdff78fc3de5e89b626dc401a04`. It adds migration 032, a composite unique key and FK binding each permission audit event to the exact grant tuple `(grant_id, tenant_id, identity_id, action)`. This closes the audit-tuple integrity prerequisite only.
+- PR #211 merged as `f3197510b94ab7b29d348cd97d0a58b3cd4cb95b` after CI, Security/CodeQL (all languages) and Agent Guard passed on exact head `a43b76295e916dbd9902c48c5cbfa9b0fca68e78`. It contains migration 033 and the first TRUST-002 order-bound incident intake slice. Reviewer workflow, private evidence storage/access, retention and independent acceptance remain out of scope.
+- ADMIN-001 runtime work continues on `feat/admin-001-runtime-grants-20261125`. It contains transaction-aware grant/revoke primitives and PostgreSQL tests. Transaction-bound checks now cover operator order/provider/analytics reads; market, catalog localization and service-form writes; provider profile/skill/activation verification; provider booking/availability; dispatch candidate/offer operations; cancellation-policy writes; and professional-verification review/evidence reads. This remains partial: other operator-sensitive Store entry points still use legacy role-based `Authorize`. Do not merge until the full source audit, test fixtures, concurrency/negative tests and all exact-head checks are complete.
+- The pure `Authorize` function still has legacy operator-role allow rules until all callers are migrated. Do not remove those rules prematurely; first migrate every operator caller to a DB-backed grant check, then make the pure policy path deny all operator actions and prove the complete test suite.
+- PR #110 and #137 remain open and blocked on external consumer compatibility evidence. Keep their branches.
+- No feature acceptance flags changed: `feature_list.json` remains 0/93 independently QA-passing. CI and merged code are not independent acceptance evidence.
+
+
+- PR #212 is the documentation refresh for this snapshot; its branch must be rebased onto the current main after PR #211 merged, then its exact-head checks must pass.
