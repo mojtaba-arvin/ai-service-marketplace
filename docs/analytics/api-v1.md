@@ -30,3 +30,7 @@ The v1 metric contract requires explicit `metadata.market_code` and `metadata.tr
 ## Source of truth
 
 The API reads only the append-only `analytics_event_facts` projection. It does not query orders, provider profiles, payments or ledger tables. Unsupported and legacy event shapes are quarantined and do not contribute to metrics.
+
+### Readiness interpretation
+
+`data_ready` describes ingestion lag at query time only. It does not certify event-time finality: late-arriving events may change historical cohorts, and a deterministic historical rebuild/cutover workflow is not yet implemented. Do not use this flag as a financial or contractual close signal.
