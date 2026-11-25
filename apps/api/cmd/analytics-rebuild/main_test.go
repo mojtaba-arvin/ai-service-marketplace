@@ -19,12 +19,18 @@ func TestAnalyticsRebuildCatchesLateCommitAndCutsOverAtomicallyPostgres(t *testi
  dsn:=os.Getenv("TEST_DATABASE_URL")
  if dsn=="" { t.Skip("TEST_DATABASE_URL is not configured") }
  ctx,cancel:=context.WithTimeout(context.Background(),60*time.Second);defer cancel()
- pool,err:=pgxpool.New(ctx,dsn);if err!=nil{t.Fatal(err)};defer pool.Close()
+ suffix:=fmt.Sprint(time.Now().UnixNano())
+ schema:="analytics_rebuild_"+suffix
+ admin,err:=pgxpool.New(ctx,dsn);if err!=nil{t.Fatal(err)};defer admin.Close()
+ if _,err=admin.Exec(ctx,"CREATE SCHEMA "+schema);err!=nil{t.Fatal(err)}
+ defer func(){cleanupCtx,cleanupCancel:=context.WithTimeout(context.Background(),5*time.Second);defer cleanupCancel();_,_ = admin.Exec(cleanupCtx,"DROP SCHEMA "+schema+" CASCADE")}()
+ config,err:=pgxpool.ParseConfig(dsn);if err!=nil{t.Fatal(err)}
+ config.ConnConfig.RuntimeParams["search_path"]=schema
+ pool,err:=pgxpool.NewWithConfig(ctx,config);if err!=nil{t.Fatal(err)};defer pool.Close()
  for _,name:=range []string{"001_walking_skeleton.sql","019_outbox_delivery.sql","030_analytics_event_projection.sql"}{
   raw,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name));if readErr!=nil{t.Fatal(readErr)}
   if _,err=pool.Exec(ctx,string(raw),pgx.QueryExecModeSimpleProtocol);err!=nil{t.Fatalf("apply %s: %v",name,err)}
  }
- suffix:=fmt.Sprint(time.Now().UnixNano())
  tenant:="analytics-rebuild-tenant-"+suffix
  oldGeneration:="old-"+suffix
  generation:="rebuilt-"+suffix
