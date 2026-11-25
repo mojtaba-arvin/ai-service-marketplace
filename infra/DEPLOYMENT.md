@@ -109,11 +109,51 @@ cat marketplace.dump | docker compose --env-file .env.production -f infra/compos
 
 Test backup restoration before treating the host as production-ready. Keep encrypted backups off-host.
 
+## Analytics projection operations
+
+The optional `analytics` Compose profile is disabled by default. The live worker consumes only the configured tenant's active generation; the one-shot `/app/analytics-rebuild` command performs historical replay, validation and atomic cutover. See [the analytics worker and rebuild runbook](../apps/api/internal/analytics/worker.md) for implementation semantics.
+
+### Production rebuild change procedure
+
+Do not run a rebuild as part of ordinary deployment or without an approved change window. Before starting:
+
+1. Record the exact deployed API image/release SHA and the target tenant.
+2. Take a fresh PostgreSQL backup, copy it off-host, and verify that it restores into an isolated empty database.
+3. Choose a fresh generation ID that has never been active. Record the currently active generation as the rollback target.
+4. Confirm the database has sufficient disk/IO headroom and arrange monitoring for PostgreSQL load, worker logs, pending-event counts, fact/quarantine counts and API analytics readiness.
+5. Do not delete or reuse the old generation. A nonzero quarantine count is accounted for but those events do not become metric facts.
+
+Stop the currently configured analytics worker so an old-generation process cannot remain running after cutover:
+
+```sh
+docker compose --env-file .env.production -f infra/compose.production.yml --profile analytics stop analytics-worker
+```
+
+Set `ANALYTICS_GENERATION_ID` to the new generation and `ANALYTICS_REBUILD_CONFIRM` to the exact `tenant-id:generation-id` pair in the untracked production environment file. Then build the API image and run the one-shot rebuild:
+
+```sh
+docker compose --env-file .env.production -f infra/compose.production.yml build api
+docker compose --env-file .env.production -f infra/compose.production.yml --profile analytics run --rm --no-deps --entrypoint /app/analytics-rebuild analytics-worker
+```
+
+A successful command means the generation passed its source/processed/fact/quarantine checks and its active pointer was switched atomically. It does not prove event-time finality, finance close or independent metric acceptance. Recreate the live worker with the same new generation configuration:
+
+```sh
+docker compose --env-file .env.production -f infra/compose.production.yml --profile analytics up -d --no-deps --force-recreate analytics-worker
+docker compose --env-file .env.production -f infra/compose.production.yml logs --tail=100 analytics-worker
+```
+
+Observe that the worker starts with the new generation, pending events drain, analytics summary readiness recovers, and no unexplained quarantine or database-load regression occurs. Record before/after counts, checksum, timestamps, deployed SHA and operator in the change record. Events committed after the rebuild's cutover snapshot are expected to be consumed by this restarted worker.
+
+### Rollback
+
+If the new worker handoff or post-cutover checks fail, stop it. Set `ANALYTICS_GENERATION_ID` to the retained prior generation, set `ANALYTICS_REBUILD_MODE=rollback`, and set the confirmation to the same `tenant-id:generation-id` pair. Run the one-shot command above. It catches up and validates the retained generation before atomically restoring its pointer. Recreate the worker using that restored generation ID, then clear `ANALYTICS_REBUILD_MODE`. Preserve both generations and the backup until recovery is accepted. Never manually update generation tables or the active pointer.
+
 ## Known limitations before public use
 
-- Browser sessions use Secure, HttpOnly access/refresh cookies, a same-origin CSRF token, and Origin validation for cookie-authenticated mutations. The browser E2E in open PR #67 passed through local Caddy HTTPS, including CSRF, refresh, access expiry, and sign-out checks; the PR still requires review/merge.
-- The customer booking → operator verification/dispatch → professional acceptance → customer status browser journey passed CI in PR #67. A public deployed smoke test is still required.
-- CI backup/restore rehearsal against the disposable PostgreSQL service passed in open PR #69; production backup storage and restore must still be rehearsed on the actual host.
+- Browser sessions use Secure, HttpOnly access/refresh cookies, a same-origin CSRF token, and Origin validation for cookie-authenticated mutations. Production-mode browser/API E2E and the clean-database PostgreSQL backup/restore rehearsal are merged in PR #74; these prove repository/CI behavior, not a public deployment.
+- The customer booking → operator verification/dispatch → professional acceptance → customer status browser journey is covered by the merged production-mode E2E. A public deployed smoke test is still required.
+- CI backup/restore rehearsal against a disposable PostgreSQL service is merged in PR #74; production backup storage, off-host retention and restore must still be rehearsed on the actual host.
 - Independent release QA against a clean deployed environment remains required.
 - The OTP adapter requires a real provider endpoint and token.
 - The initial service catalog and sample professional must be seeded for the configured market before the UI can create a booking.
