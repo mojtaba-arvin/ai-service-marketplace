@@ -50,6 +50,7 @@ CREATE INDEX IF NOT EXISTS operator_action_grants_lookup_idx
 
 CREATE TABLE IF NOT EXISTS operator_permission_events (
     id bigserial PRIMARY KEY,
+    grant_id text NOT NULL REFERENCES operator_action_grants(id) ON DELETE RESTRICT,
     tenant_id text NOT NULL CHECK (length(btrim(tenant_id)) BETWEEN 1 AND 120),
     identity_id text NOT NULL REFERENCES phone_identities(id) ON DELETE RESTRICT,
     action text NOT NULL CHECK (action IN (
