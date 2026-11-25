@@ -255,16 +255,16 @@ func TestIncidentReportOrderParticipantPrivacyPostgres(t *testing.T) {
 	if _, err = store.GetIncidentReportForReviewer(ctx, targetReviewer, report.ID); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("revoked reviewer must lose report access: %v", err)
 	}
-	if _, err = store.TransitionIncidentReport(ctx, reviewer, report.ID, IncidentReportTransitionInput{
-		Action:"assign",AssignedReviewerIdentityID:targetReviewerID,Reason:"revoked reviewer cannot be assigned",
-	}); !errors.Is(err, ErrForbidden) {
-		t.Fatalf("revoked reviewer assignment should be denied: %v", err)
-	}
 	assigned, err = store.TransitionIncidentReport(ctx, reviewer, report.ID, IncidentReportTransitionInput{
 		Action:"assign",AssignedReviewerIdentityID:reviewerID,Reason:"reviewer takes ownership",
 	})
 	if err != nil || assigned.AssignedReviewerIdentityID == nil || *assigned.AssignedReviewerIdentityID != reviewerID {
 		t.Fatalf("self-assignment by active reviewer failed: %+v %v", assigned, err)
+	}
+	if _, err = store.TransitionIncidentReport(ctx, reviewer, report.ID, IncidentReportTransitionInput{
+		Action:"assign",AssignedReviewerIdentityID:targetReviewerID,Reason:"revoked reviewer cannot be assigned",
+	}); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("revoked reviewer assignment should be denied: %v", err)
 	}
 	if _, err = store.TransitionIncidentReport(ctx, reviewer, report.ID, IncidentReportTransitionInput{
 		Action:"status",Status:"investigating",Reason:"skipping triage is prohibited",
