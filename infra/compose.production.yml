@@ -118,6 +118,8 @@ services:
       ANALYTICS_TENANT_ID: ${ANALYTICS_TENANT_ID:-}
       ANALYTICS_GENERATION_ID: ${ANALYTICS_GENERATION_ID:-}
       ANALYTICS_WORKER_ID: ${ANALYTICS_WORKER_ID:-marketplace-analytics-1}
+      ANALYTICS_REBUILD_CONFIRM: ${ANALYTICS_REBUILD_CONFIRM:-}
+      ANALYTICS_REBUILD_MODE: ${ANALYTICS_REBUILD_MODE:-}
     depends_on:
       postgres:
         condition: service_healthy
