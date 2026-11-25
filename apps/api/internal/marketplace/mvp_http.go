@@ -1174,7 +1174,7 @@ func (h *Handler) operatorPermissions(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == http.MethodPost && strings.HasPrefix(path, "/v1/operator/permissions/grants/") && strings.HasSuffix(path, "/revoke") {
 		parts := strings.Split(strings.Trim(path, "/"), "/")
-		if len(parts) != 6 || parts[4] == "" {
+		if len(parts) != 7 || parts[5] == "" {
 			writeError(w, http.StatusNotFound, "not found")
 			return
 		}
@@ -1189,7 +1189,7 @@ func (h *Handler) operatorPermissions(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "request must contain one JSON object")
 			return
 		}
-		grant, revokeErr := h.Store.RevokeOperatorAction(r.Context(), actor, actor.TenantID, parts[4], in.Reason)
+		grant, revokeErr := h.Store.RevokeOperatorAction(r.Context(), actor, actor.TenantID, parts[5], in.Reason)
 		if errors.Is(revokeErr, ErrForbidden) {
 			writeError(w, http.StatusForbidden, "operator permission-management grant is required; self-revocation is not allowed")
 			return
