@@ -51,7 +51,9 @@ func TestAnalyticsProjectionMinimizesAndQuarantinesEventsPostgres(t *testing.T) 
     appendDomain:=func(event outbox.DomainEvent) int64 {
         tx,beginErr:=pool.BeginTx(ctx,pgx.TxOptions{})
         if beginErr!=nil { t.Fatal(beginErr) }
-        id,appendErr:=outbox.AppendDomainEvent(ctx,tx,event)
+        payload,marshalErr:=json.Marshal(event)
+        if marshalErr!=nil { _=tx.Rollback(ctx);t.Fatal(marshalErr) }
+        id,appendErr:=outbox.Append(ctx,tx,event.Aggregate.Type,event.Aggregate.ID,event.Type,payload)
         if appendErr!=nil { _=tx.Rollback(ctx);t.Fatal(appendErr) }
         if commitErr:=tx.Commit(ctx);commitErr!=nil { t.Fatal(commitErr) }
         return id
