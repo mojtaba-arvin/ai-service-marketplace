@@ -16,3 +16,5 @@ docker compose --env-file .env.production -f infra/compose.production.yml logs -
 ```
 
 The profile remains disabled by default. The first run may establish the tenant's initial active generation; if one already exists, the worker only accepts that exact generation and consumer identity.
+
+Analytics summary readiness includes the active generation's pending canonical-event count. `data_ready` is false while that generation still has unprocessed tenant events, so partial catch-up is not presented as a complete projection.
