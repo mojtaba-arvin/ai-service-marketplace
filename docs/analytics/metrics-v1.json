@@ -174,5 +174,15 @@
       ],
       "definition": "Count providers whose verification is active at the snapshot instant. Until canonical provider lifecycle events exist, this metric must not be inferred from operational table reads."
     }
-  ]
+  ],
+  "projection_readiness": {
+    "data_ready": "Operational ingestion status only: the active generation has no pending canonical tenant-scoped outbox events at query time and eligible production facts exist in the requested window.",
+    "not_guaranteed": [
+      "event-time finality",
+      "late-arrival watermark completion",
+      "historical rebuild completeness",
+      "finance or contractual close"
+    ],
+    "limitation": "Late events may change historical cohorts. Deterministic historical rebuild, catch-up validation and atomic generation cutover are not implemented."
+  }
 }
