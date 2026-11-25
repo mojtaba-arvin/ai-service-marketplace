@@ -121,7 +121,8 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
         if err = store.EnsureIdentityMembership(ctx,actor.SubjectID,tenantID,actor.Role); err != nil {
             t.Fatal(err)
         }
-    }    if err = ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify,ActionOrderAssign,ActionOrderRead,ActionAnalyticsRead); err != nil {
+    }
+    if err = ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify,ActionOrderAssign,ActionOrderRead,ActionAnalyticsRead); err != nil {
         t.Fatal(err)
     }
 
