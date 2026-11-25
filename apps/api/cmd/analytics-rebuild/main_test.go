@@ -73,4 +73,6 @@ func TestAnalyticsRebuildCatchesLateCommitAndCutsOverAtomicallyPostgres(t *testi
  if err=pool.QueryRow(ctx,`SELECT status FROM analytics_projection_generations WHERE tenant_id=$1 AND generation_id=$2`,tenant,oldGeneration).Scan(&oldStatus);err!=nil{t.Fatal(err)}
  if err=pool.QueryRow(ctx,`SELECT status FROM analytics_projection_generations WHERE tenant_id=$1 AND generation_id=$2`,tenant,generation).Scan(&newStatus);err!=nil{t.Fatal(err)}
  if oldStatus!="retired"||newStatus!="active"{t.Fatalf("generation states old=%q new=%q",oldStatus,newStatus)}
+ if err=runRollback(ctx,pool,tenant,oldGeneration);err!=nil{t.Fatalf("rollback must catch up and atomically restore prior generation: %v",err)}
+ if err=pool.QueryRow(ctx,`SELECT generation_id FROM analytics_active_generations WHERE tenant_id=$1`,tenant).Scan(&active);err!=nil||active!=oldGeneration{t.Fatalf("rollback active generation=%q err=%v",active,err)}
 }
