@@ -81,12 +81,12 @@ func TestAnalyticsWorkerConsumesTenantEventsIdempotentlyPostgres(t *testing.T) {
  if err=pool.QueryRow(ctx,"SELECT id,aggregate_type,aggregate_id,event_type,payload,attempts FROM outbox_events WHERE id=$1",secondOutboxID).Scan(&secondEvent.ID,&secondEvent.AggregateType,&secondEvent.AggregateID,&secondEvent.EventType,&secondEvent.Payload,&secondEvent.Attempts);err!=nil { t.Fatal(err) }
  if applied,processErr:=nextConsumer.Process(ctx,secondEvent);processErr!=nil||!applied { t.Fatalf("process shadow event: applied=%v err=%v",applied,processErr) }
  beforeSwitch,err:=analytics.QuerySummary(ctx,pool,tenant,analytics.SummaryFilter{From:time.Now().UTC().Add(-time.Minute),To:time.Now().UTC().Add(time.Minute),MarketCode:"OM"})
- if err!=nil||beforeSwitch.OrdersCreated!=1 { t.Fatalf("shadow facts must remain invisible before cutover: %+v err=%v",beforeSwitch,err) }
+ if err!=nil||beforeSwitch.OrdersCreated!=1||beforeSwitch.PendingEvents!=1||beforeSwitch.DataReady { t.Fatalf("shadow facts must remain invisible and active-generation lag must be visible before cutover: %+v err=%v",beforeSwitch,err) }
  switchTx,err:=pool.BeginTx(ctx,pgx.TxOptions{});if err!=nil { t.Fatal(err) }
  if _,err=switchTx.Exec(ctx,"UPDATE analytics_active_generations SET generation_id=$2,activated_at=now() WHERE tenant_id=$1",tenant,nextGeneration);err!=nil { _=switchTx.Rollback(ctx);t.Fatal(err) }
  if _,err=switchTx.Exec(ctx,"UPDATE analytics_projection_generations SET status='retired',retired_at=now() WHERE tenant_id=$1 AND generation_id=$2",tenant,generation);err!=nil { _=switchTx.Rollback(ctx);t.Fatal(err) }
  if _,err=switchTx.Exec(ctx,"UPDATE analytics_projection_generations SET status='active',activated_at=now() WHERE tenant_id=$1 AND generation_id=$2",tenant,nextGeneration);err!=nil { _=switchTx.Rollback(ctx);t.Fatal(err) }
  if err=switchTx.Commit(ctx);err!=nil { t.Fatal(err) }
  afterSwitch,err:=analytics.QuerySummary(ctx,pool,tenant,analytics.SummaryFilter{From:time.Now().UTC().Add(-time.Minute),To:time.Now().UTC().Add(time.Minute),MarketCode:"OM"})
- if err!=nil||afterSwitch.OrdersCreated!=2 { t.Fatalf("summary must switch atomically to the new generation: %+v err=%v",afterSwitch,err) }
+ if err!=nil||afterSwitch.OrdersCreated!=2||afterSwitch.PendingEvents!=0||!afterSwitch.DataReady { t.Fatalf("summary must switch to the caught-up generation: %+v err=%v",afterSwitch,err) }
 }
