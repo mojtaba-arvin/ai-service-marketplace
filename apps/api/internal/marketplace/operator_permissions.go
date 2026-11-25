@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var (
 	ErrOperatorGrantNotFound = errors.New("operator permission grant not found")
 	ErrOperatorGrantInput = errors.New("invalid operator permission grant input")
+	ErrOperatorGrantExists = errors.New("operator permission grant already exists")
 )
 
 type OperatorActionGrant struct {
@@ -136,6 +138,10 @@ func (s *Store) GrantOperatorAction(ctx context.Context, actor Actor, tenantID, 
 		&result.GrantedByID, &result.GrantReason, &result.GrantedAt,
 	)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return OperatorActionGrant{}, ErrOperatorGrantExists
+		}
 		return OperatorActionGrant{}, err
 	}
 	after, err := json.Marshal(map[string]any{
@@ -232,4 +238,43 @@ func (s *Store) RevokeOperatorAction(ctx context.Context, actor Actor, tenantID,
 		return OperatorActionGrant{}, err
 	}
 	return result, nil
+}
+
+
+// ListOperatorActionGrants returns the tenant's permission history to an
+// explicitly authorized permission manager. It includes revoked records so
+// operators can audit why access was denied and who changed it.
+func (s *Store) ListOperatorActionGrants(ctx context.Context, actor Actor) ([]OperatorActionGrant, error) {
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil { return nil, err }
+	defer tx.Rollback(ctx)
+	if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: actor.TenantID}, ActionOperatorPermissionsManage); err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT id,identity_id,tenant_id,action,granted_by_identity_id,grant_reason,granted_at,
+			revoked_at,revoked_by_identity_id,revoke_reason
+		FROM operator_action_grants
+		WHERE tenant_id=$1
+		ORDER BY granted_at DESC,id DESC
+		LIMIT 500
+	`, actor.TenantID)
+	if err != nil { return nil, err }
+	grants := make([]OperatorActionGrant, 0)
+	for rows.Next() {
+		var grant OperatorActionGrant
+		if err = rows.Scan(&grant.ID,&grant.IdentityID,&grant.TenantID,&grant.Action,&grant.GrantedByID,
+			&grant.GrantReason,&grant.GrantedAt,&grant.RevokedAt,&grant.RevokedByID,&grant.RevokeReason); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		grants = append(grants, grant)
+	}
+	if err = rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	if err = tx.Commit(ctx); err != nil { return nil, err }
+	return grants, nil
 }
