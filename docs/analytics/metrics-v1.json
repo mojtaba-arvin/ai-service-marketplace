@@ -1,0 +1,178 @@
+{
+  "schema_version": "metrics.v1",
+  "status": "contract-only",
+  "tenant_partition_key": "tenant_id",
+  "event_identity_key": "id",
+  "event_time_key": "occurred_at",
+  "required_event_metadata": {
+    "market_code": "Stable market code from the persisted market configuration",
+    "traffic_class": [
+      "production",
+      "demo",
+      "test"
+    ]
+  },
+  "production_filter": {
+    "field": "metadata.traffic_class",
+    "equals": "production",
+    "missing": "exclude",
+    "other_values": "exclude"
+  },
+  "time_policy": {
+    "bucket": "calendar_day",
+    "timezone": "IANA timezone resolved from the event's market configuration; never use worker or database session timezone",
+    "late_arrival_watermark_hours": 72,
+    "within_watermark": "Upsert the original event-time bucket idempotently",
+    "beyond_watermark": "Mark the affected tenant/market/period for deterministic replay; never silently discard"
+  },
+  "deduplication": {
+    "primary": "tenant_id + event.id",
+    "business_keys": "Use distinct order_id or offer_id for ratio numerators/denominators",
+    "replay_order": "occurred_at ascending, then stable event id"
+  },
+  "privacy": {
+    "allow": [
+      "tenant_id",
+      "market_code",
+      "pseudonymous aggregate identifiers",
+      "approved event facts"
+    ],
+    "deny": [
+      "phone",
+      "email",
+      "address",
+      "precise coordinates",
+      "tokens",
+      "passwords",
+      "private evidence references",
+      "raw customer text"
+    ],
+    "unknown_fields": "Fail closed or quarantine"
+  },
+  "metrics": [
+    {
+      "id": "orders_created",
+      "status": "blocked_until_canonical_producer_adoption",
+      "source_events": [
+        "order.created"
+      ],
+      "numerator": {
+        "distinct": "event.id",
+        "where": "valid canonical order.created"
+      },
+      "denominator": null,
+      "cohort": "order.created.occurred_at",
+      "dimensions": [
+        "tenant_id",
+        "market_code",
+        "currency"
+      ],
+      "definition": "Count newly created orders. This is a volume metric, not a request-conversion rate."
+    },
+    {
+      "id": "offer_acceptance_rate",
+      "status": "blocked_until_canonical_producer_adoption",
+      "source_events": [
+        "dispatch.offer_created",
+        "order.provider_assigned"
+      ],
+      "numerator": {
+        "distinct": "order.provider_assigned.data.offer_id",
+        "where": "assignment occurred_at <= matching offer.expires_at"
+      },
+      "denominator": {
+        "distinct": "dispatch.offer_created.data.offer_id"
+      },
+      "cohort": "dispatch.offer_created.occurred_at",
+      "dimensions": [
+        "tenant_id",
+        "market_code"
+      ],
+      "definition": "Accepted offers divided by offers created, attributed to the offer-created day. Match by offer_id; do not count assignments without a matching created offer."
+    },
+    {
+      "id": "order_cancellation_rate",
+      "status": "blocked_until_canonical_producer_adoption",
+      "source_events": [
+        "order.created",
+        "order.cancelled"
+      ],
+      "numerator": {
+        "distinct": "order.cancelled.data.order_id"
+      },
+      "denominator": {
+        "distinct": "order.created.data.order_id"
+      },
+      "cohort": "order.created.occurred_at",
+      "dimensions": [
+        "tenant_id",
+        "market_code",
+        "currency"
+      ],
+      "definition": "Orders cancelled divided by orders created in the same creation cohort. Exclude cancellations with no matching creation event."
+    },
+    {
+      "id": "order_completion_rate",
+      "status": "blocked_until_canonical_producer_adoption",
+      "source_events": [
+        "order.created",
+        "order.state_changed"
+      ],
+      "numerator": {
+        "distinct": "order.state_changed.data.order_id",
+        "where": "data.to == completed"
+      },
+      "denominator": {
+        "distinct": "order.created.data.order_id"
+      },
+      "cohort": "order.created.occurred_at",
+      "dimensions": [
+        "tenant_id",
+        "market_code",
+        "currency"
+      ],
+      "definition": "Orders that reach completed divided by orders created in the same cohort. Repeated state-change events do not increase the numerator."
+    },
+    {
+      "id": "time_to_assignment",
+      "status": "blocked_until_canonical_producer_adoption",
+      "source_events": [
+        "order.created",
+        "order.provider_assigned"
+      ],
+      "numerator": {
+        "value": "order.provider_assigned.occurred_at - order.created.occurred_at"
+      },
+      "denominator": {
+        "distinct": "order_id",
+        "where": "exactly one valid creation and one valid assignment"
+      },
+      "cohort": "order.created.occurred_at",
+      "dimensions": [
+        "tenant_id",
+        "market_code"
+      ],
+      "aggregation": "median_seconds and p90_seconds",
+      "definition": "Elapsed event time from order creation to provider assignment. Negative durations, duplicate ambiguous assignments, and unmatched events are quarantined."
+    },
+    {
+      "id": "verified_provider_supply",
+      "status": "blocked_on_provider_lifecycle_event_contract",
+      "source_events": [
+        "provider.verified",
+        "provider.deactivated"
+      ],
+      "numerator": {
+        "distinct": "provider_id",
+        "where": "verified and not deactivated at snapshot time"
+      },
+      "denominator": null,
+      "cohort": "event-time daily snapshot",
+      "dimensions": [
+        "tenant_id",
+        "market_code"
+      ],
+      "definition": "Count providers whose verification is active at the snapshot instant. Until canonical provider lifecycle events exist, this metric must not be inferred from operational table reads."
+    }
+  ]
+}
