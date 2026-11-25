@@ -19,6 +19,7 @@ type Projector struct {
     DB *pgxpool.Pool
     ConsumerName string
     GenerationID string
+    TenantID string
 }
 
 var marketCodePattern = regexp.MustCompile(`^[A-Z]{2}$`)
@@ -60,6 +61,7 @@ func (p Projector) Consumer() outbox.Consumer {
 }
 
 func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) error {
+    if strings.TrimSpace(p.GenerationID)=="" { return errors.New("analytics generation ID is required") }
     var domain outbox.DomainEvent
     if err:=json.Unmarshal(event.Payload,&domain); err!=nil {
         return p.quarantine(ctx,tx,event,"invalid_envelope_json")
@@ -137,6 +139,14 @@ func (p Projector) quarantine(ctx context.Context,tx pgx.Tx,event outbox.Event,r
     _,err:=tx.Exec(ctx,`INSERT INTO analytics_event_quarantine
         (tenant_id,generation_id,outbox_event_id,event_type,aggregate_type,aggregate_id,reason_code,payload_sha256)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(tenant_id,generation_id,outbox_event_id) DO NOTHING`,
-        func() string { var e outbox.DomainEvent; _ = json.Unmarshal(event.Payload,&e); return e.TenantID }(),p.GenerationID,event.ID,event.EventType,event.AggregateType,event.AggregateID,strings.TrimSpace(reason),hex.EncodeToString(digest[:]))
+        p.tenantID(event),p.GenerationID,event.ID,event.EventType,event.AggregateType,event.AggregateID,strings.TrimSpace(reason),hex.EncodeToString(digest[:]))
     return err
+}
+
+
+func (p Projector) tenantID(event outbox.Event) string {
+    if strings.TrimSpace(p.TenantID)!="" { return strings.TrimSpace(p.TenantID) }
+    var envelope outbox.DomainEvent
+    if json.Unmarshal(event.Payload,&envelope)==nil { return strings.TrimSpace(envelope.TenantID) }
+    return ""
 }
