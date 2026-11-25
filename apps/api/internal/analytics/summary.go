@@ -23,6 +23,7 @@ type Summary struct {
     MarketCode string `json:"market_code,omitempty"`
     DataReady bool `json:"data_ready"`
     EligibleEvents int64 `json:"eligible_events"`
+    PendingEvents int64 `json:"pending_events"`
     ExcludedEvents int64 `json:"excluded_events"`
     OrdersCreated int64 `json:"orders_created"`
     OffersCreated int64 `json:"offers_created"`
@@ -48,8 +49,11 @@ func QuerySummary(ctx context.Context,db *pgxpool.Pool,tenantID string,filter Su
     var result Summary
     result.WindowFrom,result.WindowTo,result.MarketCode=from,to,filter.MarketCode
     err:=db.QueryRow(ctx,`
-WITH active_analytics_event_facts AS (
- SELECT f.* FROM analytics_event_facts f JOIN analytics_active_generations ag ON ag.tenant_id=f.tenant_id AND ag.generation_id=f.generation_id WHERE f.tenant_id=$1
+WITH active_generation AS (
+ SELECT ag.tenant_id,ag.generation_id,g.consumer_name FROM analytics_active_generations ag JOIN analytics_projection_generations g ON g.tenant_id=ag.tenant_id AND g.generation_id=ag.generation_id WHERE ag.tenant_id=$1
+),
+active_analytics_event_facts AS (
+ SELECT f.* FROM analytics_event_facts f JOIN active_generation ag ON ag.tenant_id=f.tenant_id AND ag.generation_id=f.generation_id
 ),
 created_orders AS (
     SELECT DISTINCT ON (tenant_id,data->>'order_id',market_code)
@@ -114,14 +118,17 @@ SELECT
        AND traffic_class='production' AND market_code IS NOT NULL AND ($4='' OR market_code=$4)),
     (SELECT count(*) FROM active_analytics_event_facts WHERE tenant_id=$1 AND occurred_at >= $2 AND occurred_at < $3
        AND (traffic_class IS DISTINCT FROM 'production' OR market_code IS NULL)
-       AND ($4='' OR market_code=$4 OR market_code IS NULL))
+       AND ($4='' OR market_code=$4 OR market_code IS NULL)),
+    (SELECT count(*) FROM outbox_events e JOIN active_generation ag ON ag.tenant_id=$1
+       WHERE e.payload->>'tenant_id'=$1
+         AND NOT EXISTS (SELECT 1 FROM processed_events p WHERE p.consumer_name=ag.consumer_name AND p.event_id=e.id))
 `,tenantID,from,to,filter.MarketCode).Scan(
         &result.OrdersCreated,&result.OffersCreated,&result.OffersAccepted,
         &result.OrdersCancelled,&result.OrdersCompleted,
         &result.MedianAssignmentSeconds,&result.P90AssignmentSeconds,
-        &result.EligibleEvents,&result.ExcludedEvents)
+        &result.EligibleEvents,&result.ExcludedEvents,&result.PendingEvents)
     if err!=nil { return Summary{},err }
-    result.DataReady=result.EligibleEvents>0
+    result.DataReady=result.EligibleEvents>0 && result.PendingEvents==0
     if result.OffersCreated>0 { result.OfferAcceptanceRate=float64(result.OffersAccepted)/float64(result.OffersCreated) }
     if result.OrdersCreated>0 {
         result.CancellationRate=float64(result.OrdersCancelled)/float64(result.OrdersCreated)
