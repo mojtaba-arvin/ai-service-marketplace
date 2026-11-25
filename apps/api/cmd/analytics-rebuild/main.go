@@ -102,6 +102,50 @@ func cutover(ctx context.Context,db *pgxpool.Pool,tenant,generation,consumer str
  return tx.Commit(ctx)
 }
 
+
+func rollbackCutover(ctx context.Context,db *pgxpool.Pool,tenant,target,consumer string)error {
+ tx,err:=db.BeginTx(ctx,pgx.TxOptions{IsoLevel:pgx.Serializable})
+ if err!=nil{return err}
+ defer tx.Rollback(ctx)
+ var current string
+ if err=tx.QueryRow(ctx,`SELECT generation_id FROM analytics_active_generations WHERE tenant_id=$1 FOR UPDATE`,tenant).Scan(&current);err!=nil{return err}
+ if current==target{return errors.New("rollback target is already active")}
+ var status,recordedConsumer string
+ if err=tx.QueryRow(ctx,`SELECT status,consumer_name FROM analytics_projection_generations WHERE tenant_id=$1 AND generation_id=$2 FOR UPDATE`,tenant,target).Scan(&status,&recordedConsumer);err!=nil{return err}
+ if status!="retired"||recordedConsumer!=consumer{return fmt.Errorf("rollback target must be a retained retired generation: status=%q consumer=%q",status,recordedConsumer)}
+ var pending int64
+ if err=tx.QueryRow(ctx,`SELECT count(*) FROM outbox_events e WHERE e.payload->>'tenant_id'=$1
+ AND NOT EXISTS(SELECT 1 FROM processed_events p WHERE p.consumer_name=$2 AND p.event_id=e.id)`,tenant,consumer).Scan(&pending);err!=nil{return err}
+ if pending!=0{return fmt.Errorf("refusing rollback with %d committed events still pending",pending)}
+ if _,err=tx.Exec(ctx,`UPDATE analytics_projection_generations SET status='retired',retired_at=now()
+ WHERE tenant_id=$1 AND generation_id=$2 AND status='active'`,tenant,current);err!=nil{return err}
+ if _,err=tx.Exec(ctx,`UPDATE analytics_projection_generations SET status='active',retired_at=NULL
+ WHERE tenant_id=$1 AND generation_id=$2 AND status='retired'`,tenant,target);err!=nil{return err}
+ if _,err=tx.Exec(ctx,`UPDATE analytics_active_generations SET generation_id=$2,activated_at=now() WHERE tenant_id=$1`,tenant,target);err!=nil{return err}
+ return tx.Commit(ctx)
+}
+
+func runRollback(ctx context.Context,pool *pgxpool.Pool,tenant,target string)error {
+ consumerName:="analytics:"+tenant+":"+target
+ var status,recordedConsumer string
+ if err:=pool.QueryRow(ctx,`SELECT status,consumer_name FROM analytics_projection_generations WHERE tenant_id=$1 AND generation_id=$2`,tenant,target).Scan(&status,&recordedConsumer);err!=nil{return err}
+ if status!="retired"||recordedConsumer!=consumerName{return fmt.Errorf("rollback target is not a retained generation: status=%q consumer=%q",status,recordedConsumer)}
+ consumer:=outbox.Consumer{DB:pool,Name:consumerName,Handler:(analytics.Projector{DB:pool,ConsumerName:consumerName,GenerationID:target,TenantID:tenant}).Handle}
+ for {
+  if err:=ctx.Err();err!=nil{return err}
+  batch,err:=loadPending(ctx,pool,tenant,consumerName,100)
+  if err!=nil{return err}
+  if len(batch)==0{break}
+  for _,event:=range batch{if _,err=consumer.Process(ctx,event);err!=nil{return fmt.Errorf("catch up rollback generation at event %d: %w",event.ID,err)}}
+ }
+ validated,err:=validateGeneration(ctx,pool,tenant,target,consumerName)
+ if err!=nil{return fmt.Errorf("rollback generation validation: %w",err)}
+ log.Printf("rollback generation caught up: source=%d facts=%d quarantined=%d",validated.Source,validated.Facts,validated.Quarantined)
+ if err=rollbackCutover(ctx,pool,tenant,target,consumerName);err!=nil{return fmt.Errorf("atomic analytics rollback: %w",err)}
+ log.Printf("analytics generation %q restored for tenant %q; restart analytics-worker with the restored generation ID",target,tenant)
+ return nil
+}
+
 func run(ctx context.Context)error {
  dsn:=required("DATABASE_URL")
  tenant:=required("ANALYTICS_TENANT_ID")
