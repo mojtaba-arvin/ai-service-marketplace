@@ -16,6 +16,8 @@ BOOTSTRAP_REASON='Initial least-privilege operator grant approved by deployment 
 go run ./cmd/operator-permissions-bootstrap
 ```
 
+The production API image also packages this command at `/app/operator-permissions-bootstrap`. Run that binary as a one-off deployment task with the environment above and the privileged deployment database credential; do not add it to API, worker, or OTP startup.
+
 The identity must already have an `operator` row in `identity_memberships` for exactly the supplied tenant. Actions are allowlisted, sorted for a stable manifest hash, and granted in one serializable transaction with a `system_bootstrap` audit event for every grant. A failed transaction leaves no marker or partial grants.
 
 Start with the smallest action set needed by the initial operator. Do not include `operator:permissions:manage` unless a separately approved permission administrator is intentionally being provisioned. Never run this command from a web request, OTP flow, CI job, or with a developer's routine application credential.
