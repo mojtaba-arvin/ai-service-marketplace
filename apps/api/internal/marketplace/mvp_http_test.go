@@ -122,7 +122,7 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
             t.Fatal(err)
         }
     }
-    if err = ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify,ActionOrderAssign,ActionOrderRead,ActionAnalyticsRead); err != nil {
+    if err = ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify,ActionOrderAssign,ActionOrderRead,ActionAnalyticsRead,ActionOperatorPermissionsManage); err != nil {
         t.Fatal(err)
     }
 
