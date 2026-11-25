@@ -18,3 +18,20 @@ docker compose --env-file .env.production -f infra/compose.production.yml logs -
 The profile remains disabled by default. The first run may establish the tenant's initial active generation; if one already exists, the worker only accepts that exact generation and consumer identity.
 
 Analytics summary readiness includes the active generation's pending canonical-event count. `data_ready` is false while that generation still has unprocessed tenant events, so partial catch-up is not presented as a complete projection.
+
+
+## Historical generation rebuild
+
+Use the one-shot `/app/analytics-rebuild` command to build a new shadow generation from all canonical tenant-scoped outbox rows. It uses a generation-specific `processed_events` identity and repeatedly polls rows that are still unprocessed; it deliberately does not advance an outbox-ID watermark because PostgreSQL sequence allocation order is not commit order.
+
+Required environment:
+- `DATABASE_URL`
+- `ANALYTICS_TENANT_ID`
+- `ANALYTICS_GENERATION_ID` (a new, never-active generation ID)
+- `ANALYTICS_REBUILD_CONFIRM`, which must exactly equal `ANALYTICS_TENANT_ID:ANALYTICS_GENERATION_ID`
+
+A failed run can resume the same generation only while its status remains `building` and the consumer identity is unchanged. Do not reuse active or retired generations. The command validates that every tenant-scoped source row is processed and has exactly one fact or quarantine outcome, and refuses cutover while any committed source event is pending. Generation status and the tenant active pointer switch in one transaction.
+
+After successful cutover, restart the live analytics worker with the same tenant and the new generation ID. It polls all unprocessed events without a monotonic cursor, so commits that become visible after the rebuild's final scan are picked up during live catch-up. Keep the previous generation as a rollback target; do not delete it as part of routine rebuild.
+
+The rebuild is bounded per query (100 rows) but is a full-history operation and may run for a long time. Run one rebuild per tenant at a time and monitor database load. A nonzero quarantine count is visible and included in validation; it does not mean those events contribute to metrics. The command does not claim event-time finality or financial close.
