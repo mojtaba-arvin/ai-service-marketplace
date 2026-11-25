@@ -375,6 +375,7 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     otherOperatorActor := Actor{SubjectID:otherOperatorID,TenantID:otherTenant,Role:RoleOperator}
     if err = store.EnsureIdentityMembership(ctx,otherCustomerID,otherTenant,RoleCustomer); err != nil { t.Fatal(err) }
     if err = store.EnsureIdentityMembership(ctx,otherOperatorID,otherTenant,RoleOperator); err != nil { t.Fatal(err) }
+    if err = ensureTestOperatorGrants(ctx,pool,otherOperatorActor,ActionOrderRead); err != nil { t.Fatal(err) }
     otherTenantOrder,createdOther,createOtherErr := store.CreateScheduledOrder(ctx,otherCustomerActor,
         "other-tenant-order-"+suffix,menu.ID,time.Now().UTC().Add(6*time.Hour),marketCode,
         "Test Region","Test City","Test Area")
