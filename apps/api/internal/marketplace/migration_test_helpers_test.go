@@ -28,7 +28,7 @@ func ensureTestOperatorGrants(ctx context.Context, pool *pgxpool.Pool, actor Act
 	if actor.Role != RoleOperator || actor.SubjectID == "" || actor.TenantID == "" || len(actions) == 0 {
 		return ErrForbidden
 	}
-	for _, name := range []string{"001_walking_skeleton.sql", "002_identity.sql", "022_identity_memberships.sql", "031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql"} {
+	for _, name := range []string{"001_walking_skeleton.sql", "002_identity.sql", "022_identity_memberships.sql", "031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql", "033_incident_report_intake.sql", "034_incident_reviewer_workflow.sql"} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if err != nil {
 			return fmt.Errorf("read %s: %w", name, err)

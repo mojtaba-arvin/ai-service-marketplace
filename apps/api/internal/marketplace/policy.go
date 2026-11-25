@@ -27,6 +27,7 @@ const (
 	ActionProfileUpdate     Action = "profile:update"
 	ActionProviderVerify    Action = "provider:verify"
 	ActionCaseRead          Action = "case:read"
+	ActionIncidentReview    Action = "incident:review"
 	ActionSupportCaseRead   Action = "support:case:read"
 	ActionSupportCaseComment Action = "support:case:comment"
 	ActionLedgerPost        Action = "ledger:post"

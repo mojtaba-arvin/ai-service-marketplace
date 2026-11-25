@@ -35,6 +35,7 @@ var operatorGrantableActions = map[Action]struct{}{
 	ActionOrderAssign:                {},
 	ActionProviderVerify:             {},
 	ActionCaseRead:                   {},
+	ActionIncidentReview:             {},
 	ActionMarketConfigure:            {},
 	ActionCatalogManage:              {},
 	ActionPolicyManage:               {},

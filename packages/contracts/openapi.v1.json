@@ -3551,6 +3551,184 @@
           }
         }
       }
+    },
+    "/v1/operator/incidents": {
+      "get": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "List same-tenant incident reports for an explicitly authorized reviewer",
+        "operationId": "listOperatorIncidentReports",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "submitted",
+                "triaged",
+                "investigating",
+                "resolved",
+                "closed"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenant-scoped reviewer queue.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "reports"
+                  ],
+                  "properties": {
+                    "reports": {
+                      "type": "array",
+                      "maxItems": 200,
+                      "items": {
+                        "$ref": "#/components/schemas/IncidentReport"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/incidents/{report_id}": {
+      "get": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Read an incident report as an explicitly authorized same-tenant reviewer",
+        "operationId": "getOperatorIncidentReport",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reviewer-authorized incident report.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentReportResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/incidents/{report_id}/transition": {
+      "post": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Assign, reclassify or advance an incident report with an audited reason",
+        "operationId": "transitionOperatorIncidentReport",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentReviewerTransitionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Incident report after the audited reviewer transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentReportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4703,6 +4881,10 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "assigned_reviewer_identity_id": {
+            "type": "string",
+            "description": "Only present on reviewer-authorized responses."
           }
         }
       },
@@ -4754,7 +4936,8 @@
               "catalog:manage",
               "policy:manage",
               "analytics:read",
-              "operator:permissions:manage"
+              "operator:permissions:manage",
+              "incident:review"
             ]
           },
           "granted_by_identity_id": {
@@ -4806,7 +4989,8 @@
               "catalog:manage",
               "policy:manage",
               "analytics:read",
-              "operator:permissions:manage"
+              "operator:permissions:manage",
+              "incident:review"
             ]
           },
           "reason": {
@@ -4841,6 +5025,55 @@
         "properties": {
           "grant": {
             "$ref": "#/components/schemas/OperatorPermissionGrant"
+          }
+        }
+      },
+      "IncidentReviewerTransitionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "reason"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "assign",
+              "severity",
+              "status"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "triaged",
+              "investigating",
+              "resolved",
+              "closed"
+            ],
+            "description": "Required only when action=status; transitions must be sequential."
+          },
+          "severity_hint": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "low",
+              "high",
+              "critical"
+            ],
+            "description": "Required only when action=severity; advisory triage hint only."
+          },
+          "assigned_reviewer_identity_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Required only when action=assign; target must have an active same-tenant incident:review grant."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
           }
         }
       }

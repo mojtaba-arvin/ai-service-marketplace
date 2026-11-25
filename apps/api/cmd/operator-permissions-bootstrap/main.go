@@ -27,6 +27,7 @@ var allowedActions = map[string]struct{}{
 	"policy:manage": {},
 	"analytics:read": {},
 	"operator:permissions:manage": {},
+	"incident:review": {},
 }
 
 func parseActions(raw string) ([]string, error) {

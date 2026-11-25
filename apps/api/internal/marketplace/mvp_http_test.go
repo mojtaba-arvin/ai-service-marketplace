@@ -122,7 +122,7 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
             t.Fatal(err)
         }
     }
-    if err = ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify,ActionOrderAssign,ActionOrderRead,ActionAnalyticsRead,ActionOperatorPermissionsManage); err != nil {
+    if err = ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify,ActionOrderAssign,ActionOrderRead,ActionAnalyticsRead,ActionOperatorPermissionsManage,ActionIncidentReview); err != nil {
         t.Fatal(err)
     }
 
@@ -283,6 +283,25 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     }
     order := orderBody["order"].(map[string]any)
     orderID := order["id"].(string)
+    incident, incidentErr := store.CreateIncidentReport(ctx, customer, IncidentReportInput{
+        OrderID:orderID,Category:"safety_concern",Narrative:"The service visit left a safety hazard.",
+    })
+    if incidentErr != nil { t.Fatalf("create incident for reviewer HTTP test: %v",incidentErr) }
+    reviewerQueue, _ := call(http.MethodGet,"/v1/operator/incidents",tokens["operator"],"",nil)
+    if reviewerQueue.Code != http.StatusOK { t.Fatalf("reviewer incident queue: status=%d body=%s",reviewerQueue.Code,reviewerQueue.Body.String()) }
+    reviewerDetail, _ := call(http.MethodGet,"/v1/operator/incidents/"+incident.ID,tokens["operator"],"",nil)
+    if reviewerDetail.Code != http.StatusOK { t.Fatalf("reviewer incident detail: status=%d body=%s",reviewerDetail.Code,reviewerDetail.Body.String()) }
+    transitionResponse, _ := call(http.MethodPost,"/v1/operator/incidents/"+incident.ID+"/transition",tokens["operator"],"",map[string]string{
+        "action":"status","status":"triaged","reason":"HTTP reviewer triage test",
+    })
+    if transitionResponse.Code != http.StatusOK { t.Fatalf("reviewer incident transition: status=%d body=%s",transitionResponse.Code,transitionResponse.Body.String()) }
+    reviewerTargetID := newTestIdentity(t,ctx,pool)
+    if err = store.EnsureIdentityMembership(ctx,reviewerTargetID,tenantID,RoleOperator); err != nil { t.Fatal(err) }
+    if _, err = store.GrantOperatorAction(ctx,operator,tenantID,reviewerTargetID,ActionIncidentReview,"HTTP reviewer assignment target"); err != nil { t.Fatal(err) }
+    assignmentResponse, _ := call(http.MethodPost,"/v1/operator/incidents/"+incident.ID+"/transition",tokens["operator"],"",map[string]string{
+        "action":"assign","assigned_reviewer_identity_id":reviewerTargetID,"reason":"HTTP reviewer assignment test",
+    })
+    if assignmentResponse.Code != http.StatusOK { t.Fatalf("reviewer incident assignment: status=%d body=%s",assignmentResponse.Code,assignmentResponse.Body.String()) }
 
     replayResponse,replayBody := call(http.MethodPost,"/v1/orders",tokens["customer"],"mvp-order-1-"+suffix,orderInput)
     if replayResponse.Code != http.StatusOK || replayBody["created"] != false ||
