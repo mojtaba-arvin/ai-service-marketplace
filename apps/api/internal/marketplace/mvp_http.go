@@ -440,6 +440,12 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.respondToOffer(w,r); return true
     case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/professional/orders/") && strings.HasSuffix(path,"/transition"):
         h.professionalTransition(w,r); return true
+    case r.Method == http.MethodGet && path == "/v1/operator/permissions":
+        h.operatorPermissions(w,r); return true
+    case r.Method == http.MethodPost && path == "/v1/operator/permissions/grants":
+        h.operatorPermissions(w,r); return true
+    case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/operator/permissions/grants/") && strings.HasSuffix(path,"/revoke"):
+        h.operatorPermissions(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/operator/analytics/summary":
         h.operatorAnalyticsSummary(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/operator/orders":
@@ -1104,4 +1110,104 @@ func (h *Handler) getIncidentReport(w http.ResponseWriter, r *http.Request) {
         }
     }
     writeError(w,http.StatusNotFound,"incident report not found")
+}
+
+
+// operatorPermissions exposes tenant-scoped permission history and guarded
+// grant/revoke operations. Tenant identity always comes from the authenticated
+// operator context, never from request input.
+func (h *Handler) operatorPermissions(w http.ResponseWriter, r *http.Request) {
+	actor, err := h.actorForRole(r, RoleOperator)
+	if err != nil {
+		writeError(w, http.StatusForbidden, "operator membership is required")
+		return
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	if r.Method == http.MethodGet && path == "/v1/operator/permissions" {
+		grants, listErr := h.Store.ListOperatorActionGrants(r.Context(), actor)
+		if errors.Is(listErr, ErrForbidden) {
+			writeError(w, http.StatusForbidden, "operator permission-management grant is required")
+			return
+		}
+		if listErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not list operator permissions")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"grants": grants})
+		return
+	}
+	if r.Method == http.MethodPost && path == "/v1/operator/permissions/grants" {
+		var in struct {
+			IdentityID string `json:"identity_id"`
+			Action string `json:"action"`
+			Reason string `json:"reason"`
+		}
+		decoder := json.NewDecoder(io.LimitReader(r.Body, 8*1024))
+		decoder.DisallowUnknownFields()
+		if err = decoder.Decode(&in); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid permission grant request")
+			return
+		}
+		if decoder.Decode(&struct{}{}) != io.EOF {
+			writeError(w, http.StatusBadRequest, "request must contain one JSON object")
+			return
+		}
+		grant, grantErr := h.Store.GrantOperatorAction(r.Context(), actor, actor.TenantID, in.IdentityID, Action(in.Action), in.Reason)
+		if errors.Is(grantErr, ErrForbidden) {
+			writeError(w, http.StatusForbidden, "operator permission-management grant or target membership is required")
+			return
+		}
+		if errors.Is(grantErr, ErrOperatorGrantInput) {
+			writeError(w, http.StatusBadRequest, "invalid permission grant fields or action")
+			return
+		}
+		if errors.Is(grantErr, ErrOperatorGrantExists) {
+			writeError(w, http.StatusConflict, "an active grant for this identity and action already exists")
+			return
+		}
+		if grantErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not grant operator permission")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"grant": grant})
+		return
+	}
+	if r.Method == http.MethodPost && strings.HasPrefix(path, "/v1/operator/permissions/grants/") && strings.HasSuffix(path, "/revoke") {
+		parts := strings.Split(strings.Trim(path, "/"), "/")
+		if len(parts) != 6 || parts[4] == "" {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+		var in struct { Reason string `json:"reason"` }
+		decoder := json.NewDecoder(io.LimitReader(r.Body, 8*1024))
+		decoder.DisallowUnknownFields()
+		if err = decoder.Decode(&in); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid permission revocation request")
+			return
+		}
+		if decoder.Decode(&struct{}{}) != io.EOF {
+			writeError(w, http.StatusBadRequest, "request must contain one JSON object")
+			return
+		}
+		grant, revokeErr := h.Store.RevokeOperatorAction(r.Context(), actor, actor.TenantID, parts[4], in.Reason)
+		if errors.Is(revokeErr, ErrForbidden) {
+			writeError(w, http.StatusForbidden, "operator permission-management grant is required; self-revocation is not allowed")
+			return
+		}
+		if errors.Is(revokeErr, ErrOperatorGrantInput) {
+			writeError(w, http.StatusBadRequest, "a non-empty revocation reason is required")
+			return
+		}
+		if errors.Is(revokeErr, ErrOperatorGrantNotFound) {
+			writeError(w, http.StatusNotFound, "permission grant not found")
+			return
+		}
+		if revokeErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not revoke operator permission")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"grant": grant})
+		return
+	}
+	writeError(w, http.StatusNotFound, "not found")
 }
