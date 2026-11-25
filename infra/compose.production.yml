@@ -108,6 +108,23 @@ services:
         condition: service_completed_successfully
     networks: [private]
 
+  analytics-worker:
+    profiles: ["analytics"]
+    image: ai-service-marketplace-api:release
+    entrypoint: ["/app/analytics-worker"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      ANALYTICS_TENANT_ID: ${ANALYTICS_TENANT_ID:-}
+      ANALYTICS_GENERATION_ID: ${ANALYTICS_GENERATION_ID:-}
+      ANALYTICS_WORKER_ID: ${ANALYTICS_WORKER_ID:-marketplace-analytics-1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks: [private]
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
