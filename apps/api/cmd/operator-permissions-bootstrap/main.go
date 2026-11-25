@@ -126,9 +126,9 @@ func bootstrap(ctx context.Context, pool *pgxpool.Pool, tenantID, identityID str
 		after := fmt.Sprintf(`{"grant_id":%q,"active":true,"granted_by":"system_bootstrap","granted_at":%q}`, id, grantTime.UTC().Format(time.RFC3339Nano))
 		if _, err = tx.Exec(ctx, `
 			INSERT INTO operator_permission_events
-				(tenant_id,identity_id,action,event_type,actor_kind,actor_identity_id,reason,before_state,after_state)
-			VALUES($1,$2,$3,'granted','system_bootstrap',NULL,$4,'{}'::jsonb,$5::jsonb)
-		`, tenantID, identityID, action, reason, after); err != nil {
+				(grant_id,tenant_id,identity_id,action,event_type,actor_kind,actor_identity_id,reason,before_state,after_state)
+			VALUES($1,$2,$3,$4,'granted','system_bootstrap',NULL,$5,'{}'::jsonb,$6::jsonb)
+		`, id, tenantID, identityID, action, reason, after); err != nil {
 			return fmt.Errorf("append %s grant audit event: %w", action, err)
 		}
 	}
