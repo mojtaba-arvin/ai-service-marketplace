@@ -59,4 +59,6 @@ func TestAnalyticsWorkerConsumesTenantEventsIdempotentlyPostgres(t *testing.T) {
  var facts int
  if err=pool.QueryRow(ctx,`SELECT count(*) FROM analytics_event_facts WHERE tenant_id=$1 AND generation_id=$2 AND event_id=$3`,tenant,generation,domain.ID).Scan(&facts);err!=nil { t.Fatal(err) }
  if facts!=1 { t.Fatalf("expected exactly one generation fact, got %d",facts) }
+ summary,err:=analytics.QuerySummary(ctx,pool,tenant,analytics.SummaryFilter{From:time.Now().UTC().Add(-time.Minute),To:time.Now().UTC().Add(time.Minute),MarketCode:"OM"})
+ if err!=nil||summary.OrdersCreated!=1||!summary.DataReady { t.Fatalf("summary must read the active generation only: %+v err=%v",summary,err) }
 }
