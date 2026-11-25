@@ -76,7 +76,7 @@ func (s *Store) ReviewProfessionalVerificationCase(ctx context.Context,actor Act
  `,caseID).Scan(&result.ID,&result.ProviderID,&result.SubjectIdentityID,&result.Status,&result.EvidenceRef,&result.CreatedAt,&result.UpdatedAt,&tenantID)
  if errors.Is(err,pgx.ErrNoRows){return ProfessionalVerificationCase{},ErrVerificationCaseNotFound};if err!=nil{return ProfessionalVerificationCase{},err}
  if tenantID!=actor.TenantID||result.SubjectIdentityID==actor.SubjectID{return ProfessionalVerificationCase{},ErrForbidden}
- if err=Authorize(actor,Resource{TenantID:tenantID},ActionProviderVerify);err!=nil{return ProfessionalVerificationCase{},err}
+ if err=authorizeOperatorTx(ctx,tx,actor,Resource{TenantID:tenantID},ActionProviderVerify);err!=nil{return ProfessionalVerificationCase{},err}
  if result.Status!="submitted"&&result.Status!="in_review"{return ProfessionalVerificationCase{},ErrVerificationState}
  var decided time.Time
  err=tx.QueryRow(ctx,`
@@ -99,24 +99,33 @@ func (s *Store) ReviewProfessionalVerificationCase(ctx context.Context,actor Act
 
 // GetProfessionalVerificationCase hides the private evidence pointer from the
 // subject. Only same-tenant operators may retrieve that pointer.
-func (s *Store) GetProfessionalVerificationCase(ctx context.Context,actor Actor,caseID string)(ProfessionalVerificationCase,error){
- var result ProfessionalVerificationCase
- var tenantID string
- err:=s.DB.QueryRow(ctx,`
- SELECT c.id,c.provider_id,c.subject_identity_id,c.status,c.evidence_ref,c.reviewer_identity_id,c.decision_reason,c.created_at,c.updated_at,c.decided_at,p.tenant_id
- FROM professional_verification_cases c JOIN provider_profiles p ON p.id=c.provider_id WHERE c.id=$1
- `,caseID).Scan(&result.ID,&result.ProviderID,&result.SubjectIdentityID,&result.Status,&result.EvidenceRef,&result.ReviewerIdentityID,&result.DecisionReason,&result.CreatedAt,&result.UpdatedAt,&result.DecidedAt,&tenantID)
- if errors.Is(err,pgx.ErrNoRows){return ProfessionalVerificationCase{},ErrVerificationCaseNotFound};if err!=nil{return ProfessionalVerificationCase{},err}
- if actor.TenantID!=tenantID||actor.SubjectID==""{return ProfessionalVerificationCase{},ErrForbidden}
- switch actor.Role{
- case RoleProfessional:
-  if actor.SubjectID!=result.SubjectIdentityID{return ProfessionalVerificationCase{},ErrForbidden}
-  result.EvidenceRef=""
- case RoleOperator:
-  if err=Authorize(actor,Resource{TenantID:tenantID},ActionProviderVerify);err!=nil{return ProfessionalVerificationCase{},err}
- default:return ProfessionalVerificationCase{},ErrForbidden
- }
- return result,nil
+func (s *Store) GetProfessionalVerificationCase(ctx context.Context, actor Actor, caseID string) (ProfessionalVerificationCase, error) {
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil { return ProfessionalVerificationCase{}, err }
+	defer tx.Rollback(ctx)
+	var result ProfessionalVerificationCase
+	var tenantID string
+	err = tx.QueryRow(ctx, `
+		SELECT c.id,c.provider_id,c.subject_identity_id,c.status,c.evidence_ref,c.reviewer_identity_id,c.decision_reason,c.created_at,c.updated_at,c.decided_at,p.tenant_id
+		FROM professional_verification_cases c JOIN provider_profiles p ON p.id=c.provider_id WHERE c.id=$1
+	`, caseID).Scan(&result.ID,&result.ProviderID,&result.SubjectIdentityID,&result.Status,&result.EvidenceRef,
+		&result.ReviewerIdentityID,&result.DecisionReason,&result.CreatedAt,&result.UpdatedAt,&result.DecidedAt,&tenantID)
+	if errors.Is(err, pgx.ErrNoRows) { return ProfessionalVerificationCase{}, ErrVerificationCaseNotFound }
+	if err != nil { return ProfessionalVerificationCase{}, err }
+	if actor.TenantID != tenantID || actor.SubjectID == "" { return ProfessionalVerificationCase{}, ErrForbidden }
+	switch actor.Role {
+	case RoleProfessional:
+		if actor.SubjectID != result.SubjectIdentityID { return ProfessionalVerificationCase{}, ErrForbidden }
+		result.EvidenceRef = ""
+	case RoleOperator:
+		if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: tenantID}, ActionProviderVerify); err != nil {
+			return ProfessionalVerificationCase{}, err
+		}
+	default:
+		return ProfessionalVerificationCase{}, ErrForbidden
+	}
+	if err = tx.Commit(ctx); err != nil { return ProfessionalVerificationCase{}, err }
+	return result, nil
 }
 
 func (c ProfessionalVerificationCase) String()string{return fmt.Sprintf("verification case %s (%s)",c.ID,c.Status)}

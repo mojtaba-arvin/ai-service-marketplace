@@ -71,7 +71,7 @@ func (s *Store) SetProviderAvailability(ctx context.Context,actor Actor,provider
 			return ProviderAvailabilityWindow{},err
 		}
 	} else if actor.Role==RoleOperator {
-		if err=Authorize(actor,Resource{TenantID:actor.TenantID},ActionOrderAssign); err!=nil {
+		if err=authorizeOperatorTx(ctx,tx,actor,Resource{TenantID:actor.TenantID},ActionOrderAssign); err!=nil {
 			return ProviderAvailabilityWindow{},err
 		}
 	} else {
@@ -110,13 +110,13 @@ func (s *Store) SetProviderAvailability(ctx context.Context,actor Actor,provider
 func (s *Store) CreateProviderBooking(ctx context.Context,actor Actor,providerID,orderID string,
 	startAt,endAt time.Time,timezone string) (ProviderBooking,error) {
 	if actor.Role!=RoleOperator || actor.SubjectID=="" || actor.TenantID=="" { return ProviderBooking{},ErrForbidden }
-	if err:=Authorize(actor,Resource{TenantID:actor.TenantID},ActionOrderAssign); err!=nil { return ProviderBooking{},err }
 	if validateCalendarRange(startAt,endAt,timezone,24*time.Hour)!=nil { return ProviderBooking{},ErrInvalidAvailability }
 	startAt=startAt.UTC().Truncate(time.Microsecond)
 	endAt=endAt.UTC().Truncate(time.Microsecond)
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{})
 	if err!=nil { return ProviderBooking{},err }
 	defer tx.Rollback(ctx)
+	if err=authorizeOperatorTx(ctx,tx,actor,Resource{TenantID:actor.TenantID},ActionOrderAssign);err!=nil{return ProviderBooking{},err}
 	var active,verified bool
 	var providerTenantID string
 	err=tx.QueryRow(ctx,`SELECT active,verified_at IS NOT NULL,tenant_id FROM provider_profiles WHERE id=$1 FOR UPDATE`,providerID).Scan(&active,&verified,&providerTenantID)

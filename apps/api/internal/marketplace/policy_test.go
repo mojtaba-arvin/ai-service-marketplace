@@ -21,9 +21,9 @@ func TestAuthorizeRolePermissions(t *testing.T) {
 		{"professional accepts own quote", Actor{"pro-1", "tenant-a", RoleProfessional}, Resource{TenantID:"tenant-a",OwnerID:"pro-1"}, ActionQuoteAccept, true},
 		{"professional responds to own dispatch offer", Actor{"pro-1", "tenant-a", RoleProfessional}, Resource{TenantID:"tenant-a",OwnerID:"pro-1"}, ActionDispatchOfferRespond, true},
 		{"professional cannot read unassigned order", Actor{"pro-1", "tenant-a", RoleProfessional}, Resource{"tenant-a", "customer-1", "pro-2"}, ActionOrderRead, false},
-		{"operator can assign within tenant", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionOrderAssign, true},
-		{"operator can configure market", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionMarketConfigure, true},
-		{"operator can manage catalog", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionCatalogManage, true},
+		{"pure policy cannot authorize operator assignment", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionOrderAssign, false},
+		{"pure policy cannot authorize market configuration", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionMarketConfigure, false},
+		{"pure policy cannot authorize catalog management", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionCatalogManage, false},
 		{"support cannot configure market", Actor{"support-1", "tenant-a", RoleSupport}, Resource{TenantID: "tenant-a"}, ActionMarketConfigure, false},
 		{"operator cannot post ledger", Actor{"ops-1", "tenant-a", RoleOperator}, Resource{TenantID: "tenant-a"}, ActionLedgerPost, false},
 		{"support can read support case", Actor{"support-1", "tenant-a", RoleSupport}, Resource{TenantID: "tenant-a"}, ActionSupportCaseRead, true},
@@ -67,9 +67,9 @@ func TestAuthorizeAlwaysRejectsCrossTenantAndMalformedPrincipals(t *testing.T) {
 }
 
 
-func TestAuthorizeAnalyticsReadIsOperatorOnly(t *testing.T) {
+func TestAuthorizeCannotGrantOperatorActionsWithoutStoreContext(t *testing.T) {
     tests:=[]struct{name string; actor Actor; allowed bool}{
-        {"operator",Actor{SubjectID:"operator",TenantID:"tenant-a",Role:RoleOperator},true},
+        {"operator",Actor{SubjectID:"operator",TenantID:"tenant-a",Role:RoleOperator},false},
         {"customer",Actor{SubjectID:"customer",TenantID:"tenant-a",Role:RoleCustomer},false},
         {"professional",Actor{SubjectID:"professional",TenantID:"tenant-a",Role:RoleProfessional},false},
         {"support",Actor{SubjectID:"support",TenantID:"tenant-a",Role:RoleSupport},false},

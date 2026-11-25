@@ -72,7 +72,6 @@ func dispatchProviderEligibleTx(ctx context.Context,tx pgx.Tx,tenantID,providerI
 
 func (s *Store) CreateDispatchOffers(ctx context.Context,actor Actor,orderID string,providerIDs []string,maxFanout int,expiresAt time.Time) ([]DispatchOffer,error) {
 	if actor.Role!=RoleOperator || actor.SubjectID=="" || actor.TenantID=="" { return nil,ErrForbidden }
-	if err:=Authorize(actor,Resource{TenantID:actor.TenantID},ActionOrderAssign); err!=nil { return nil,err }
 	if maxFanout<1 || maxFanout>10 || len(providerIDs)<1 || len(providerIDs)>maxFanout || len(providerIDs)>10 {
 		return nil,ErrInvalidDispatchFanout
 	}
@@ -97,6 +96,7 @@ func (s *Store) CreateDispatchOffers(ctx context.Context,actor Actor,orderID str
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{})
 	if err!=nil { return nil,err }
 	defer tx.Rollback(ctx)
+	if err=authorizeOperatorTx(ctx,tx,actor,Resource{TenantID:actor.TenantID},ActionOrderAssign);err!=nil{return nil,err}
 	var status,country,region,city,area,orderTenantID string
 	var scheduledAt *time.Time
 	var priceVersionID *string

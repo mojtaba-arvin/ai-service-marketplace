@@ -30,6 +30,7 @@ func TestServiceFormVersionDraftPublishAndImmutabilityPostgres(t *testing.T){
  if _,err=pool.Exec(ctx,`INSERT INTO service_price_menus(id,category_id,service_code) VALUES($1,$2,'ac-repair')`,menuID,categoryID);err!=nil{t.Fatal(err)}
  store:=&Store{DB:pool}
  platform:=Actor{SubjectID:"form-admin-"+suffix,TenantID:platformTenantID,Role:RoleOperator}
+  if err=ensureTestOperatorGrants(ctx,pool,platform,ActionCatalogManage);err!=nil{t.Fatal(err)}
  invalidSchema:=[]byte(`{"type":"object","properties":{},"patternProperties":{}}`)
  if _,err=store.CreateServiceFormDraft(ctx,platform,menuID,marketCode,"en",invalidSchema);!errors.Is(err,ErrInvalidServiceForm){t.Fatalf("unsupported schema keyword accepted: %v",err)}
  schema1:=[]byte(`{"type":"object","required":["rooms"],"properties":{"rooms":{"type":"integer","minimum":1,"maximum":20},"unit_model":{"type":"string","maxLength":80}}}`)

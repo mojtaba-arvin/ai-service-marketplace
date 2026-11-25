@@ -27,6 +27,7 @@ func TestMarketConfigurationAndLocaleResolutionPostgres(t *testing.T) {
 	}
 	store:=&Store{DB:pool}
 	operator:=Actor{SubjectID:"operator-market-test-"+time.Now().Format("20060102150405.000000000"),TenantID:"platform",Role:RoleOperator}
+	if err=ensureTestOperatorGrants(ctx,pool,operator,ActionMarketConfigure); err!=nil { t.Fatal(err) }
 	config,err:=store.SaveMarket(ctx,operator,MarketConfig{
 		Code:"om",DefaultLocale:"en",Currency:"omr",Timezone:"Asia/Muscat",
 		PolicyVersion:"2026-01",Enabled:true,Locales:[]string{"en","ar","en"},

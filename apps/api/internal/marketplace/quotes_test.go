@@ -36,6 +36,7 @@ func TestInspectionQuoteRequiresCustomerApprovalPostgres(t *testing.T) {
 	customer:=Actor{SubjectID:identities[0],TenantID:"market-a",Role:RoleCustomer}
 	professional:=Actor{SubjectID:identities[1],TenantID:"market-a",Role:RoleProfessional}
 	operator:=Actor{SubjectID:identities[2],TenantID:"market-a",Role:RoleOperator}
+	if err=ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify); err!=nil { t.Fatal(err) }
 
 	category,err:=store.CreateCategory(ctx,nil,fmt.Sprintf("repair-%d",time.Now().UnixNano()),"Repair")
 	if err!=nil { t.Fatal(err) }

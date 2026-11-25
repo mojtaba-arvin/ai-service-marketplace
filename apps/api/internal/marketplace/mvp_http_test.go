@@ -122,6 +122,9 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
             t.Fatal(err)
         }
     }
+    if err = ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify,ActionOrderAssign,ActionOrderRead,ActionAnalyticsRead,ActionOperatorPermissionsManage); err != nil {
+        t.Fatal(err)
+    }
 
     category, err := store.CreateCategory(ctx,nil,"mvp-test-"+suffix,"MVP Test Service")
     if err != nil {
@@ -211,6 +214,27 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
         t.Fatalf("operator OTP verification: status=%d body=%s",otpVerify.Code,otpVerify.Body.String())
     }
     tokens["operator"] = otpVerifyBody["access_token"].(string)
+
+    grantTargetID := newTestIdentity(t,ctx,pool)
+    if err = store.EnsureIdentityMembership(ctx,grantTargetID,tenantID,RoleOperator); err != nil { t.Fatal(err) }
+    permissionList, _ := call(http.MethodGet,"/v1/operator/permissions",tokens["operator"],"",nil)
+    if permissionList.Code != http.StatusOK { t.Fatalf("operator permission list: status=%d body=%s",permissionList.Code,permissionList.Body.String()) }
+    grantResponse, grantBody := call(http.MethodPost,"/v1/operator/permissions/grants",tokens["operator"],"",map[string]string{
+        "identity_id":grantTargetID,"action":string(ActionOrderRead),"reason":"MVP HTTP permission grant test",
+    })
+    if grantResponse.Code != http.StatusCreated { t.Fatalf("operator permission grant: status=%d body=%s",grantResponse.Code,grantResponse.Body.String()) }
+    grantObject, ok := grantBody["grant"].(map[string]any)
+    if !ok || grantObject["id"] == nil { t.Fatalf("grant response missing grant ID: %#v",grantBody) }
+    grantID := grantObject["id"].(string)
+    revokeResponse, _ := call(http.MethodPost,"/v1/operator/permissions/grants/"+grantID+"/revoke",tokens["operator"],"",map[string]string{
+        "reason":"MVP HTTP permission revocation test",
+    })
+    if revokeResponse.Code != http.StatusOK { t.Fatalf("operator permission revoke: status=%d body=%s",revokeResponse.Code,revokeResponse.Body.String()) }
+    selfGrantResponse, _ := call(http.MethodPost,"/v1/operator/permissions/grants",tokens["operator"],"",map[string]string{
+        "identity_id":operator.SubjectID,"action":string(ActionOrderRead),"reason":"self-grant must be denied",
+    })
+    if selfGrantResponse.Code != http.StatusForbidden { t.Fatalf("self-grant must be denied: status=%d body=%s",selfGrantResponse.Code,selfGrantResponse.Body.String()) }
+
     meResponse,meBody := call(http.MethodGet,"/v1/auth/me",tokens["operator"],"",nil)
     if meResponse.Code != http.StatusOK {
         t.Fatalf("operator identity endpoint: status=%d body=%s",meResponse.Code,meResponse.Body.String())
@@ -372,6 +396,7 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     otherOperatorActor := Actor{SubjectID:otherOperatorID,TenantID:otherTenant,Role:RoleOperator}
     if err = store.EnsureIdentityMembership(ctx,otherCustomerID,otherTenant,RoleCustomer); err != nil { t.Fatal(err) }
     if err = store.EnsureIdentityMembership(ctx,otherOperatorID,otherTenant,RoleOperator); err != nil { t.Fatal(err) }
+    if err = ensureTestOperatorGrants(ctx,pool,otherOperatorActor,ActionOrderRead); err != nil { t.Fatal(err) }
     otherTenantOrder,createdOther,createOtherErr := store.CreateScheduledOrder(ctx,otherCustomerActor,
         "other-tenant-order-"+suffix,menu.ID,time.Now().UTC().Add(6*time.Hour),marketCode,
         "Test Region","Test City","Test Area")

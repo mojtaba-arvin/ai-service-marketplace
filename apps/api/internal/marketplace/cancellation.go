@@ -64,30 +64,36 @@ func scanOrderCancellation(row pgx.Row) (OrderCancellation,[]byte,error) {
 	return c,hash,err
 }
 
-func (s *Store) SaveCancellationPolicy(ctx context.Context,actor Actor,policy CancellationPolicy) (CancellationPolicy,error) {
-	if actor.Role!=RoleOperator || actor.SubjectID=="" || actor.TenantID=="" { return CancellationPolicy{},ErrForbidden }
-	if err:=Authorize(actor,Resource{TenantID:actor.TenantID},ActionPolicyManage); err!=nil { return CancellationPolicy{},err }
-	policy.MarketCode=strings.ToUpper(strings.TrimSpace(policy.MarketCode))
-	policy.PolicyVersion=strings.TrimSpace(policy.PolicyVersion)
-	if policy.ActorRole!=RoleCustomer || (policy.FromStatus!="requested" && policy.FromStatus!="accepted") ||
-		policy.PolicyVersion=="" || len(policy.PolicyVersion)>80 ||
-		policy.CutoffMinutes<0 || policy.CutoffMinutes>10080 ||
-		policy.FeeBasisPoints<0 || policy.FeeBasisPoints>10000 || policy.EffectiveFrom.IsZero() {
-		return CancellationPolicy{},ErrInvalidMarket
+func (s *Store) SaveCancellationPolicy(ctx context.Context, actor Actor, policy CancellationPolicy) (CancellationPolicy, error) {
+	policy.MarketCode = strings.ToUpper(strings.TrimSpace(policy.MarketCode))
+	policy.PolicyVersion = strings.TrimSpace(policy.PolicyVersion)
+	if policy.ActorRole != RoleCustomer || (policy.FromStatus != "requested" && policy.FromStatus != "accepted") ||
+		policy.PolicyVersion == "" || len(policy.PolicyVersion) > 80 ||
+		policy.CutoffMinutes < 0 || policy.CutoffMinutes > 10080 ||
+		policy.FeeBasisPoints < 0 || policy.FeeBasisPoints > 10000 || policy.EffectiveFrom.IsZero() {
+		return CancellationPolicy{}, ErrInvalidMarket
 	}
-	market,err:=s.GetMarket(ctx,policy.MarketCode)
-	if err!=nil { return CancellationPolicy{},err }
-	id,err:=newID()
-	if err!=nil { return CancellationPolicy{},err }
-	err=s.DB.QueryRow(ctx,`
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil { return CancellationPolicy{}, err }
+	defer tx.Rollback(ctx)
+	if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: actor.TenantID}, ActionPolicyManage); err != nil {
+		return CancellationPolicy{}, err
+	}
+	market, err := loadMarketConfigTx(ctx, tx, policy.MarketCode)
+	if err != nil { return CancellationPolicy{}, err }
+	if market == nil || !market.Enabled { return CancellationPolicy{}, ErrMarketUnavailable }
+	id, err := newID()
+	if err != nil { return CancellationPolicy{}, err }
+	err = tx.QueryRow(ctx, `
 		INSERT INTO cancellation_policies(id,market_code,policy_version,actor_role,from_status,cutoff_minutes,fee_basis_points,effective_from,created_by_identity_id)
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
 		RETURNING id,market_code,policy_version,actor_role,from_status,cutoff_minutes,fee_basis_points,effective_from,created_at
-	`,id,market.Code,policy.PolicyVersion,string(policy.ActorRole),policy.FromStatus,policy.CutoffMinutes,
-		policy.FeeBasisPoints,policy.EffectiveFrom,actor.SubjectID).Scan(&policy.ID,&policy.MarketCode,&policy.PolicyVersion,
-		&policy.ActorRole,&policy.FromStatus,&policy.CutoffMinutes,&policy.FeeBasisPoints,&policy.EffectiveFrom,&policy.CreatedAt)
-	if err!=nil { return CancellationPolicy{},err }
-	return policy,nil
+	`, id, market.Code, policy.PolicyVersion, string(policy.ActorRole), policy.FromStatus, policy.CutoffMinutes,
+		policy.FeeBasisPoints, policy.EffectiveFrom, actor.SubjectID).Scan(&policy.ID, &policy.MarketCode, &policy.PolicyVersion,
+		&policy.ActorRole, &policy.FromStatus, &policy.CutoffMinutes, &policy.FeeBasisPoints, &policy.EffectiveFrom, &policy.CreatedAt)
+	if err != nil { return CancellationPolicy{}, err }
+	if err = tx.Commit(ctx); err != nil { return CancellationPolicy{}, err }
+	return policy, nil
 }
 
 func (s *Store) CancelOrder(ctx context.Context,actor Actor,orderID,idempotencyKey,reason string) (OrderCancellation,error) {
