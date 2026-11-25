@@ -26,6 +26,9 @@ func ensureActiveGeneration(ctx context.Context,db *pgxpool.Pool,tenantID,genera
  err=tx.QueryRow(ctx,`SELECT generation_id FROM analytics_active_generations WHERE tenant_id=$1 FOR UPDATE`,tenantID).Scan(&active)
  if errors.Is(err,pgx.ErrNoRows){if _,err=tx.Exec(ctx,`INSERT INTO analytics_active_generations(tenant_id,generation_id) VALUES($1,$2) ON CONFLICT(tenant_id) DO NOTHING`,tenantID,generationID);err!=nil{return err};err=tx.QueryRow(ctx,`SELECT generation_id FROM analytics_active_generations WHERE tenant_id=$1`,tenantID).Scan(&active)}
  if err!=nil{return err};if active!=generationID{return fmt.Errorf("generation %q is not active for tenant %q (active=%q); refusing to consume",generationID,tenantID,active)}
+ var recordedConsumer,status string
+ if err=tx.QueryRow(ctx,`SELECT consumer_name,status FROM analytics_projection_generations WHERE tenant_id=$1 AND generation_id=$2`,tenantID,generationID).Scan(&recordedConsumer,&status);err!=nil{return err}
+ if recordedConsumer!=consumerName||status=="retired"{return fmt.Errorf("analytics generation identity/status mismatch: consumer=%q status=%q",recordedConsumer,status)}
  if _,err=tx.Exec(ctx,`UPDATE analytics_projection_generations SET status='active',activated_at=COALESCE(activated_at,now()) WHERE tenant_id=$1 AND generation_id=$2 AND status='building'`,tenantID,generationID);err!=nil{return err}
  return tx.Commit(ctx)
 }
