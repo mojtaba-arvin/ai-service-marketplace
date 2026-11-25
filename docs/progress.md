@@ -1,6 +1,6 @@
 # Development Progress
 
-> Rolling evidence snapshot: 2026-11-25 (updated after PR #213 and reviewer-workflow specification). Git history and PRs retain detailed history. Never mark a feature QA-passing without independent evidence.
+> Rolling evidence snapshot: 2026-11-25 (updated after PR #215 reviewer workflow merge). Git history and PRs retain detailed history. Never mark a feature QA-passing without independent evidence.
 
 ## Product direction
 
@@ -8,8 +8,8 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 ## Integrated on main
 
-- Main at snapshot: `88ec53e396fb411dfe7930b218b76cf478c1ec60` (after PR #213).
-- PRs #146, #150, #149, #152, #148, #193, #194, #195, #196, #197, #198, #199, #200, #201, #202, #203, #204, #206 and #208 are merged. #205 and #207 were closed as superseded by refreshed PRs #206 and #208. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance. #195/#197 record analytics runtime and release-gate decisions; #198 delivers the historical rebuild/rollback command; #199 records that delivery and its remaining gates; #200 refreshes deployment and analytics operations guidance.
+- Main at snapshot: `3078e2112ae8ecd8c4418d171c02711e4a4421b3` (after PR #215).
+- PRs #146, #150, #149, #152, #148, #193, #194, #195, #196, #197, #198, #199, #200, #201, #202, #203, #204, #206, #208, #209, #210, #211, #212, #213, #214 and #215 are merged. #205 and #207 were closed as superseded by refreshed PRs #206 and #208. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance. #195/#197 record analytics runtime and release-gate decisions; #198 delivers the historical rebuild/rollback command; #199 records that delivery and its remaining gates; #200 refreshes deployment and analytics operations guidance.
 - PR #194: migration 030, tenant/generation-scoped immutable analytics facts and quarantine, per-tenant active-generation pointer, bounded live analytics worker, active-generation-only summaries with pending-event readiness, production image and optional Compose profile. PostgreSQL integration tests cover restart, generation mismatch, idempotency, shadow isolation and pointer cutover; CI/E2E/Security/CodeQL/Agent Guard passed on exact head.
 - PR #196: authenticated `GET /v1/operator/analytics/summary`, operator-only `analytics:read`, tenant taken exclusively from the authenticated principal, RFC3339 bounded-window validation, `Cache-Control: private, no-store`, OpenAPI/metric contracts, and PostgreSQL privacy/quarantine/immutability/idempotency plus route-authorization tests. Exact-head Go tests, E2E, Compose validation, API/web image builds, Security/CodeQL and Agent Guard passed.
 - PR #200: corrects deployment evidence and adds a guarded analytics rebuild/cutover/worker-handoff/rollback runbook. It is documentation only; no production deployment or analytics operation is claimed.
@@ -110,19 +110,21 @@ These are repository capabilities, not evidence that every domain is complete or
 - PR #211 merged as `f3197510b94ab7b29d348cd97d0a58b3cd4cb95b` after CI, Security/CodeQL and Agent Guard passed on exact head `a43b76295e916dbd9902c48c5cbfa9b0fca68e78`. It contains migration 033 and the first TRUST-002 order-bound incident intake slice. Reviewer workflow, private evidence storage/access, retention and independent acceptance remain out of scope.
 - PR #212 merged the progress snapshot documentation.
 - PR #213 merged as `88ec53e396fb411dfe7930b218b76cf478c1ec60` after CI, PostgreSQL tests, browser E2E, Compose, production image builds, all CodeQL languages and Agent Guard passed on exact head `3f358b0d616cc6d71316e18490082a55db0b46fa`. It adds explicit transaction-bound operator grants, one-way revocation, audit, tenant-scoped grant-management APIs and least-privilege E2E bootstrap.
+- PR #214 merged the TRUST-002 reviewer authorization and transition ADR: dedicated `incident:review` grant, same-tenant active reviewers, support-role insufficiency, forward-only transitions and reasoned same-transaction audit.
+- PR #215 merged as `3078e2112ae8ecd8c4418d171c02711e4a4421b3` after CI, PostgreSQL and HTTP integration tests, browser E2E, Compose, production API/web images, all CodeQL languages and Agent Guard passed on exact head `c8bd5d71198bb5b25d585eec5ba2694e17ed165c`. It delivers tenant-scoped reviewer queue/read/transition APIs, active same-tenant assignment, reasoned severity/status changes and a database trigger requiring matching same-transaction audit.
 - ADMIN-001 runtime enforcement is implemented in PR #213: transaction-bound checks cover operator order/provider/analytics reads; market and catalog configuration; service-form publishing; provider verification, availability and booking; dispatch candidate/offer operations; cancellation-policy writes; and professional-verification review/evidence reads. Pure `Authorize` denies operator actions without persisted grant context. The tenant-scoped grant history/create/revoke API requires `operator:permissions:manage`; self-grant and self-revocation are denied. Independent acceptance remains pending.
 - PR #110 and #137 remain open and blocked on external consumer compatibility evidence. Keep their branches.
 - No feature acceptance flags changed: `feature_list.json` remains 0/93 independently QA-passing. CI and merged code are not independent acceptance evidence.
 
 
-- PR #214 is the reviewer-workflow ADR update. It specifies a dedicated `incident:review` grant, same-tenant active reviewers, forward-only state transitions, reasoned assignment/severity changes and same-transaction audit. Reviewer endpoints and mutable report transitions are not implemented yet.
 
 
-## Current operational priorities after PR #213 — 2026-11-25
 
-1. TRUST-002 reviewer workflow: implement the dedicated `incident:review` action, active same-tenant reviewer assignment, forward-only state transitions and DB-enforced same-transaction audit.
-2. TRUST-002 evidence boundary: design private object storage, short-lived access, content validation, access audit and adopter-configured retention/legal hold separately.
-3. Deployment/Core QA: execute against real adopter infrastructure and independent QA; GitHub CI cannot provide host, DNS, OTP provider, production secrets or backup-restore acceptance.
+## Current operational priorities after PR #215 — 2026-11-25
+
+1. TRUST-002 evidence boundary: implement private object storage, short-lived authorized retrieval, content/malware validation, access audit and adopter-configured retention/legal hold; keep opaque refs non-public.
+2. Deployment/Core QA: execute against real adopter infrastructure and independent QA; GitHub CI cannot provide host, DNS, OTP provider, production secrets or backup-restore acceptance.
+3. ADMIN-001: perform independent tenant-isolation, bootstrap recovery and permission-revocation acceptance; merged implementation is not acceptance.
 4. Analytics/Support: execute the merged runbooks and retain operational evidence.
 5. Event compatibility #110/#137: await external consumer compatibility approval; do not change event contracts without it.
 
