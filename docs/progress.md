@@ -8,8 +8,9 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 ## Integrated on main
 
-- Main at snapshot: `d731bf6220e2664ee2f8a75afc407cf2f5f7fff5`.
-- PRs #146, #150, #149, #152 and #148 are merged. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance.
+- Main at snapshot: `df71ef1f39ec0c8569c863e4185ae870b3db59bf`.
+- PRs #146, #150, #149, #152, #148, #193 and #194 are merged. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance.
+- PR #194: migration 030, tenant/generation-scoped immutable analytics facts and quarantine, per-tenant active-generation pointer, bounded live analytics worker, active-generation-only summaries with pending-event readiness, production image and optional Compose profile. PostgreSQL integration tests cover restart, generation mismatch, idempotency, shadow isolation and pointer cutover; CI/E2E/Security/CodeQL/Agent Guard passed on exact head.
 - Go/PostgreSQL modular-monolith API; Next.js customer web; React/Vite operator UI; Flutter mobile direction; isolated Python AI workloads.
 - Identity/tenant memberships, customer order workflows, professional eligibility, scheduling, availability, dispatch, cancellation, history and transactional outbox.
 - Immutable ledger primitives, payment adapter boundaries, market configuration/localization, B2B foundations, migrations, Compose deployment, CI, E2E, backup/restore, CodeQL, Dependency Review and Agent Guard.
@@ -40,10 +41,10 @@ These are repository capabilities, not evidence that every domain is complete or
 ## Hard blockers and safety boundaries
 
 - #110: external consumer compatibility for canonical scheduled-order events; include optional `service_form_version_id` from #181 in the consumer compatibility review. Do not infer external compatibility from internal publisher/timeline tests.
-- #133: blocked and not rebased onto `d731bf6` yet. Its migration `025_analytics_event_projection.sql` conflicts with main's `025_auth_devices.sql`; rename the analytics migration to `030_analytics_event_projection.sql` and append it after 029 in `cmd/migrate/main.go`. Reconcile shared `mvp_http.go`, `policy.go`, OpenAPI and tests against main; never overwrite post-PR133 changes.
-- #133 also lacks a production population path and real generation isolation: current projector is only called by tests; `analytics_event_facts` primary key `(tenant_id,event_id)` and unique `outbox_event_id` prevent per-generation facts; `QuerySummary` does not select an active generation. Add generation ID to facts/quarantine/consumer identity, a per-tenant active-generation pointer, and make every summary query read only the active generation.
-- Analytics live consumption must not use `ReplayBatch` as a watermark: PostgreSQL sequence IDs can commit out of order. Use bounded polling for outbox rows absent from `processed_events` for that generation's consumer name, and process through transactional `Consumer.Process`. Keep historical replay restricted to a quiescent snapshot; implement catch-up and atomic generation switch before claiming rebuild support.
-- #137: canonical cancellation-event compatibility. Preserve legacy payloads for existing event types; add canonical data additively or under a versioned event contract, with old/new contract tests and a recorded consumer migration plan.
+- #133 remains blocked and must be reworked before merge. PR #194 supersedes its original migration 025, facts schema, projector/summary package and runtime-population gap. Do not reintroduce `025_analytics_event_projection.sql` or duplicate those files. Reconcile #133 into an API-route/contracts/spec-only follow-up against current main; preserve compatible `mvp_http.go`, `policy.go`, OpenAPI and tests only after checking current ownership and adapting tests to migration 030.
+- PR #194 provides live polling without a monotonically advancing ID watermark: query bounded outbox rows absent from the generation-specific `processed_events`, then call transactional `Consumer.Process`. Keep this pattern; PostgreSQL sequence IDs can commit out of order.
+- Historical generation rebuild is still NOT complete. Do not manually switch active pointers or reuse generation IDs. A rebuild still needs a defined quiescent snapshot, sequence-safe live-tail catch-up, lag/count validation, failure rollback and an atomic cutover procedure. Keep AN-001/AN-002 `passes:false` until that and independent acceptance exist.
+- #137: canonical cancellation-event compatibility. Preserve legacy payloads for existing event types; add canonical data additively or under a versioned event contract, with old/new contract tests and a recorded consumer migration plan. Repository docs identify only a generic optional HTTPS sink; no actual sink/owner/contract is recorded.
 - B2B billing waits for independent Order/Ledger gates (#57/#10) and canonical event readiness (#87).
 - No retention duration, privacy policy, fairness threshold, tax/legal rule or regulated-provider approval is invented.
 - GitHub security settings require owner-side confirmation; AI affecting money, safety, identity, access or reputation remains advisory until deterministic policy and/or authorized human approval.
