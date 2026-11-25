@@ -1,6 +1,6 @@
 # Development Progress
 
-> Rolling evidence snapshot: 2026-11-25. Git history and PRs retain detailed history. Never mark a feature QA-passing without independent evidence.
+> Rolling evidence snapshot: 2026-11-25 (updated after PR #208). Git history and PRs retain detailed history. Never mark a feature QA-passing without independent evidence.
 
 ## Product direction
 
@@ -8,8 +8,8 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 ## Integrated on main
 
-- Main at snapshot: `8022c689c5183ae85b12da22406f0ce283d74315` (after PR #202).
-- PRs #146, #150, #149, #152, #148, #193, #194, #195, #196, #197, #198, #199, #200, #201 and #202 are merged. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance. #195/#197 record analytics runtime and release-gate decisions; #198 delivers the historical rebuild/rollback command; #199 records that delivery and its remaining gates; #200 refreshes deployment and analytics operations guidance.
+- Main at snapshot: `b2e961d91c0362b98c3f20b8dbbd450d9338c30a` (after PR #208).
+- PRs #146, #150, #149, #152, #148, #193, #194, #195, #196, #197, #198, #199, #200, #201, #202, #203, #204, #206 and #208 are merged. #205 and #207 were closed as superseded by refreshed PRs #206 and #208. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance. #195/#197 record analytics runtime and release-gate decisions; #198 delivers the historical rebuild/rollback command; #199 records that delivery and its remaining gates; #200 refreshes deployment and analytics operations guidance.
 - PR #194: migration 030, tenant/generation-scoped immutable analytics facts and quarantine, per-tenant active-generation pointer, bounded live analytics worker, active-generation-only summaries with pending-event readiness, production image and optional Compose profile. PostgreSQL integration tests cover restart, generation mismatch, idempotency, shadow isolation and pointer cutover; CI/E2E/Security/CodeQL/Agent Guard passed on exact head.
 - PR #196: authenticated `GET /v1/operator/analytics/summary`, operator-only `analytics:read`, tenant taken exclusively from the authenticated principal, RFC3339 bounded-window validation, `Cache-Control: private, no-store`, OpenAPI/metric contracts, and PostgreSQL privacy/quarantine/immutability/idempotency plus route-authorization tests. Exact-head Go tests, E2E, Compose validation, API/web image builds, Security/CodeQL and Agent Guard passed.
 - PR #200: corrects deployment evidence and adds a guarded analytics rebuild/cutover/worker-handoff/rollback runbook. It is documentation only; no production deployment or analytics operation is claimed.
@@ -74,3 +74,31 @@ These are repository capabilities, not evidence that every domain is complete or
 - The old generation is retained for rollback. Do not add automated generation deletion until retention, privacy and recovery policies are explicitly defined.
 - The rebuild command catches events committed before the cutover snapshot; events committed after cutover are expected to be consumed by the new live worker after it is restarted with the new generation. Production cutover still needs an observed end-to-end run.
 - `data_ready` continues to mean ingestion backlog drained only; it is not event-time finality, financial close, or contractual completion.
+
+
+## Latest delivery — 2026-11-25 (ADMIN-001 / TRUST-002)
+
+- PR #203 refreshed this progress snapshot through PR #202; PRs #204 and #206 then merged the ADMIN-001 and TRUST-002 architecture decisions (ADRs 0007 and 0008).
+- PR #208 merged as `b2e961d91c0362b98c3f20b8dbbd450d9338c30a` after exact-head CI, Security (including all CodeQL jobs) and Agent Guard succeeded. It adds migration 031 for tenant-scoped operator action grants, a one-time per-tenant bootstrap marker, append-only permission audit events, and a deployment-only bootstrap command packaged in the API image.
+- PR #208 is provisioning infrastructure only. ADMIN-001 is **not** complete: persisted grants are not yet enforced at every sensitive Store boundary; runtime grant/revoke operations, no-self-grant authority, transaction-aware authorization, and concurrency/negative tests remain. Existing operator memberships are deliberately not grandfathered.
+- TRUST-002 remains architecture-only. Implementation must follow ADR 0008: order-bound intake; reporter-only read access; explicit same-tenant reviewer authorization; severity as a human triage hint only; append-only audit; opaque evidence references. Do not imply emergency monitoring or guaranteed response. Private evidence storage/access and retention controls are a separate later boundary.
+- PRs #205 and #207 are superseded and closed. Their old branches may be deleted; refreshed PR branches #206 and #208 contain the retained work.
+- No acceptance flags changed: `feature_list.json` remains 0/93 independently QA-passing. CI proves repository checks, not independent product acceptance or production operation.
+
+## Current execution priorities
+
+1. **P0 — Deployment Foundation / Core QA:** repository assets and CI rehearsals are integrated, but a real host, DNS, OTP delivery, production secrets, deployment, public smoke test, backup/restore and independent end-to-end QA are still external gates.
+2. **P1 — ADMIN-001 runtime enforcement:** migrate every operator-sensitive Store entry point to transaction-aware, fail-closed tenant/action grant checks; implement guarded grant/revoke and test concurrent revocation against protected mutations.
+3. **P1 — TRUST-002 implementation:** build order-bound incident intake and reporter access first; reviewer workflow only after explicit same-tenant authorization is implemented and tested.
+4. **P1 — Event Compatibility:** #110 and #137 remain blocked on external consumer compatibility evidence and a migration window. Do not change or merge payload contracts without it.
+5. **P1 — Analytics / Support Audit:** rebuild/rollback and support audit code are integrated; real operational execution and independent acceptance remain.
+6. **P2 — Remaining M1–M14 scope:** continue the complete product roadmap; do not collapse it into the initial workflow baseline.
+
+## Persistent engineering decisions
+
+- ADMIN-001: RoleOperator membership is eligibility, not authorization. Sensitive actions require a persisted `(identity_id, tenant_id, action)` grant. Keep `Actor` transport-neutral; enforce in the Store/application transaction that performs the protected mutation. Unknown actions and absent/revoked grants deny. No implicit grandfathering and no self-grant.
+- Bootstrap: one-time, explicit deployment-controlled action set and reason, existing operator membership required, serializable transaction and tenant lock, immutable audit. Never bootstrap through OTP, login, HTTP, CI or normal application startup.
+- Revocation consistency: authorization and protected mutation must share one transaction/locking boundary so a concurrent revoke cannot race past a sensitive operation.
+- TRUST-002: incident intake is not an emergency response channel. Derive tenant from the persisted order, authorize reporters against order participation, and never accept a tenant ID from request input. AI may advise but must not decide severity, liability, refund or closure.
+- Event contracts: retain #110/#137 branches while external compatibility is unresolved. Internal tests are not evidence of consumer migration approval.
+- Do not mark any feature `passes=true` from CI, merged code or architecture documentation alone.
