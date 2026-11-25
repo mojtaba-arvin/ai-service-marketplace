@@ -35,6 +35,7 @@ const (
 	ActionCatalogManage Action = "catalog:manage"
 	ActionPolicyManage Action = "policy:manage"
 	ActionAnalyticsRead Action = "analytics:read"
+	ActionOperatorPermissionsManage Action = "operator:permissions:manage"
 )
 
 var ErrForbidden = errors.New("access denied")
