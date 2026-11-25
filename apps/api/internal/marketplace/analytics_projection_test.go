@@ -36,16 +36,16 @@ func TestAnalyticsProjectionMinimizesAndQuarantinesEventsPostgres(t *testing.T) 
  if _,err=pool.Exec(ctx,"INSERT INTO analytics_projection_generations(tenant_id,generation_id,consumer_name,status,activated_at) VALUES($1,$2,$3,'active',now())",tenant,generation,consumerName);err!=nil { t.Fatal(err) }
  if _,err=pool.Exec(ctx,"INSERT INTO analytics_active_generations(tenant_id,generation_id) VALUES($1,$2)",tenant,generation);err!=nil { t.Fatal(err) }
 
- orderID:="analytics-privacy-order-"+suffix
- canonical:=outbox.DomainEvent{ID:"analytics-privacy-event-"+suffix,Type:"order.created",Version:1,OccurredAt:time.Now().UTC(),TenantID:tenant,
-  Aggregate:outbox.EventAggregate{Type:"order",ID:orderID},Metadata:map[string]string{"market_code":"OM","traffic_class":"production"},
-  Data:json.RawMessage(fmt.Sprintf("{"order_id":%q,"status":"requested","price_version_id":"price-v1","scheduled_at":"2026-11-26T10:00:00Z"}",orderID))}
- unsafe:=canonical
- unsafe.ID="analytics-unsafe-event-"+suffix
- unsafe.Aggregate=outbox.EventAggregate{Type:"order",ID:"analytics-unsafe-order-"+suffix}
- unsafe.Data=json.RawMessage(fmt.Sprintf("{"order_id":%q,"status":"requested","price_version_id":"price-v1","scheduled_at":"2026-11-26T10:00:00Z","phoneNumber":"+96890000000"}",unsafe.Aggregate.ID))
- appendDomain:=func(event outbox.DomainEvent) int64 {
-  tx,beginErr:=pool.BeginTx(ctx,pgx.TxOptions{});if beginErr!=nil { t.Fatal(beginErr) }
+  orderID:="analytics-privacy-order-"+suffix
+  canonicalData,marshalErr:=json.Marshal(map[string]string{"order_id":orderID,"status":"requested","price_version_id":"price-v1","scheduled_at":"2026-11-26T10:00:00Z"})
+  if marshalErr!=nil { t.Fatal(marshalErr) }
+  canonical:=outbox.DomainEvent{ID:"analytics-privacy-event-"+suffix,Type:"order.created",Version:1,OccurredAt:time.Now().UTC(),TenantID:tenant,Aggregate:outbox.EventAggregate{Type:"order",ID:orderID},Metadata:map[string]string{"market_code":"OM","traffic_class":"production"},Data:canonicalData}
+  unsafe:=canonical
+  unsafe.ID="analytics-unsafe-event-"+suffix
+  unsafe.Aggregate=outbox.EventAggregate{Type:"order",ID:"analytics-unsafe-order-"+suffix}
+  unsafeData,marshalErr:=json.Marshal(map[string]string{"order_id":unsafe.Aggregate.ID,"status":"requested","price_version_id":"price-v1","scheduled_at":"2026-11-26T10:00:00Z","phoneNumber":"+96890000000"})
+  if marshalErr!=nil { t.Fatal(marshalErr) }
+  unsafe.Data=unsafeData
   id,appendErr:=outbox.AppendDomainEvent(ctx,tx,event)
   if appendErr!=nil { _=tx.Rollback(ctx);t.Fatal(appendErr) }
   if commitErr:=tx.Commit(ctx);commitErr!=nil { t.Fatal(commitErr) }
@@ -54,9 +54,9 @@ func TestAnalyticsProjectionMinimizesAndQuarantinesEventsPostgres(t *testing.T) 
  canonicalOutboxID:=appendDomain(canonical)
  unsafeOutboxID:=appendDomain(unsafe)
  legacyTx,err:=pool.BeginTx(ctx,pgx.TxOptions{});if err!=nil { t.Fatal(err) }
- legacyID,err:=outbox.Append(ctx,legacyTx,"order","legacy-"+suffix,"order.created",json.RawMessage("{"phone":"+96890000000"}"))
- if err!=nil { _=legacyTx.Rollback(ctx);t.Fatal(err) }
- if err=legacyTx.Commit(ctx);err!=nil { t.Fatal(err) }
+  legacyPayload,marshalErr:=json.Marshal(map[string]string{"phone":"+96890000000"})
+  if marshalErr!=nil { t.Fatal(marshalErr) }
+  legacyID,err:=outbox.Append(ctx,legacyTx,"order","legacy-"+suffix,"order.created",legacyPayload)
 
  projector:=analytics.Projector{DB:pool,ConsumerName:consumerName,GenerationID:generation,TenantID:tenant}
  consumer:=projector.Consumer()
