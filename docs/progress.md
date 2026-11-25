@@ -8,9 +8,10 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 ## Integrated on main
 
-- Main at snapshot: `df71ef1f39ec0c8569c863e4185ae870b3db59bf`.
-- PRs #146, #150, #149, #152, #148, #193 and #194 are merged. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance.
+- Main at snapshot: `33ef63868450a1d5d48ecef3e7ef3fccded4d28b`.
+- PRs #146, #150, #149, #152, #148, #193, #194 and #196 are merged. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance.
 - PR #194: migration 030, tenant/generation-scoped immutable analytics facts and quarantine, per-tenant active-generation pointer, bounded live analytics worker, active-generation-only summaries with pending-event readiness, production image and optional Compose profile. PostgreSQL integration tests cover restart, generation mismatch, idempotency, shadow isolation and pointer cutover; CI/E2E/Security/CodeQL/Agent Guard passed on exact head.
+- PR #196: authenticated `GET /v1/operator/analytics/summary`, operator-only `analytics:read`, tenant taken exclusively from the authenticated principal, RFC3339 bounded-window validation, `Cache-Control: private, no-store`, OpenAPI/metric contracts, and PostgreSQL privacy/quarantine/immutability/idempotency plus route-authorization tests. Exact-head Go tests, E2E, Compose validation, API/web image builds, Security/CodeQL and Agent Guard passed.
 - Go/PostgreSQL modular-monolith API; Next.js customer web; React/Vite operator UI; Flutter mobile direction; isolated Python AI workloads.
 - Identity/tenant memberships, customer order workflows, professional eligibility, scheduling, availability, dispatch, cancellation, history and transactional outbox.
 - Immutable ledger primitives, payment adapter boundaries, market configuration/localization, B2B foundations, migrations, Compose deployment, CI, E2E, backup/restore, CodeQL, Dependency Review and Agent Guard.
@@ -41,8 +42,9 @@ These are repository capabilities, not evidence that every domain is complete or
 ## Hard blockers and safety boundaries
 
 - #110: external consumer compatibility for canonical scheduled-order events; include optional `service_form_version_id` from #181 in the consumer compatibility review. Do not infer external compatibility from internal publisher/timeline tests.
-- #133 remains blocked and must be reworked before merge. PR #194 supersedes its original migration 025, facts schema, projector/summary package and runtime-population gap. Do not reintroduce `025_analytics_event_projection.sql` or duplicate those files. Reconcile #133 into an API-route/contracts/spec-only follow-up against current main; preserve compatible `mvp_http.go`, `policy.go`, OpenAPI and tests only after checking current ownership and adapting tests to migration 030.
+- #133 is closed as superseded by #194 and #196. Do not reopen or reintroduce its migration 025 or duplicate projector/summary package. Its former API route/contracts work was reconstructed against current main and merged in #196.
 - PR #194 provides live polling without a monotonically advancing ID watermark: query bounded outbox rows absent from the generation-specific `processed_events`, then call transactional `Consumer.Process`. Keep this pattern; PostgreSQL sequence IDs can commit out of order.
+- PR #196 exposes the summary API, but `data_ready` is an ingestion-lag indicator only: it is not event-time finality, a late-arrival watermark, or a finance/contractual close signal.
 - Historical generation rebuild is still NOT complete. Do not manually switch active pointers or reuse generation IDs. A rebuild still needs a defined quiescent snapshot, sequence-safe live-tail catch-up, lag/count validation, failure rollback and an atomic cutover procedure. Keep AN-001/AN-002 `passes:false` until that and independent acceptance exist.
 - #137: canonical cancellation-event compatibility. Preserve legacy payloads for existing event types; add canonical data additively or under a versioned event contract, with old/new contract tests and a recorded consumer migration plan. Repository docs identify only a generic optional HTTPS sink; no actual sink/owner/contract is recorded.
 - B2B billing waits for independent Order/Ledger gates (#57/#10) and canonical event readiness (#87).
