@@ -67,7 +67,7 @@ func TestBootstrapPostgresOneTimeAndImmutableAudit(t *testing.T) {
 	}
 	defer pool.Close()
 
-	for _, name := range []string{"001_walking_skeleton.sql", "002_identity.sql", "022_identity_memberships.sql", "031_operator_action_grants.sql"} {
+	for _, name := range []string{"001_walking_skeleton.sql", "002_identity.sql", "022_identity_memberships.sql", "031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql"} {
 		raw, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if readErr != nil {
 			t.Fatal(readErr)
@@ -138,6 +138,19 @@ func TestBootstrapPostgresOneTimeAndImmutableAudit(t *testing.T) {
 	}
 	if _, err = pool.Exec(ctx, "DELETE FROM operator_permission_events WHERE tenant_id=$1", tenantID); err == nil {
 		t.Fatal("permission event deletion unexpectedly succeeded")
+	}
+
+	// The audit event's tenant, identity and action must describe the referenced grant.
+	var mismatchedAction string
+	if err = pool.QueryRow(ctx, "SELECT CASE action WHEN 'order:assign' THEN 'order:read' ELSE 'order:assign' END FROM operator_action_grants WHERE id=$1", grantID).Scan(&mismatchedAction); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `
+		INSERT INTO operator_permission_events
+			(grant_id,tenant_id,identity_id,action,event_type,actor_kind,reason,after_state)
+		VALUES($1,$2,$3,$4,'granted','system_bootstrap','mismatched audit tuple','{}'::jsonb)
+	`, grantID, tenantID, identityID, mismatchedAction); err == nil {
+		t.Fatal("audit event with mismatched grant action unexpectedly succeeded")
 	}
 
 	if _, err = pool.Exec(ctx, "UPDATE operator_action_grants SET revoked_at=now(),revoked_by_identity_id=$2,revoke_reason='test revocation' WHERE id=$1", grantID, identityID); err != nil {
