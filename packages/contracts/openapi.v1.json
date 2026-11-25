@@ -3391,6 +3391,166 @@
           }
         }
       }
+    },
+    "/v1/operator/permissions": {
+      "get": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "List tenant-scoped operator permission grants and revocations",
+        "operationId": "listOperatorPermissionGrants",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Permission history for the authenticated operator tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "grants"
+                  ],
+                  "properties": {
+                    "grants": {
+                      "type": "array",
+                      "maxItems": 500,
+                      "items": {
+                        "$ref": "#/components/schemas/OperatorPermissionGrant"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/permissions/grants": {
+      "post": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Grant an allowlisted action to another operator in the current tenant",
+        "operationId": "grantOperatorPermission",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperatorPermissionGrantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Permission grant created and audited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorPermissionGrantResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/permissions/grants/{grant_id}/revoke": {
+      "post": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Revoke another operator's active permission grant",
+        "operationId": "revokeOperatorPermission",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "grant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperatorPermissionRevokeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Permission grant revoked and audit event appended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorPermissionGrantResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4559,6 +4719,128 @@
           "emergency_notice": {
             "type": "string",
             "description": "States that incident intake is not monitored as an emergency service."
+          }
+        }
+      },
+      "OperatorPermissionGrant": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "identity_id",
+          "tenant_id",
+          "action",
+          "grant_reason",
+          "granted_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "identity_id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "order:read",
+              "order:assign",
+              "provider:verify",
+              "case:read",
+              "market:configure",
+              "catalog:manage",
+              "policy:manage",
+              "analytics:read",
+              "operator:permissions:manage"
+            ]
+          },
+          "granted_by_identity_id": {
+            "type": "string"
+          },
+          "grant_reason": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "granted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked_by_identity_id": {
+            "type": "string"
+          },
+          "revoke_reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      },
+      "OperatorPermissionGrantRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "identity_id",
+          "action",
+          "reason"
+        ],
+        "properties": {
+          "identity_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "order:read",
+              "order:assign",
+              "provider:verify",
+              "case:read",
+              "market:configure",
+              "catalog:manage",
+              "policy:manage",
+              "analytics:read",
+              "operator:permissions:manage"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Required audit reason. Self-grant is prohibited."
+          }
+        }
+      },
+      "OperatorPermissionRevokeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Required audit reason. Self-revocation is prohibited."
+          }
+        }
+      },
+      "OperatorPermissionGrantResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "grant"
+        ],
+        "properties": {
+          "grant": {
+            "$ref": "#/components/schemas/OperatorPermissionGrant"
           }
         }
       }
