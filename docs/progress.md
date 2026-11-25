@@ -8,10 +8,11 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 ## Integrated on main
 
-- Main at snapshot: `c322bad528d84753c64bc7ecfad12b76d84540ee` (after PR #198).
-- PRs #146, #150, #149, #152, #148, #193, #194, #195, #196, #197 and #198 are merged. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance. #195/#197 record analytics runtime and release-gate decisions; #198 delivers the historical rebuild/rollback command.
+- Main at snapshot: `61d3528ad2ca451aad841e831ebd46a5d9d474c7` (after PR #200).
+- PRs #146, #150, #149, #152, #148, #193, #194, #195, #196, #197, #198, #199 and #200 are merged. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance. #195/#197 record analytics runtime and release-gate decisions; #198 delivers the historical rebuild/rollback command; #199 records that delivery and its remaining gates; #200 refreshes deployment and analytics operations guidance.
 - PR #194: migration 030, tenant/generation-scoped immutable analytics facts and quarantine, per-tenant active-generation pointer, bounded live analytics worker, active-generation-only summaries with pending-event readiness, production image and optional Compose profile. PostgreSQL integration tests cover restart, generation mismatch, idempotency, shadow isolation and pointer cutover; CI/E2E/Security/CodeQL/Agent Guard passed on exact head.
 - PR #196: authenticated `GET /v1/operator/analytics/summary`, operator-only `analytics:read`, tenant taken exclusively from the authenticated principal, RFC3339 bounded-window validation, `Cache-Control: private, no-store`, OpenAPI/metric contracts, and PostgreSQL privacy/quarantine/immutability/idempotency plus route-authorization tests. Exact-head Go tests, E2E, Compose validation, API/web image builds, Security/CodeQL and Agent Guard passed.
+- PR #200: corrects deployment evidence and adds a guarded analytics rebuild/cutover/worker-handoff/rollback runbook. It is documentation only; no production deployment or analytics operation is claimed.
 - Go/PostgreSQL modular-monolith API; Next.js customer web; React/Vite operator UI; Flutter mobile direction; isolated Python AI workloads.
 - Identity/tenant memberships, customer order workflows, professional eligibility, scheduling, availability, dispatch, cancellation, history and transactional outbox.
 - Immutable ledger primitives, payment adapter boundaries, market configuration/localization, B2B foundations, migrations, Compose deployment, CI, E2E, backup/restore, CodeQL, Dependency Review and Agent Guard.
@@ -24,6 +25,7 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 - PR #182 (`57ad0061c4f621a141b2169ccce5534cf8f4321e`): corrected full-product language, web security docs and deployment/contract boundaries.
 - PR #183 (`2eada2b6242276c0719e778ab5d77aa743418bb0`): recursive customer questionnaire renderer and structured answer submission.
 - PR #184 (`f7431d3570030f6ac0d4d70bc4c9fab76e0df7f0`): expanded the inventory from 79 to 93 features with 14 additional M1–M14 capabilities; updated module specs and issue epics.
+- SUP-002 is already implemented with SUP-001 in `support_cases.go` and migration `021_support_cases.sql`: case creation, assignment and status transitions append actor/action/reason/before-after audit events transactionally; PostgreSQL rejects UPDATE/DELETE. `support_cases_test.go` exercises lifecycle, inactive-agent and ownership denials, invalid transitions and event counts. Independent QA remains pending; do not mark passes=true.
 
 These are repository capabilities, not evidence that every domain is complete or that a production marketplace is publicly deployed.
 
@@ -54,16 +56,16 @@ These are repository capabilities, not evidence that every domain is complete or
 
 ## Acceptance and execution rules
 
-- feature_list.json is the structured 93-feature inventory; as of 2026-11-25, 0/93 are independently QA-passing. This is an acceptance-evidence count, not an implementation count. Do not set passes=true from CI alone.
+- `feature_list.json` is the structured 93-feature inventory; as of 2026-11-25, 0/93 are independently QA-passing. This is an acceptance-evidence count, not an implementation count. Do not set passes=true from CI alone.
 - Keep module ownership and public API/event boundaries; use small independent PRs and work on other tasks while CI runs.
 - Required checks must pass on current PR head and current main base. Do not bypass branch protection, security gates or independent QA.
-- progress.md records evidence; roadmap records intended outcomes. Neither substitutes for issue-level acceptance.
+- `progress.md` records evidence; roadmap records intended outcomes. Neither substitutes for issue-level acceptance.
 - Local GitHub CLI access from this runtime was unavailable (DNS); GitHub-hosted CI is the execution evidence. No local test success is claimed.
-
 
 ## Latest delivery — 2026-11-25
 
 - PR #198 merged as `c322bad528d84753c64bc7ecfad12b76d84540ee` after exact-head CI, PostgreSQL integration, Security/CodeQL and Agent Guard all passed.
+- PR #200 merged as `61d3528ad2ca451aad841e831ebd46a5d9d474c7`; deployment and analytics runbooks now reflect the integrated repository evidence and retain explicit external-operation gates.
 - The rebuild tool is a guarded one-shot operation, not an automatic deployment hook. Never execute it against production without a tenant/generation-specific change plan, a fresh generation ID, a database backup/restore checkpoint and a monitored worker handoff.
 - The old generation is retained for rollback. Do not add automated generation deletion until retention, privacy and recovery policies are explicitly defined.
 - The rebuild command catches events committed before the cutover snapshot; events committed after cutover are expected to be consumed by the new live worker after it is restarted with the new generation. Production cutover still needs an observed end-to-end run.
