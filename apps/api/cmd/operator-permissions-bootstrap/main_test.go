@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -153,9 +152,5 @@ func TestBootstrapPostgresOneTimeAndImmutableAudit(t *testing.T) {
 
 	if _, err = pool.Exec(ctx, "INSERT INTO operator_permission_bootstraps(tenant_id,bootstrap_identity_id,manifest_sha256,grants_count,created_by) VALUES($1,$2,$3,1,'system_bootstrap')", tenantID, identityID, fmt.Sprintf("%064x", 1)); err == nil {
 		t.Fatal("duplicate bootstrap marker unexpectedly succeeded")
-	}
-	if !errors.Is(err, nil) {
-		// Keep the test's final error assertion explicit without depending on a driver-specific SQLSTATE.
-		t.Fatal("unexpected error state")
 	}
 }
