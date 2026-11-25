@@ -4,6 +4,8 @@ package main
 
 import (
  "context"
+ "crypto/sha256"
+ "encoding/hex"
  "errors"
  "fmt"
  "log"
@@ -42,7 +44,7 @@ func loadPending(ctx context.Context,db *pgxpool.Pool,tenant,consumer string,lim
  return events,rows.Err()
 }
 
-type validation struct { Source,Processed,Facts,Quarantined,Pending int64 }
+type validation struct { Source,Processed,Facts,Quarantined,Pending int64; Checksum string }
 
 func validateGeneration(ctx context.Context,db *pgxpool.Pool,tenant,generation,consumer string)(validation,error) {
  var v validation
@@ -73,6 +75,34 @@ func validateGeneration(ctx context.Context,db *pgxpool.Pool,tenant,generation,c
  ) projection_outcomes`,tenant,generation).Scan(&outcomes,&distinctOutcomes)
  if err!=nil{return v,err}
  if outcomes!=v.Source||distinctOutcomes!=v.Source{return v,fmt.Errorf("generation outcome set is not one-to-one with source events: source=%d outcomes=%d distinct_outcomes=%d",v.Source,outcomes,distinctOutcomes)}
+ // Recompute each source payload digest and compare it with the immutable fact
+ // or quarantine record; also produce a deterministic ordered source checksum.
+ rows,err:=db.Query(ctx,`SELECT e.id,e.payload,COALESCE(f.payload_sha256,q.payload_sha256),
+  (f.outbox_event_id IS NOT NULL),(q.outbox_event_id IS NOT NULL)
+ FROM outbox_events e
+ LEFT JOIN analytics_event_facts f ON f.tenant_id=$1 AND f.generation_id=$2 AND f.outbox_event_id=e.id
+ LEFT JOIN analytics_event_quarantine q ON q.tenant_id=$1 AND q.generation_id=$2 AND q.outbox_event_id=e.id
+ WHERE e.payload->>'tenant_id'=$1 ORDER BY e.id`,tenant,generation)
+ if err!=nil{return v,err}
+ checksum:=sha256.New()
+ var checked int64
+ for rows.Next(){
+  var id int64
+  var payload []byte
+  var storedHash string
+  var hasFact,hasQuarantine bool
+  if err=rows.Scan(&id,&payload,&storedHash,&hasFact,&hasQuarantine);err!=nil{rows.Close();return v,err}
+  if hasFact==hasQuarantine{rows.Close();return v,fmt.Errorf("source event %d must have exactly one projection outcome",id)}
+  digest:=sha256.Sum256(payload)
+  actualHash:=hex.EncodeToString(digest[:])
+  if strings.TrimSpace(storedHash)!=actualHash{rows.Close();return v,fmt.Errorf("source payload digest mismatch for outbox event %d",id)}
+  if _,err=fmt.Fprintf(checksum,"%d:%s\\n",id,actualHash);err!=nil{rows.Close();return v,err}
+  checked++
+ }
+ if err=rows.Err();err!=nil{rows.Close();return v,err}
+ rows.Close()
+ if checked!=v.Source{return v,fmt.Errorf("source checksum covered %d rows, expected %d",checked,v.Source)}
+ v.Checksum=hex.EncodeToString(checksum.Sum(nil))
  return v,nil
 }
 
@@ -212,7 +242,7 @@ func run(ctx context.Context)error {
  }
  validated,err:=validateGeneration(ctx,pool,tenant,generation,consumerName)
  if err!=nil{return err}
- log.Printf("analytics rebuild validated: source=%d facts=%d quarantined=%d",validated.Source,validated.Facts,validated.Quarantined)
+ log.Printf("analytics rebuild validated: source=%d facts=%d quarantined=%d sha256=%s",validated.Source,validated.Facts,validated.Quarantined,validated.Checksum)
  if err=cutover(ctx,pool,tenant,generation,consumerName);err!=nil{return fmt.Errorf("atomic analytics generation cutover: %w",err)}
  log.Printf("analytics generation %q is now active for tenant %q; restart analytics-worker with the new generation ID to resume live tail",generation,tenant)
  return nil
