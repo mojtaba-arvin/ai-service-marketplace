@@ -8,11 +8,13 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 ## Integrated on main
 
-- Main at snapshot: `61d3528ad2ca451aad841e831ebd46a5d9d474c7` (after PR #200).
-- PRs #146, #150, #149, #152, #148, #193, #194, #195, #196, #197, #198, #199 and #200 are merged. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance. #195/#197 record analytics runtime and release-gate decisions; #198 delivers the historical rebuild/rollback command; #199 records that delivery and its remaining gates; #200 refreshes deployment and analytics operations guidance.
+- Main at snapshot: `8022c689c5183ae85b12da22406f0ce283d74315` (after PR #202).
+- PRs #146, #150, #149, #152, #148, #193, #194, #195, #196, #197, #198, #199, #200, #201 and #202 are merged. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance. #195/#197 record analytics runtime and release-gate decisions; #198 delivers the historical rebuild/rollback command; #199 records that delivery and its remaining gates; #200 refreshes deployment and analytics operations guidance.
 - PR #194: migration 030, tenant/generation-scoped immutable analytics facts and quarantine, per-tenant active-generation pointer, bounded live analytics worker, active-generation-only summaries with pending-event readiness, production image and optional Compose profile. PostgreSQL integration tests cover restart, generation mismatch, idempotency, shadow isolation and pointer cutover; CI/E2E/Security/CodeQL/Agent Guard passed on exact head.
 - PR #196: authenticated `GET /v1/operator/analytics/summary`, operator-only `analytics:read`, tenant taken exclusively from the authenticated principal, RFC3339 bounded-window validation, `Cache-Control: private, no-store`, OpenAPI/metric contracts, and PostgreSQL privacy/quarantine/immutability/idempotency plus route-authorization tests. Exact-head Go tests, E2E, Compose validation, API/web image builds, Security/CodeQL and Agent Guard passed.
 - PR #200: corrects deployment evidence and adds a guarded analytics rebuild/cutover/worker-handoff/rollback runbook. It is documentation only; no production deployment or analytics operation is claimed.
+- PR #201: reconciles Golden Dataset v2 and Prompt Governance documentation, separating offline evaluator results from live-model acceptance.
+- PR #202: records the existing tenant-scoped append-only support action audit implementation (SUP-002) with code, migration and test evidence; independent QA remains pending.
 - Go/PostgreSQL modular-monolith API; Next.js customer web; React/Vite operator UI; Flutter mobile direction; isolated Python AI workloads.
 - Identity/tenant memberships, customer order workflows, professional eligibility, scheduling, availability, dispatch, cancellation, history and transactional outbox.
 - Immutable ledger primitives, payment adapter boundaries, market configuration/localization, B2B foundations, migrations, Compose deployment, CI, E2E, backup/restore, CodeQL, Dependency Review and Agent Guard.
@@ -66,6 +68,8 @@ These are repository capabilities, not evidence that every domain is complete or
 
 - PR #198 merged as `c322bad528d84753c64bc7ecfad12b76d84540ee` after exact-head CI, PostgreSQL integration, Security/CodeQL and Agent Guard all passed.
 - PR #200 merged as `61d3528ad2ca451aad841e831ebd46a5d9d474c7`; deployment and analytics runbooks now reflect the integrated repository evidence and retain explicit external-operation gates.
+- PR #201 merged as `9bc0ae14338b340868517766e3f9a8325a1e9513`; Golden Dataset v2 and Prompt Governance evidence is clarified.
+- PR #202 merged as `8022c689c5183ae85b12da22406f0ce283d74315`; SUP-002 implementation evidence is reconciled without changing independent acceptance status.
 - The rebuild tool is a guarded one-shot operation, not an automatic deployment hook. Never execute it against production without a tenant/generation-specific change plan, a fresh generation ID, a database backup/restore checkpoint and a monitored worker handoff.
 - The old generation is retained for rollback. Do not add automated generation deletion until retention, privacy and recovery policies are explicitly defined.
 - The rebuild command catches events committed before the cutover snapshot; events committed after cutover are expected to be consumed by the new live worker after it is restarted with the new generation. Production cutover still needs an observed end-to-end run.
