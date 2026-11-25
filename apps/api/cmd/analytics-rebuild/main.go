@@ -66,6 +66,13 @@ func validateGeneration(ctx context.Context,db *pgxpool.Pool,tenant,generation,c
  AND NOT EXISTS(SELECT 1 FROM analytics_event_quarantine q WHERE q.tenant_id=$1 AND q.generation_id=$2 AND q.outbox_event_id=e.id)`,tenant,generation).Scan(&missing)
  if err!=nil{return v,err}
  if missing!=0{return v,fmt.Errorf("generation validation found %d source events without a fact or quarantine record",missing)}
+ var outcomes,distinctOutcomes int64
+ err=db.QueryRow(ctx,`SELECT count(*),count(DISTINCT outbox_event_id) FROM (
+  SELECT outbox_event_id FROM analytics_event_facts WHERE tenant_id=$1 AND generation_id=$2
+  UNION ALL SELECT outbox_event_id FROM analytics_event_quarantine WHERE tenant_id=$1 AND generation_id=$2
+ ) projection_outcomes`,tenant,generation).Scan(&outcomes,&distinctOutcomes)
+ if err!=nil{return v,err}
+ if outcomes!=v.Source||distinctOutcomes!=v.Source{return v,fmt.Errorf("generation outcome set is not one-to-one with source events: source=%d outcomes=%d distinct_outcomes=%d",v.Source,outcomes,distinctOutcomes)}
  return v,nil
 }
 
