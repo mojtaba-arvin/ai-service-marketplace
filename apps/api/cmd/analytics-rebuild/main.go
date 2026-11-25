@@ -171,6 +171,10 @@ func run(ctx context.Context)error {
  pool,err:=pgxpool.New(ctx,dsn);if err!=nil{return fmt.Errorf("configure database pool: %w",err)}
  defer pool.Close()
  if err=pool.Ping(ctx);err!=nil{return fmt.Errorf("database unavailable: %w",err)}
+ releaseLock,lockErr:=lockTenant(ctx,pool,tenant);if lockErr!=nil{return fmt.Errorf("acquire tenant rebuild lock: %w",lockErr)};defer releaseLock()
+ mode:=strings.ToLower(strings.TrimSpace(os.Getenv("ANALYTICS_REBUILD_MODE")))
+ if mode=="rollback"{return runRollback(ctx,pool,tenant,generation)}
+ if mode!=""&&mode!="rebuild"{return fmt.Errorf("unsupported ANALYTICS_REBUILD_MODE %q (expected rebuild or rollback)",mode)}
  // A failed run can resume the same immutable building generation. An active
  // or retired generation is never reused as a rebuild target.
  tx,err:=pool.BeginTx(ctx,pgx.TxOptions{})
