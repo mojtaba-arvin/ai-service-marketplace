@@ -146,21 +146,33 @@ function zonedDateTimeToISO(value: string, timeZone: string): string {
   return new Date(instant).toISOString();
 }
 
-function money(amountMinor: number, currency: string): string {
-  const formatter = new Intl.NumberFormat(undefined, { style: "currency", currency });
+function money(amountMinor: number, currency: string, locale?: string): string {
+  const formatter = new Intl.NumberFormat(locale || undefined, { style: "currency", currency });
   const digits = formatter.resolvedOptions().maximumFractionDigits ?? 2;
   return formatter.format(amountMinor / (10 ** digits));
 }
 
-function friendlyDate(value?: string): string {
+function friendlyDate(value?: string, locale?: string, timeZone?: string): string {
   if (!value) return "Not scheduled";
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString(locale || undefined, { timeZone: timeZone || undefined });
 }
 
 function preferredRole(roles: Role[]): Role {
   if (roles.includes("operator")) return "operator";
   if (roles.includes("professional")) return "professional";
   return "customer";
+}
+
+const rtlLanguages = new Set(["ar", "ckb", "dv", "fa", "he", "nqo", "ps", "sd", "syr", "ug", "ur", "yi"]);
+const rtlScripts = new Set(["adlm", "arab", "hebr", "nkoo", "rohg", "syrc", "thaa"]);
+
+function directionForLocale(locale: string): "ltr" | "rtl" {
+  const parts = locale.trim().replace(/_/g, "-").split("-");
+  const language = (parts[0] ?? "en").toLowerCase();
+  const scriptPart = parts[1];
+  const script = scriptPart && /^[A-Za-z]{4}$/.test(scriptPart) ? scriptPart.toLowerCase() : undefined;
+  if (script) return rtlScripts.has(script) ? "rtl" : "ltr";
+  return rtlLanguages.has(language) ? "rtl" : "ltr";
 }
 
 export default function HomePage() {
@@ -238,6 +250,9 @@ export default function HomePage() {
       try {
         const data = await api<Catalog>("/catalog");
         if (!active) return;
+        const locale = data.locale.trim() || "en";
+        document.documentElement.lang = locale;
+        document.documentElement.dir = directionForLocale(locale);
         setCatalog(data);
         if (data.items.length > 0 && !selectedMenu) setSelectedMenu(data.items[0].menu_id);
         if (!timezoneInitialized) {
@@ -546,9 +561,9 @@ export default function HomePage() {
               <form onSubmit={createOrder} className="form-stack">
                 <label htmlFor="service">Service</label>
                 <select id="service" value={selectedItem?.menu_id ?? ""} onChange={(event) => setSelectedMenu(event.target.value)}>
-                  {catalog.items.map((item) => <option key={item.menu_id} value={item.menu_id}>{item.category_name} · {item.service_code} · {money(item.amount_minor,item.currency)}</option>)}
+                  {catalog.items.map((item) => <option key={item.menu_id} value={item.menu_id}>{item.category_name} · {item.service_code} · {money(item.amount_minor,item.currency,catalog.locale)}</option>)}
                 </select>
-                {selectedItem && <div className="price-line"><span>Current listed price</span><strong>{money(selectedItem.amount_minor,selectedItem.currency)}</strong></div>}
+                {selectedItem && <div className="price-line"><span>Current listed price</span><strong>{money(selectedItem.amount_minor,selectedItem.currency,catalog?.locale)}</strong></div>}
                 <label htmlFor="schedule">Preferred date and time ({catalog?.timezone ?? "market timezone"})</label>
                 <input id="schedule" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} required />
                 <div className="field-grid">
@@ -571,7 +586,7 @@ export default function HomePage() {
               {orders.length ? orders.map((item) => (
                 <article className="order-card" key={item.order.id}>
                   <div className="order-top"><strong>{item.order.id.slice(0,10)}</strong><span className={`status-pill status-${item.order.status}`}>{item.order.status.replaceAll("_"," ")}</span></div>
-                  <p>{money(item.order.amount_minor,item.order.currency)} · {friendlyDate(item.order.scheduled_at)}</p>
+                  <p>{money(item.order.amount_minor,item.order.currency,catalog?.locale)} · {friendlyDate(item.order.scheduled_at,catalog?.locale,catalog?.timezone)}</p>
                   <p className="muted small-text">{[item.order.region_code,item.order.city_code,item.order.area_code].filter(Boolean).join(" · ")}</p>
                   {["requested","accepted"].includes(item.order.status) && <button className="button-secondary compact" disabled={busy} onClick={() => cancelOrder(item.order.id)}>Cancel request</button>}
                 </article>
@@ -638,8 +653,8 @@ export default function HomePage() {
               {offers.length ? offers.map((offer) => (
                 <article className="order-card" key={offer.id}>
                   <div className="order-top"><strong>Order {offer.order_id.slice(0,10)}</strong><span className="status-pill status-requested">Offer</span></div>
-                  <p>{friendlyDate(offer.start_at)} – {friendlyDate(offer.end_at)}</p>
-                  <p className="muted small-text">Expires {friendlyDate(offer.expires_at)}</p>
+                  <p>{friendlyDate(offer.start_at,catalog?.locale,catalog?.timezone)} – {friendlyDate(offer.end_at,catalog?.locale,catalog?.timezone)}</p>
+                  <p className="muted small-text">Expires {friendlyDate(offer.expires_at,catalog?.locale,catalog?.timezone)}</p>
                   <div className="button-row">
                     <button disabled={busy} onClick={() => respondToOffer(offer.id,"accept")}>Accept</button>
                     <button className="button-secondary" disabled={busy} onClick={() => respondToOffer(offer.id,"decline")}>Decline</button>
@@ -652,7 +667,7 @@ export default function HomePage() {
               {professionalOrders.length ? professionalOrders.map((order) => (
                 <article className="order-card" key={order.id}>
                   <div className="order-top"><strong>{order.id.slice(0,10)}</strong><span className={`status-pill status-${order.status}`}>{order.status.replaceAll("_"," ")}</span></div>
-                  <p>{friendlyDate(order.scheduled_at)} · {money(order.amount_minor,order.currency)}</p>
+                  <p>{friendlyDate(order.scheduled_at,catalog?.locale,catalog?.timezone)} · {money(order.amount_minor,order.currency,catalog?.locale)}</p>
                   {order.status === "accepted" && <button disabled={busy} onClick={() => transitionProfessionalOrder(order.id,"in_progress")}>Start service</button>}
                   {order.status === "in_progress" && <button disabled={busy} onClick={() => transitionProfessionalOrder(order.id,"completed")}>Complete service</button>}
                 </article>
@@ -670,7 +685,7 @@ export default function HomePage() {
               {orders.length ? orders.map((item) => (
                 <article className="order-card" key={item.order.id}>
                   <div className="order-top"><strong>{item.order.id.slice(0,10)}</strong><span className={`status-pill status-${item.order.status}`}>{item.order.status.replaceAll("_"," ")}</span></div>
-                  <p>{money(item.order.amount_minor,item.order.currency)} · {friendlyDate(item.order.scheduled_at)}</p>
+                  <p>{money(item.order.amount_minor,item.order.currency,catalog?.locale)} · {friendlyDate(item.order.scheduled_at,catalog?.locale,catalog?.timezone)}</p>
                   <p className="muted small-text">{[item.order.region_code,item.order.city_code,item.order.area_code].filter(Boolean).join(" · ")}</p>
                   {item.order.status === "requested" && <button disabled={busy} onClick={() => dispatchOrder(item.order.id)}>Dispatch to eligible professionals</button>}
                 </article>

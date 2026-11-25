@@ -121,7 +121,7 @@ button:hover:not(:disabled) { background: var(--green-dark); transform: translat
   .auth-card { padding: 28px 22px; }
   .topbar { align-items: flex-start; }
   .account { align-items: flex-end; flex-direction: column; gap: 7px; }
-  .account > span { max-width: 145px; overflow-wrap: anywhere; text-align: right; }
+  .account > span { max-width: 145px; overflow-wrap: anywhere; text-align: end; }
   .welcome { padding-top: 27px; }
   .role-tabs { width: 100%; }
   .role-tab { flex: 1; padding-inline: 7px; }
