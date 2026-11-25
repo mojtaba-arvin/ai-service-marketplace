@@ -1,6 +1,6 @@
 # Development Progress
 
-> Rolling evidence snapshot: 2026-11-25 (updated after PR #210 and TRUST-002 intake implementation). Git history and PRs retain detailed history. Never mark a feature QA-passing without independent evidence.
+> Rolling evidence snapshot: 2026-11-25 (updated after PR #213 and reviewer-workflow specification). Git history and PRs retain detailed history. Never mark a feature QA-passing without independent evidence.
 
 ## Product direction
 
