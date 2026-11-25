@@ -60,7 +60,7 @@ func TestAnalyticsRebuildCatchesLateCommitAndCutsOverAtomicallyPostgres(t *testi
  // retained, so the next pass discovers this late commit even if its sequence
  // value sorts before events already seen by a previous pass.
  appendEvent("order-b-"+suffix,"event-b-"+suffix)
- if _,cutoverErr:=func()(int,error){return 0,cutover(ctx,pool,tenant,generation,consumerName)}();cutoverErr==nil{
+ if cutoverErr:=cutover(ctx,pool,tenant,generation,consumerName);cutoverErr==nil{
   t.Fatal("cutover must reject a generation with a committed late event")
  }
  drain()
