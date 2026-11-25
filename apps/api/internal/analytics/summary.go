@@ -49,7 +49,7 @@ func QuerySummary(ctx context.Context,db *pgxpool.Pool,tenantID string,filter Su
     result.WindowFrom,result.WindowTo,result.MarketCode=from,to,filter.MarketCode
     err:=db.QueryRow(ctx,`
 WITH active_analytics_event_facts AS (
- SELECT f.* FROM active_analytics_event_facts f JOIN analytics_active_generations ag ON ag.tenant_id=f.tenant_id AND ag.generation_id=f.generation_id WHERE f.tenant_id=$1
+ SELECT f.* FROM analytics_event_facts f JOIN analytics_active_generations ag ON ag.tenant_id=f.tenant_id AND ag.generation_id=f.generation_id WHERE f.tenant_id=$1
 ),
 created_orders AS (
     SELECT DISTINCT ON (tenant_id,data->>'order_id',market_code)
