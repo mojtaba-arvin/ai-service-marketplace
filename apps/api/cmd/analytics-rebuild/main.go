@@ -11,6 +11,7 @@ import (
  "os/signal"
  "strings"
  "syscall"
+ "time"
 
  "github.com/jackc/pgx/v5"
  "github.com/jackc/pgx/v5/pgxpool"
@@ -143,6 +144,20 @@ func runRollback(ctx context.Context,pool *pgxpool.Pool,tenant,target string)err
  if err=rollbackCutover(ctx,pool,tenant,target,consumerName);err!=nil{return fmt.Errorf("atomic analytics rollback: %w",err)}
  log.Printf("analytics generation %q restored for tenant %q; restart analytics-worker with the restored generation ID",target,tenant)
  return nil
+}
+
+
+func lockTenant(ctx context.Context,pool *pgxpool.Pool,tenant string)(func(),error) {
+ conn,err:=pool.Acquire(ctx)
+ if err!=nil{return nil,err}
+ if _,err=conn.Exec(ctx,`SELECT pg_advisory_lock(hashtextextended($1,0))`,tenant);err!=nil{conn.Release();return nil,err}
+ release:=func(){
+  unlockCtx,cancel:=context.WithTimeout(context.Background(),5*time.Second)
+  defer cancel()
+  if _,unlockErr:=conn.Exec(unlockCtx,`SELECT pg_advisory_unlock(hashtextextended($1,0))`,tenant);unlockErr!=nil{log.Printf("WARNING: release analytics rebuild lock: %v",unlockErr)}
+  conn.Release()
+ }
+ return release,nil
 }
 
 func run(ctx context.Context)error {
