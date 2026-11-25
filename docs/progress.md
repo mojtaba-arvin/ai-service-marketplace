@@ -8,8 +8,8 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 ## Integrated on main
 
-- Main at snapshot: `33ef63868450a1d5d48ecef3e7ef3fccded4d28b`.
-- PRs #146, #150, #149, #152, #148, #193, #194 and #196 are merged. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance.
+- Main at snapshot: `c322bad528d84753c64bc7ecfad12b76d84540ee` (after PR #198).
+- PRs #146, #150, #149, #152, #148, #193, #194, #195, #196, #197 and #198 are merged. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance. #195/#197 record analytics runtime and release-gate decisions; #198 delivers the historical rebuild/rollback command.
 - PR #194: migration 030, tenant/generation-scoped immutable analytics facts and quarantine, per-tenant active-generation pointer, bounded live analytics worker, active-generation-only summaries with pending-event readiness, production image and optional Compose profile. PostgreSQL integration tests cover restart, generation mismatch, idempotency, shadow isolation and pointer cutover; CI/E2E/Security/CodeQL/Agent Guard passed on exact head.
 - PR #196: authenticated `GET /v1/operator/analytics/summary`, operator-only `analytics:read`, tenant taken exclusively from the authenticated principal, RFC3339 bounded-window validation, `Cache-Control: private, no-store`, OpenAPI/metric contracts, and PostgreSQL privacy/quarantine/immutability/idempotency plus route-authorization tests. Exact-head Go tests, E2E, Compose validation, API/web image builds, Security/CodeQL and Agent Guard passed.
 - Go/PostgreSQL modular-monolith API; Next.js customer web; React/Vite operator UI; Flutter mobile direction; isolated Python AI workloads.
@@ -45,7 +45,7 @@ These are repository capabilities, not evidence that every domain is complete or
 - #133 is closed as superseded by #194 and #196. Do not reopen or reintroduce its migration 025 or duplicate projector/summary package. Its former API route/contracts work was reconstructed against current main and merged in #196.
 - PR #194 provides live polling without a monotonically advancing ID watermark: query bounded outbox rows absent from the generation-specific `processed_events`, then call transactional `Consumer.Process`. Keep this pattern; PostgreSQL sequence IDs can commit out of order.
 - PR #196 exposes the summary API, but `data_ready` is an ingestion-lag indicator only: it is not event-time finality, a late-arrival watermark, or a finance/contractual close signal.
-- Historical generation rebuild is still NOT complete. Do not manually switch active pointers or reuse generation IDs. A rebuild still needs a defined quiescent snapshot, sequence-safe live-tail catch-up, lag/count validation, failure rollback and an atomic cutover procedure. Keep AN-001/AN-002 `passes:false` until that and independent acceptance exist.
+- PR #198 (`c322bad528d84753c64bc7ecfad12b76d84540ee`) adds the one-shot shadow-generation rebuild/rollback command. It uses generation-scoped `processed_events` polling without an ID watermark, tenant-scoped advisory locking, source/processed/fact/quarantine one-to-one validation, source-payload SHA-256 verification, a guarded pending-event check, and an atomic generation-state/active-pointer cutover. Rollback catches a retained retired generation up, validates it, then atomically restores its pointer. The production image packages the command and Compose/runbook describe the one-shot workflow. Exact-head CI, PostgreSQL integration, Security, all CodeQL languages, and Agent Guard passed before merge. This closes the repository implementation gap for historical rebuild, but not operational proof: no real production rebuild/cutover, live-worker handoff observation, load rehearsal, independent analytics acceptance, or metric late-arrival/finality policy is claimed. Keep AN-001/AN-002 `passes:false` until independent acceptance and metric semantics are signed off.
 - #137: canonical cancellation-event compatibility. Preserve legacy payloads for existing event types; add canonical data additively or under a versioned event contract, with old/new contract tests and a recorded consumer migration plan. Repository docs identify only a generic optional HTTPS sink; no actual sink/owner/contract is recorded.
 - B2B billing waits for independent Order/Ledger gates (#57/#10) and canonical event readiness (#87).
 - No retention duration, privacy policy, fairness threshold, tax/legal rule or regulated-provider approval is invented.
@@ -59,3 +59,12 @@ These are repository capabilities, not evidence that every domain is complete or
 - Required checks must pass on current PR head and current main base. Do not bypass branch protection, security gates or independent QA.
 - progress.md records evidence; roadmap records intended outcomes. Neither substitutes for issue-level acceptance.
 - Local GitHub CLI access from this runtime was unavailable (DNS); GitHub-hosted CI is the execution evidence. No local test success is claimed.
+
+
+## Latest delivery — 2026-11-25
+
+- PR #198 merged as `c322bad528d84753c64bc7ecfad12b76d84540ee` after exact-head CI, PostgreSQL integration, Security/CodeQL and Agent Guard all passed.
+- The rebuild tool is a guarded one-shot operation, not an automatic deployment hook. Never execute it against production without a tenant/generation-specific change plan, a fresh generation ID, a database backup/restore checkpoint and a monitored worker handoff.
+- The old generation is retained for rollback. Do not add automated generation deletion until retention, privacy and recovery policies are explicitly defined.
+- The rebuild command catches events committed before the cutover snapshot; events committed after cutover are expected to be consumed by the new live worker after it is restarted with the new generation. Production cutover still needs an observed end-to-end run.
+- `data_ready` continues to mean ingestion backlog drained only; it is not event-time finality, financial close, or contractual completion.
