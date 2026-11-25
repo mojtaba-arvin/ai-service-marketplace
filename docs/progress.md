@@ -104,10 +104,10 @@ These are repository capabilities, not evidence that every domain is complete or
 - Do not mark any feature `passes=true` from CI, merged code or architecture documentation alone.
 
 
-## Latest delivery — 2026-11-25 (ADMIN-001 audit integrity / TRUST-002 intake)
+## Latest delivery — 2026-11-25 (ADMIN-001 runtime / TRUST-002 reviewer workflow)
 
 - PR #210 merged with merge commit `73a0a32c02afdcdff78fc3de5e89b626dc401a04`. It adds migration 032, a composite unique key and FK binding each permission audit event to the exact grant tuple `(grant_id, tenant_id, identity_id, action)`. This closes the audit-tuple integrity prerequisite only.
-- PR #211 merged as `f3197510b94ab7b29d348cd97d0a58b3cd4cb95b` after CI, Security/CodeQL and Agent Guard passed on exact head `a43b76295e916dbd9902c48c5cbfa9b0fca68e78`. It contains migration 033 and the first TRUST-002 order-bound incident intake slice. Reviewer workflow, private evidence storage/access, retention and independent acceptance remain out of scope.
+- PR #211 merged as `f3197510b94ab7b29d348cd97d0a58b3cd4cb95b` after CI, Security/CodeQL and Agent Guard passed on exact head `a43b76295e916dbd9902c48c5cbfa9b0fca68e78`. It contains migration 033 and the first TRUST-002 order-bound incident intake slice. Reviewer workflow was delivered later in PR #215; private evidence storage/access, retention and independent acceptance remain out of scope.
 - PR #212 merged the progress snapshot documentation.
 - PR #213 merged as `88ec53e396fb411dfe7930b218b76cf478c1ec60` after CI, PostgreSQL tests, browser E2E, Compose, production image builds, all CodeQL languages and Agent Guard passed on exact head `3f358b0d616cc6d71316e18490082a55db0b46fa`. It adds explicit transaction-bound operator grants, one-way revocation, audit, tenant-scoped grant-management APIs and least-privilege E2E bootstrap.
 - PR #214 merged the TRUST-002 reviewer authorization and transition ADR: dedicated `incident:review` grant, same-tenant active reviewers, support-role insufficiency, forward-only transitions and reasoned same-transaction audit.
