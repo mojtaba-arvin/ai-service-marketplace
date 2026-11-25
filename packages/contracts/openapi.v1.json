@@ -4228,7 +4228,8 @@
           "p90_assignment_seconds",
           "data_ready",
           "eligible_events",
-          "excluded_events"
+          "excluded_events",
+          "pending_events"
         ],
         "properties": {
           "window_from": {
@@ -4293,7 +4294,7 @@
           },
           "data_ready": {
             "type": "boolean",
-            "description": "False when no production-classified, market-attributed source events exist in the requested window."
+            "description": "True only when production-classified market-attributed facts exist in the requested window and the active generation has no pending canonical tenant events."
           },
           "eligible_events": {
             "type": "integer",
@@ -4305,6 +4306,12 @@
             "format": "int64",
             "minimum": 0,
             "description": "Events excluded because traffic classification is not production or market attribution is missing."
+          },
+          "pending_events": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Canonical tenant-scoped outbox events not yet processed by the active generation's consumer."
           }
         }
       }
