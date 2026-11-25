@@ -11,6 +11,7 @@ import (
     "time"
 
     "github.com/jackc/pgx/v5"
+    "github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/analytics"
     "github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
@@ -409,6 +410,8 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.respondToOffer(w,r); return true
     case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/professional/orders/") && strings.HasSuffix(path,"/transition"):
         h.professionalTransition(w,r); return true
+    case r.Method == http.MethodGet && path == "/v1/operator/analytics/summary":
+        h.operatorAnalyticsSummary(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/operator/orders":
         h.operatorOrders(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/operator/providers":
@@ -790,6 +793,36 @@ func (h *Handler) operatorOrders(w http.ResponseWriter, r *http.Request) {
         return
     }
     writeJSON(w,http.StatusOK,map[string]any{"orders":orders})
+}
+
+func (h *Handler) operatorAnalyticsSummary(w http.ResponseWriter,r *http.Request) {
+    actor,err:=h.actorForRole(r,RoleOperator)
+    if err!=nil || Authorize(actor,Resource{TenantID:actor.TenantID},ActionAnalyticsRead)!=nil {
+        writeError(w,http.StatusForbidden,"operator analytics permission is required")
+        return
+    }
+    query:=r.URL.Query()
+    from,fromErr:=time.Parse(time.RFC3339,query.Get("from"))
+    to,toErr:=time.Parse(time.RFC3339,query.Get("to"))
+    marketCode:=strings.TrimSpace(query.Get("market_code"))
+    if fromErr!=nil || toErr!=nil || !to.After(from) || to.Sub(from)>90*24*time.Hour ||
+        (marketCode!="" && (len(marketCode)!=2 || marketCode!=strings.ToUpper(marketCode))) {
+        writeError(w,http.StatusBadRequest,"from and to must be RFC3339 timestamps in a range up to 90 days; market_code must be uppercase ISO-3166 alpha-2")
+        return
+    }
+    summary,err:=analytics.QuerySummary(r.Context(),h.Store.DB,actor.TenantID,analytics.SummaryFilter{
+        From:from,To:to,MarketCode:marketCode,
+    })
+    if err!=nil {
+        if errors.Is(err,analytics.ErrInvalidSummaryFilter) {
+            writeError(w,http.StatusBadRequest,"invalid analytics summary filter")
+            return
+        }
+        writeError(w,http.StatusInternalServerError,"could not load analytics summary")
+        return
+    }
+    w.Header().Set("Cache-Control","private, no-store")
+    writeJSON(w,http.StatusOK,summary)
 }
 
 func (h *Handler) operatorProviders(w http.ResponseWriter, r *http.Request) {
