@@ -14,8 +14,9 @@
 
 The response contains order volume, offer volume and acceptance, cancellation/completion cohort rates, median/p90 time to assignment, and event-readiness fields.
 
-- `data_ready` is false when no production-classified, market-attributed events exist in the requested window.
+- `data_ready` is true only when production-classified, market-attributed events exist in the requested window and the active generation has no pending canonical tenant events.
 - `eligible_events` counts facts with `traffic_class=production` and a market code.
+- `pending_events` counts canonical tenant-scoped outbox events not yet processed by the active generation; readiness remains false during catch-up.
 - `excluded_events` counts facts that are not production-classified or lack market attribution.
 - Rates are ratios in the range 0..1, not percentages.
 - All counts and joins are tenant-scoped. Order/offer identity is deduplicated by business ID.
