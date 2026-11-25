@@ -92,7 +92,7 @@ func (s *Store) GrantOperatorAction(ctx context.Context, actor Actor, tenantID, 
 	tenantID = strings.TrimSpace(tenantID)
 	targetIdentityID = strings.TrimSpace(targetIdentityID)
 	reason = strings.TrimSpace(reason)
-	if tenantID == "" || targetIdentityID == "" || !validOperatorGrantAction(action) ||
+	if tenantID == "" || targetIdentityID == "" || len(targetIdentityID) > 200 || !validOperatorGrantAction(action) ||
 		reason == "" || len(reason) > 500 {
 		return OperatorActionGrant{}, ErrOperatorGrantInput
 	}
