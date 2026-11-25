@@ -48,6 +48,7 @@ var migrationFiles = []string{
 	"030_analytics_event_projection.sql",
 	"031_operator_action_grants.sql",
 	"032_operator_permission_event_integrity.sql",
+	"033_incident_report_intake.sql",
 }
 
 const advisoryLockID int64 = 824713921734

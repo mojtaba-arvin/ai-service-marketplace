@@ -345,6 +345,10 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
     switch {
     case r.Method == http.MethodGet && path == "/v1/organization-invitations":
         h.organizationInvitationList(w,r); return true
+    case r.Method == http.MethodPost && path == "/v1/incidents":
+        h.createIncidentReport(w,r); return true
+    case r.Method == http.MethodGet && strings.HasPrefix(path,"/v1/incidents/"):
+        h.getIncidentReport(w,r); return true
     case r.Method == http.MethodPost && path == "/v1/organizations":
         h.organizationCreate(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/organizations":
@@ -964,4 +968,99 @@ func (h *Handler) organizationInvitationList(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"invitations": items})
+}
+
+
+// incidentEmergencyNotice is intentionally explicit: incident intake is not
+// monitored as an emergency service and does not dispatch help.
+const incidentEmergencyNotice = "This service is not monitored as an emergency service. If anyone is in immediate danger, contact local emergency services directly."
+
+func (h *Handler) createIncidentReport(w http.ResponseWriter, r *http.Request) {
+    principal, err := h.principal(r)
+    if err != nil {
+        writeError(w,http.StatusUnauthorized,"unauthorized")
+        return
+    }
+    var in struct {
+        OrderID string `json:"order_id"`
+        ReporterRole string `json:"reporter_role"`
+        Category string `json:"category"`
+        Narrative string `json:"narrative"`
+        OccurredAt *time.Time `json:"occurred_at"`
+        SeverityHint string `json:"severity_hint"`
+        EvidenceReferences []string `json:"evidence_references"`
+    }
+    decoder := json.NewDecoder(io.LimitReader(r.Body, 12*1024))
+    decoder.DisallowUnknownFields()
+    if err = decoder.Decode(&in); err != nil {
+        writeError(w,http.StatusBadRequest,"invalid incident report JSON")
+        return
+    }
+    if err = decoder.Decode(new(any)); err != io.EOF {
+        writeError(w,http.StatusBadRequest,"incident report body must contain one JSON object")
+        return
+    }
+    if in.ReporterRole != string(RoleCustomer) && in.ReporterRole != string(RoleProfessional) {
+        writeError(w,http.StatusBadRequest,"reporter_role must be customer or professional")
+        return
+    }
+    actor, err := h.Store.ResolveActor(r.Context(),principal.IdentityID,h.DefaultTenantID,Role(in.ReporterRole))
+    if err != nil {
+        writeError(w,http.StatusForbidden,"order participant membership is required")
+        return
+    }
+    report, err := h.Store.CreateIncidentReport(r.Context(),actor,IncidentReportInput{
+        OrderID:in.OrderID, Category:in.Category, Narrative:in.Narrative,
+        OccurredAt:in.OccurredAt, SeverityHint:in.SeverityHint,
+        EvidenceRefs:in.EvidenceReferences,
+    })
+    if err != nil {
+        switch {
+        case errors.Is(err,ErrForbidden):
+            writeError(w,http.StatusForbidden,"only the customer or assigned professional for this order may report an incident")
+        case errors.Is(err,ErrIncidentReportInput):
+            writeError(w,http.StatusBadRequest,"invalid incident report fields")
+        default:
+            writeError(w,http.StatusInternalServerError,"could not submit incident report")
+        }
+        return
+    }
+    writeJSON(w,http.StatusCreated,map[string]any{
+        "report":report,
+        "emergency_notice":incidentEmergencyNotice,
+    })
+}
+
+func (h *Handler) getIncidentReport(w http.ResponseWriter, r *http.Request) {
+    principal, err := h.principal(r)
+    if err != nil {
+        writeError(w,http.StatusUnauthorized,"unauthorized")
+        return
+    }
+    reportID := strings.TrimPrefix(r.URL.Path,"/v1/incidents/")
+    if reportID == "" || strings.Contains(reportID,"/") || len(reportID)>200 {
+        writeError(w,http.StatusNotFound,"incident report not found")
+        return
+    }
+    // A person may hold both customer and professional memberships. Try both
+    // roles, but the Store still matches exact reporter identity and tenant.
+    for _, role := range []Role{RoleCustomer,RoleProfessional} {
+        actor, resolveErr := h.Store.ResolveActor(r.Context(),principal.IdentityID,h.DefaultTenantID,role)
+        if resolveErr != nil {
+            continue
+        }
+        report, getErr := h.Store.GetIncidentReportForReporter(r.Context(),actor,reportID)
+        if getErr == nil {
+            writeJSON(w,http.StatusOK,map[string]any{
+                "report":report,
+                "emergency_notice":incidentEmergencyNotice,
+            })
+            return
+        }
+        if !errors.Is(getErr,ErrIncidentReportNotFound) {
+            writeError(w,http.StatusInternalServerError,"could not load incident report")
+            return
+        }
+    }
+    writeError(w,http.StatusNotFound,"incident report not found")
 }

@@ -24,6 +24,14 @@ The schema is PostgreSQL-first. Other modules must use application interfaces or
 
 Current browser/API surfaces provide initial catalog, customer order, professional offer and operator workflows. They are not the full customer/professional product surfaces described in Product Scope. The current route registration is `Handler.serveMVP` in `mvp_http.go`. Contract changes must update the OpenAPI artifact and E2E coverage together.
 
+### Incident and safety report intake (TRUST-002)
+
+The initial incident surface exposes `POST /v1/incidents` and reporter-only `GET /v1/incidents/{report_id}`. The caller supplies an order reference, reporter role, category, bounded narrative, optional occurrence time/severity hint, and up to five opaque private evidence references. The API never accepts tenant identity; the Store locks the persisted order, derives its tenant, verifies the customer's ownership or the professional's assignment, and checks the corresponding membership in that tenant.
+
+A submitted report is created with an append-only `submitted` audit event in the same transaction. A reporter can read only their own report; unrelated identities and tenant contexts receive a not-found response. Intake records are immutable in this first slice; no reviewer state/severity mutation is exposed until the audited reviewer workflow lands. Evidence bytes and public URLs are not accepted or stored. The opaque references are not download URLs and do not imply that private object storage or evidence retrieval is implemented.
+
+Every response includes the explicit notice that this service is not monitored as an emergency service and that immediate danger requires contacting local emergency services directly. Severity is a human triage hint only. Reviewer assignment, triage, status changes, evidence storage/access, retention and independent acceptance remain separate gates. The API contract is in `packages/contracts/openapi.v1.json`.
+
 
 ## Dynamic service questionnaires
 

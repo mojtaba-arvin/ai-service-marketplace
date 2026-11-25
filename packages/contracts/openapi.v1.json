@@ -3291,6 +3291,106 @@
           }
         }
       }
+    },
+    "/v1/incidents": {
+      "post": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "Submit an incident report for an order the caller participates in",
+        "operationId": "createIncidentReport",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentReportInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Incident report created. Response includes an emergency-service disclaimer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentReportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/incidents/{report_id}": {
+      "get": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "Read an incident report submitted by the authenticated identity",
+        "operationId": "getIncidentReport",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reporter-owned incident report and emergency-service disclaimer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentReportResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4312,6 +4412,153 @@
             "format": "int64",
             "minimum": 0,
             "description": "Canonical tenant-scoped outbox events not yet processed by the active generation's consumer."
+          }
+        }
+      },
+      "IncidentReportInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id",
+          "reporter_role",
+          "category",
+          "narrative"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "reporter_role": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "professional"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,49}$"
+          },
+          "narrative": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 4000
+          },
+          "occurred_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "severity_hint": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "low",
+              "high",
+              "critical"
+            ],
+            "default": "unknown"
+          },
+          "evidence_references": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          }
+        }
+      },
+      "IncidentReport": {
+        "type": "object",
+        "required": [
+          "id",
+          "order_id",
+          "reporter_role",
+          "category",
+          "narrative",
+          "severity_hint",
+          "status",
+          "evidence_references",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "order_id": {
+            "type": "string"
+          },
+          "reporter_role": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "professional"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "narrative": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "severity_hint": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "low",
+              "high",
+              "critical"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "submitted",
+              "triaged",
+              "investigating",
+              "resolved",
+              "closed"
+            ]
+          },
+          "evidence_references": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "IncidentReportResponse": {
+        "type": "object",
+        "required": [
+          "report",
+          "emergency_notice"
+        ],
+        "properties": {
+          "report": {
+            "$ref": "#/components/schemas/IncidentReport"
+          },
+          "emergency_notice": {
+            "type": "string",
+            "description": "States that incident intake is not monitored as an emergency service."
           }
         }
       }
