@@ -65,3 +65,18 @@ func TestAuthorizeAlwaysRejectsCrossTenantAndMalformedPrincipals(t *testing.T) {
 		})
 	}
 }
+
+
+func TestAuthorizeAnalyticsReadIsOperatorOnly(t *testing.T) {
+    tests:=[]struct{name string; actor Actor; allowed bool}{
+        {"operator",Actor{SubjectID:"operator",TenantID:"tenant-a",Role:RoleOperator},true},
+        {"customer",Actor{SubjectID:"customer",TenantID:"tenant-a",Role:RoleCustomer},false},
+        {"professional",Actor{SubjectID:"professional",TenantID:"tenant-a",Role:RoleProfessional},false},
+        {"support",Actor{SubjectID:"support",TenantID:"tenant-a",Role:RoleSupport},false},
+    }
+    for _,tc:=range tests { t.Run(tc.name,func(t *testing.T){
+        err:=Authorize(tc.actor,Resource{TenantID:"tenant-a"},ActionAnalyticsRead)
+        if tc.allowed&&err!=nil { t.Fatalf("expected access, got %v",err) }
+        if !tc.allowed&&!errors.Is(err,ErrForbidden) { t.Fatalf("expected deny, got %v",err) }
+    }) }
+}

@@ -3200,6 +3200,97 @@
           }
         }
       }
+    },
+    "/v1/operator/analytics/summary": {
+      "get": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Get a tenant-scoped production analytics summary",
+        "operationId": "getOperatorAnalyticsSummary",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "description": "Inclusive RFC3339 event-time lower bound.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "description": "Exclusive RFC3339 event-time upper bound; range must not exceed 90 days.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "market_code",
+            "in": "query",
+            "required": false,
+            "description": "Optional uppercase ISO-3166 alpha-2 market filter.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenant-scoped production summary. Events without production traffic and market metadata are excluded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid time window or market filter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operator analytics permission is required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Analytics summary could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4118,6 +4209,111 @@
           }
         },
         "additionalProperties": false
+      },
+      "AnalyticsSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "window_from",
+          "window_to",
+          "orders_created",
+          "offers_created",
+          "offers_accepted",
+          "orders_cancelled",
+          "orders_completed",
+          "offer_acceptance_rate",
+          "cancellation_rate",
+          "completion_rate",
+          "median_assignment_seconds",
+          "p90_assignment_seconds",
+          "data_ready",
+          "eligible_events",
+          "excluded_events",
+          "pending_events"
+        ],
+        "properties": {
+          "window_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "window_to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "market_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "orders_created": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "offers_created": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "offers_accepted": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "orders_cancelled": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "orders_completed": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "offer_acceptance_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "cancellation_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "completion_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "median_assignment_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "p90_assignment_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "data_ready": {
+            "type": "boolean",
+            "description": "True only when production-classified market-attributed facts exist in the requested window and the active generation has no pending canonical tenant events."
+          },
+          "eligible_events": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "excluded_events": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Events excluded because traffic classification is not production or market attribution is missing."
+          },
+          "pending_events": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Canonical tenant-scoped outbox events not yet processed by the active generation's consumer."
+          }
+        }
       }
     },
     "responses": {

@@ -46,7 +46,7 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
         "012_settlement_reconciliation.sql","013_inspection_quotes.sql","014_quote_variations.sql",
         "015_order_schedule.sql","016_cancellation_policy.sql","017_provider_availability.sql",
         "018_dispatch_offers.sql","019_outbox_delivery.sql","020_professional_verification.sql",
-        "021_support_cases.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","026_market_config_audit.sql","027_service_form_versions.sql","028_order_service_form_answers.sql","025_auth_devices.sql","029_order_completion_approval.sql",
+        "021_support_cases.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","026_market_config_audit.sql","027_service_form_versions.sql","028_order_service_form_answers.sql","025_auth_devices.sql","029_order_completion_approval.sql","030_analytics_event_projection.sql",
     }
     for _, name := range migrations {
         raw, readErr := os.ReadFile(filepath.Join("..","..","migrations",name))
@@ -349,6 +349,19 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     if operatorOrdersResponse.Code != http.StatusOK || len(operatorOrders["orders"].([]any))!=1 {
         t.Fatalf("operator order queue: status=%d body=%s",operatorOrdersResponse.Code,operatorOrdersResponse.Body.String())
     }
+
+    analyticsPath:="/v1/operator/analytics/summary?from="+time.Now().UTC().Add(-time.Hour).Format(time.RFC3339)+"&to="+time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
+    analyticsResponse,analyticsBody:=call(http.MethodGet,analyticsPath,tokens["operator"],"",nil)
+    if analyticsResponse.Code!=http.StatusOK || analyticsResponse.Header().Get("Cache-Control")!="private, no-store" {
+        t.Fatalf("operator analytics summary: status=%d headers=%v body=%s",analyticsResponse.Code,analyticsResponse.Header(),analyticsResponse.Body.String())
+    }
+    if ready,ok:=analyticsBody["data_ready"].(bool);!ok||ready {
+        t.Fatalf("analytics must not claim readiness without an active populated projection: %#v",analyticsBody)
+    }
+    forbiddenAnalytics,_:=call(http.MethodGet,analyticsPath,tokens["customer"],"",nil)
+    if forbiddenAnalytics.Code!=http.StatusForbidden { t.Fatalf("customer must not read operator analytics: status=%d",forbiddenAnalytics.Code) }
+    invalidAnalytics,_:=call(http.MethodGet,"/v1/operator/analytics/summary?from=invalid&to=invalid",tokens["operator"],"",nil)
+    if invalidAnalytics.Code!=http.StatusBadRequest { t.Fatalf("invalid analytics window must be rejected: status=%d",invalidAnalytics.Code) }
 
     // An operator must not see another tenant's orders, even when both tenants
     // use the same market/country configuration.
