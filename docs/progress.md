@@ -1,6 +1,6 @@
 # Development Progress
 
-> Rolling evidence snapshot: 2026-11-23. Git history and PRs retain detailed history. Never mark a feature QA-passing without independent evidence.
+> Rolling evidence snapshot: 2026-11-25. Git history and PRs retain detailed history. Never mark a feature QA-passing without independent evidence.
 
 ## Product direction
 
@@ -8,7 +8,8 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 ## Integrated on main
 
-- Main at snapshot: `f7431d3570030f6ac0d4d70bc4c9fab76e0df7f0`.
+- Main at snapshot: `d731bf6220e2664ee2f8a75afc407cf2f5f7fff5`.
+- PRs #146, #150, #149, #152 and #148 are merged. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance.
 - Go/PostgreSQL modular-monolith API; Next.js customer web; React/Vite operator UI; Flutter mobile direction; isolated Python AI workloads.
 - Identity/tenant memberships, customer order workflows, professional eligibility, scheduling, availability, dispatch, cancellation, history and transactional outbox.
 - Immutable ledger primitives, payment adapter boundaries, market configuration/localization, B2B foundations, migrations, Compose deployment, CI, E2E, backup/restore, CodeQL, Dependency Review and Agent Guard.
@@ -38,8 +39,11 @@ These are repository capabilities, not evidence that every domain is complete or
 
 ## Hard blockers and safety boundaries
 
-- #110: external consumer compatibility for canonical order events; include optional `service_form_version_id` from #181 in the consumer compatibility review.
-- #133: executable analytics projector and generation semantics; #137: canonical cancellation-event compatibility.
+- #110: external consumer compatibility for canonical scheduled-order events; include optional `service_form_version_id` from #181 in the consumer compatibility review. Do not infer external compatibility from internal publisher/timeline tests.
+- #133: blocked and not rebased onto `d731bf6` yet. Its migration `025_analytics_event_projection.sql` conflicts with main's `025_auth_devices.sql`; rename the analytics migration to `030_analytics_event_projection.sql` and append it after 029 in `cmd/migrate/main.go`. Reconcile shared `mvp_http.go`, `policy.go`, OpenAPI and tests against main; never overwrite post-PR133 changes.
+- #133 also lacks a production population path and real generation isolation: current projector is only called by tests; `analytics_event_facts` primary key `(tenant_id,event_id)` and unique `outbox_event_id` prevent per-generation facts; `QuerySummary` does not select an active generation. Add generation ID to facts/quarantine/consumer identity, a per-tenant active-generation pointer, and make every summary query read only the active generation.
+- Analytics live consumption must not use `ReplayBatch` as a watermark: PostgreSQL sequence IDs can commit out of order. Use bounded polling for outbox rows absent from `processed_events` for that generation's consumer name, and process through transactional `Consumer.Process`. Keep historical replay restricted to a quiescent snapshot; implement catch-up and atomic generation switch before claiming rebuild support.
+- #137: canonical cancellation-event compatibility. Preserve legacy payloads for existing event types; add canonical data additively or under a versioned event contract, with old/new contract tests and a recorded consumer migration plan.
 - B2B billing waits for independent Order/Ledger gates (#57/#10) and canonical event readiness (#87).
 - No retention duration, privacy policy, fairness threshold, tax/legal rule or regulated-provider approval is invented.
 - GitHub security settings require owner-side confirmation; AI affecting money, safety, identity, access or reputation remains advisory until deterministic policy and/or authorized human approval.
@@ -47,7 +51,7 @@ These are repository capabilities, not evidence that every domain is complete or
 
 ## Acceptance and execution rules
 
-- feature_list.json is the structured 93-feature inventory; all 14 new capabilities remain passes=false until implementation, negative-path tests, exact-head CI and independent acceptance evidence exist.
+- feature_list.json is the structured 93-feature inventory; as of 2026-11-25, 0/93 are independently QA-passing. This is an acceptance-evidence count, not an implementation count. Do not set passes=true from CI alone.
 - Keep module ownership and public API/event boundaries; use small independent PRs and work on other tasks while CI runs.
 - Required checks must pass on current PR head and current main base. Do not bypass branch protection, security gates or independent QA.
 - progress.md records evidence; roadmap records intended outcomes. Neither substitutes for issue-level acceptance.
