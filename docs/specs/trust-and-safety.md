@@ -1,12 +1,12 @@
 # M7 and M9 — Trust, Safety and Support Specification
 
 **Feature IDs:** TRUST-001–TRUST-004, SUP-001–SUP-002  
-**Status:** provider verification and support-case foundations exist; incident, dispute and privacy-contact capabilities remain incomplete.
+**Status:** support case lifecycle and append-only support action audit are implemented; incident, dispute workflow and privacy-contact capabilities remain incomplete.
 
 ## Ownership
 
 - **Professional verification:** verification case lifecycle, private evidence references, reviewer decisions and append-only review events. Implementation: `professional_verification.go`, migration `020_professional_verification.sql`.
-- **Support:** requester-owned cases, tenant-scoped support agents, assignment, guarded status transitions and append-only action events. Implementation: `support_cases.go`, migration `021_support_cases.sql`.
+- **Support:** requester-owned cases, tenant-scoped support agents, assignment, guarded status transitions and append-only action events. Implementation: `support_cases.go`, migration `021_support_cases.sql`. Creation, assignment and status changes record actor, action, reason and before/after JSON in the same transaction; PostgreSQL rejects UPDATE/DELETE on event rows. This implements SUP-001 and SUP-002.
 - **Incident/safety reports, dispute adjudication, privacy-preserving contact:** backlog only until their own policy, data and workflow contracts are approved. They must not be inferred from support cases or order cancellation.
 
 ## Data and evidence boundaries
@@ -26,7 +26,7 @@ TRUST-008 extends professional verification with market- and service-risk-specif
 3. A decision requires a valid state and a non-empty reason; approval changes provider verification state transactionally with the audit event.
 4. A support actor must have both a support role and an active `support_agents` record for the case tenant.
 5. Customers/professionals can read only their own support cases; support staff can read only cases in their active tenant scope.
-6. Case assignment and status transitions append audit events in the same transaction.
+6. Case creation, assignment and status transitions append audit events in the same transaction.
 7. Closed cases cannot be silently reopened; transitions must follow the documented state machine.
 8. Safety incidents and disputes require human-owned decisions and must never be auto-resolved by AI.
 
@@ -38,12 +38,12 @@ Unknown evidence references, duplicate open verification cases, cross-tenant acc
 
 - Verification: `professional_verification_test.go`
 - Support: `support_cases_test.go`
+- Support audit storage: `021_support_cases.sql` enforces append-only event rows with a database trigger.
 - Required negatives: wrong profile owner, cross-tenant reviewer, self-review, duplicate submission, inactive support actor, cross-tenant support read, unassigned support user, invalid transition and immutable audit-event mutation.
-
 
 ### Dispute Triage AI boundary
 
-The new `internal/disputetriage` package provides an advisory case summary, established-fact list, missing-information checklist and possible next-step options. Case reason and retrieved evidence are redacted before model invocation. Evidence retrieval is scoped by market, locale and dispute type; option citations must reference only retrieved evidence. Strict output rejects unknown fields, including verdict, refund amount, settlement or authority-bearing commands.
+The `internal/disputetriage` package provides an advisory case summary, established-fact list, missing-information checklist and possible next-step options. Case reason and retrieved evidence are redacted before model invocation. Evidence retrieval is scoped by market, locale and dispute type; option citations must reference only retrieved evidence. Strict output rejects unknown fields, including verdict, refund amount, settlement or authority-bearing commands.
 
 Every result sets `requires_human_adjudication=true`. AI cannot determine liability, issue refunds, settle a case, change order state or replace an adjudicator. The versioned golden set checks critical evidence coverage. This package is a service boundary only; dispute persistence, evidence storage/access policy, API/UI, appeal workflow and independent adjudicator integration remain open. No evidence-retention period is inferred.
 
