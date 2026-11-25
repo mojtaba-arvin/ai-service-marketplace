@@ -35,3 +35,13 @@ The marketplace needs a restricted way for customers and professionals to report
 3. Implement explicit same-tenant reviewer authorization, assignment, triage and guarded state transitions.
 4. Add privacy/redaction, concurrency and cross-tenant tests.
 5. Specify and integrate the private evidence adapter and adopter-configured retention separately; do not mark those capabilities complete until delivered.
+
+
+## Reviewer workflow implementation contract — 2026-11-25
+
+- The first reviewer implementation uses the dedicated operator grant action `incident:review`. An operator must have an active membership and an explicit grant for this exact action in the report's tenant. The generic `support` role, support-case access, or operator membership alone never authorizes incident review.
+- A reviewer may list/read reports only within the actor's tenant. Assignment targets must also be active same-tenant operators with an active `incident:review` grant. Self-assignment is allowed; self-grant and cross-tenant assignment are not.
+- Allowed status transitions are sequential and forward-only: `submitted → triaged → investigating → resolved → closed`. No reopen or skipped-state transition is exposed in this slice.
+- Severity changes are allowed only while the report is not closed and always require a reason. Assignment changes are also prohibited after closure. Severity remains advisory and does not trigger an order, payment, provider, or emergency action.
+- Each reviewer mutation writes a same-transaction append-only event with actor, reason and before/after state before updating the report. The database trigger permits a report update only when a matching event exists in the same transaction; identity, reporter narrative, order binding, occurrence time and evidence references remain immutable.
+- Reviewer responses may expose opaque evidence identifiers but must not expose a public/download URL. Evidence retrieval remains unavailable until the separate private storage adapter and access-audit boundary are delivered.
