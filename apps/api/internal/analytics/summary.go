@@ -6,7 +6,7 @@ import (
     "strings"
     "time"
 
-    "github.com/jackc/pgx/v5/pgxpool"
+    "github.com/jackc/pgx/v5"
 )
 
 var ErrInvalidSummaryFilter = errors.New("invalid analytics summary filter")
@@ -37,7 +37,9 @@ type Summary struct {
     P90AssignmentSeconds float64 `json:"p90_assignment_seconds"`
 }
 
-func QuerySummary(ctx context.Context,db *pgxpool.Pool,tenantID string,filter SummaryFilter)(Summary,error) {
+type queryRower interface { QueryRow(context.Context, string, ...any) pgx.Row }
+
+func QuerySummary(ctx context.Context, db queryRower, tenantID string, filter SummaryFilter) (Summary, error) {
     tenantID=strings.TrimSpace(tenantID)
     filter.MarketCode=strings.TrimSpace(filter.MarketCode)
     if db==nil || tenantID=="" || filter.From.IsZero() || filter.To.IsZero() ||

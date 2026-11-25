@@ -47,9 +47,11 @@ type ServiceFormVersion struct{
  RetiredBy *string `json:"retired_by,omitempty"`
  RetiredAt *time.Time `json:"retired_at,omitempty"`
 }
-func authorizeCatalogMutation(actor Actor)error{
- if actor.Role!=RoleOperator||actor.TenantID!=platformTenantID{return ErrForbidden}
- return Authorize(actor,Resource{TenantID:platformTenantID},ActionCatalogManage)
+func authorizeCatalogMutationTx(ctx context.Context, tx pgx.Tx, actor Actor) error {
+ if actor.TenantID != platformTenantID {
+  return ErrForbidden
+ }
+ return authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: platformTenantID}, ActionCatalogManage)
 }
 func decodeServiceFormSchema(raw []byte,serviceCode,locale string,version int)(serviceforms.Definition,error){
  if len(raw)==0||len(raw)>32*1024{return serviceforms.Definition{},ErrInvalidServiceForm}
@@ -69,10 +71,10 @@ func scanServiceForm(row pgx.Row)(ServiceFormVersion,error){
 const serviceFormColumns=`f.id,f.menu_id,m.service_code,f.market_code,f.locale,f.version_no,f.schema,f.status,f.created_by,f.created_at,f.published_by,f.published_at,f.retired_by,f.retired_at`
 
 func(s *Store)CreateServiceFormDraft(ctx context.Context,actor Actor,menuID,marketCode,locale string,schemaJSON []byte)(ServiceFormVersion,error){
- if err:=authorizeCatalogMutation(actor);err!=nil{return ServiceFormVersion{},err}
  menuID=strings.TrimSpace(menuID);marketCode=strings.ToUpper(strings.TrimSpace(marketCode));locale=strings.TrimSpace(locale)
  if menuID==""||marketCode==""||locale==""||len(schemaJSON)==0||len(schemaJSON)>32*1024{return ServiceFormVersion{},ErrInvalidServiceForm}
  tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return ServiceFormVersion{},err};defer tx.Rollback(ctx)
+ if err=authorizeCatalogMutationTx(ctx,tx,actor);err!=nil{return ServiceFormVersion{},err}
  var serviceCode string
  if err=tx.QueryRow(ctx,`SELECT service_code FROM service_price_menus WHERE id=$1 FOR UPDATE`,menuID).Scan(&serviceCode);errors.Is(err,pgx.ErrNoRows){return ServiceFormVersion{},ErrPriceMenuNotFound}else if err!=nil{return ServiceFormVersion{},err}
  var localeEnabled bool
@@ -93,9 +95,9 @@ func(s *Store)CreateServiceFormDraft(ctx context.Context,actor Actor,menuID,mark
  if err=tx.Commit(ctx);err!=nil{return ServiceFormVersion{},err};return result,nil
 }
 func(s *Store)PublishServiceFormVersion(ctx context.Context,actor Actor,formID string)(ServiceFormVersion,error){
- if err:=authorizeCatalogMutation(actor);err!=nil{return ServiceFormVersion{},err}
  formID=strings.TrimSpace(formID);if formID==""{return ServiceFormVersion{},ErrServiceFormNotFound}
  tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return ServiceFormVersion{},err};defer tx.Rollback(ctx)
+ if err=authorizeCatalogMutationTx(ctx,tx,actor);err!=nil{return ServiceFormVersion{},err}
  var menuID string
  if err=tx.QueryRow(ctx,`SELECT menu_id FROM service_form_versions WHERE id=$1`,formID).Scan(&menuID);errors.Is(err,pgx.ErrNoRows){return ServiceFormVersion{},ErrServiceFormNotFound}else if err!=nil{return ServiceFormVersion{},err}
  var lockedMenuID string

@@ -37,6 +37,7 @@ func TestVersionedCancellationPolicyAndIdempotencyPostgres(t *testing.T) {
 	policyVersion:="cancel-v1-"+fmt.Sprint(time.Now().UnixNano())
 	otherCustomer:=Actor{SubjectID:ids[1],TenantID:"market-om",Role:RoleCustomer}
 	operator:=Actor{SubjectID:ids[2],TenantID:"platform",Role:RoleOperator}
+	if err=ensureTestOperatorGrants(ctx,pool,operator,ActionMarketConfigure,ActionPolicyManage);err!=nil{t.Fatal(err)}
 	if _,err=store.SaveMarket(ctx,operator,MarketConfig{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"market-v1",Enabled:true,Locales:[]string{"en","ar"}}); err!=nil {
 		t.Fatal(err)
 	}

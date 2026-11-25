@@ -88,10 +88,9 @@ func Authorize(actor Actor, resource Resource, action Action) error {
 			allowed = resource.OwnerID != "" && resource.OwnerID == actor.SubjectID
 		}
 	case RoleOperator:
-		switch action {
-		case ActionOrderRead, ActionOrderAssign, ActionProviderVerify, ActionCaseRead, ActionMarketConfigure, ActionCatalogManage, ActionPolicyManage, ActionAnalyticsRead:
-			allowed = true
-		}
+		// Operator membership is eligibility only. Pure policy evaluation has no
+		// database grant context, so every operator action fails closed here.
+		// Sensitive operator paths must call authorizeOperatorTx in their Store tx.
 	case RoleSupport:
 		switch action {
 		case ActionSupportCaseRead, ActionSupportCaseComment:

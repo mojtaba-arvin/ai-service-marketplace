@@ -41,6 +41,8 @@ func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
 	proB:=Actor{SubjectID:ids[2],TenantID:"market-dispatch",Role:RoleProfessional}
 	operator:=Actor{SubjectID:ids[3],TenantID:"market-dispatch",Role:RoleOperator}
 	marketOperator:=Actor{SubjectID:ids[3],TenantID:platformTenantID,Role:RoleOperator}
+	if err=ensureTestOperatorGrants(ctx,pool,marketOperator,ActionMarketConfigure); err!=nil { t.Fatal(err) }
+	if err=ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify,ActionOrderAssign); err!=nil { t.Fatal(err) }
 	if _,err=store.SaveMarket(ctx,marketOperator,MarketConfig{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"dispatch-offers-v1",Enabled:true,Locales:[]string{"en","ar"}}); err!=nil { t.Fatal(err) }
 	category,err:=store.CreateCategory(ctx,nil,fmt.Sprintf("offers-%d",time.Now().UnixNano()),"Offers")
 	if err!=nil { t.Fatal(err) }

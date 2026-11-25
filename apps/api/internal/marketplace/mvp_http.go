@@ -136,39 +136,50 @@ func (s *Store) ListProfessionalOffers(ctx context.Context, actor Actor) ([]Disp
 }
 
 func (s *Store) ListOperatorOrders(ctx context.Context, actor Actor, marketCode string) ([]OperatorOrder, error) {
-    if actor.Role != RoleOperator || actor.SubjectID == "" || actor.TenantID == "" {
-        return nil, ErrForbidden
-    }
-    if err := Authorize(actor, Resource{TenantID:actor.TenantID}, ActionOrderRead); err != nil {
-        return nil, err
-    }
-    rows, err := s.DB.Query(ctx, `
-        SELECT id,customer_id,amount_minor,currency,status,scheduled_at,country_code,
-            region_code,city_code,area_code,assigned_provider_id,created_at,updated_at
-        FROM orders
-        WHERE tenant_id=$1 AND country_code=$2
-        ORDER BY created_at DESC,id DESC
-        LIMIT 100
-    `, actor.TenantID, strings.ToUpper(strings.TrimSpace(marketCode)))
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
-    orders := make([]OperatorOrder, 0)
-    for rows.Next() {
-        var order OperatorOrder
-        if err = rows.Scan(&order.ID,&order.CustomerID,&order.AmountMinor,&order.Currency,&order.Status,
-            &order.ScheduledAt,&order.CountryCode,&order.RegionCode,&order.CityCode,&order.AreaCode,
-            &order.AssignedProviderID,&order.CreatedAt,&order.UpdatedAt); err != nil {
-            return nil, err
-        }
-        orders = append(orders, order)
-    }
-    if err = rows.Err(); err != nil {
-        return nil, err
-    }
-    return orders, nil
+	if actor.Role != RoleOperator || actor.SubjectID == "" || actor.TenantID == "" {
+		return nil, ErrForbidden
+	}
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: actor.TenantID}, ActionOrderRead); err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT id,customer_id,amount_minor,currency,status,scheduled_at,country_code,
+			region_code,city_code,area_code,assigned_provider_id,created_at,updated_at
+		FROM orders
+		WHERE tenant_id=$1 AND country_code=$2
+		ORDER BY created_at DESC,id DESC
+		LIMIT 100
+	`, actor.TenantID, strings.ToUpper(strings.TrimSpace(marketCode)))
+	if err != nil {
+		return nil, err
+	}
+	orders := make([]OperatorOrder, 0)
+	for rows.Next() {
+		var order OperatorOrder
+		if err = rows.Scan(&order.ID,&order.CustomerID,&order.AmountMinor,&order.Currency,&order.Status,
+			&order.ScheduledAt,&order.CountryCode,&order.RegionCode,&order.CityCode,&order.AreaCode,
+			&order.AssignedProviderID,&order.CreatedAt,&order.UpdatedAt); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+	if err = rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return orders, nil
 }
+
 
 func (s *Store) ListProfessionalOrders(ctx context.Context, actor Actor) ([]ProfessionalOrder, error) {
     if actor.Role != RoleProfessional || actor.SubjectID == "" || actor.TenantID == "" {
@@ -201,35 +212,50 @@ func (s *Store) ListProfessionalOrders(ctx context.Context, actor Actor) ([]Prof
 }
 
 func (s *Store) ListOperatorProviders(ctx context.Context, actor Actor) ([]OperatorProvider, error) {
-    if actor.Role != RoleOperator || actor.SubjectID == "" || actor.TenantID == "" {
-        return nil, ErrForbidden
-    }
-    if err := Authorize(actor,Resource{TenantID:actor.TenantID},ActionProviderVerify); err != nil {
-        return nil, err
-    }
-    rows, err := s.DB.Query(ctx, `
-        SELECT p.id,p.identity_id,p.display_name,p.active,p.verified_at,
-            ps.category_id,ps.verified_at
-        FROM provider_profiles p
-        LEFT JOIN provider_skills ps ON ps.provider_id=p.id
-        WHERE p.tenant_id=$1
-        ORDER BY p.created_at DESC,p.id,ps.category_id
-        LIMIT 200
-    `,actor.TenantID)
-    if err != nil { return nil,err }
-    defer rows.Close()
-    providers := make([]OperatorProvider,0)
-    for rows.Next() {
-        var provider OperatorProvider
-        if err=rows.Scan(&provider.ID,&provider.IdentityID,&provider.DisplayName,&provider.Active,
-            &provider.VerifiedAt,&provider.CategoryID,&provider.SkillVerifiedAt);err!=nil {
-            return nil,err
-        }
-        providers=append(providers,provider)
-    }
-    if err=rows.Err();err!=nil { return nil,err }
-    return providers,nil
+	if actor.Role != RoleOperator || actor.SubjectID == "" || actor.TenantID == "" {
+		return nil, ErrForbidden
+	}
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: actor.TenantID}, ActionProviderVerify); err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT p.id,p.identity_id,p.display_name,p.active,p.verified_at,
+			ps.category_id,ps.verified_at
+		FROM provider_profiles p
+		LEFT JOIN provider_skills ps ON ps.provider_id=p.id
+		WHERE p.tenant_id=$1
+		ORDER BY p.created_at DESC,p.id,ps.category_id
+		LIMIT 200
+	`, actor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	providers := make([]OperatorProvider, 0)
+	for rows.Next() {
+		var provider OperatorProvider
+		if err = rows.Scan(&provider.ID,&provider.IdentityID,&provider.DisplayName,&provider.Active,
+			&provider.VerifiedAt,&provider.CategoryID,&provider.SkillVerifiedAt); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		providers = append(providers, provider)
+	}
+	if err = rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return providers, nil
 }
+
 
 func (s *Store) TransitionOrderAsActor(ctx context.Context, actor Actor, orderID, target string) (Order, error) {
     tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
@@ -801,7 +827,7 @@ func (h *Handler) operatorOrders(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) operatorAnalyticsSummary(w http.ResponseWriter,r *http.Request) {
     actor,err:=h.actorForRole(r,RoleOperator)
-    if err!=nil || Authorize(actor,Resource{TenantID:actor.TenantID},ActionAnalyticsRead)!=nil {
+    if err!=nil {
         writeError(w,http.StatusForbidden,"operator analytics permission is required")
         return
     }
@@ -814,7 +840,17 @@ func (h *Handler) operatorAnalyticsSummary(w http.ResponseWriter,r *http.Request
         writeError(w,http.StatusBadRequest,"from and to must be RFC3339 timestamps in a range up to 90 days; market_code must be uppercase ISO-3166 alpha-2")
         return
     }
-    summary,err:=analytics.QuerySummary(r.Context(),h.Store.DB,actor.TenantID,analytics.SummaryFilter{
+    tx,err:=h.Store.DB.BeginTx(r.Context(),pgx.TxOptions{})
+    if err!=nil {
+        writeError(w,http.StatusInternalServerError,"could not load analytics summary")
+        return
+    }
+    defer tx.Rollback(r.Context())
+    if err=authorizeOperatorTx(r.Context(),tx,actor,Resource{TenantID:actor.TenantID},ActionAnalyticsRead);err!=nil {
+        writeError(w,http.StatusForbidden,"operator analytics permission is required")
+        return
+    }
+    summary,err:=analytics.QuerySummary(r.Context(),tx,actor.TenantID,analytics.SummaryFilter{
         From:from,To:to,MarketCode:marketCode,
     })
     if err!=nil {
@@ -825,9 +861,14 @@ func (h *Handler) operatorAnalyticsSummary(w http.ResponseWriter,r *http.Request
         writeError(w,http.StatusInternalServerError,"could not load analytics summary")
         return
     }
+    if err=tx.Commit(r.Context());err!=nil {
+        writeError(w,http.StatusInternalServerError,"could not load analytics summary")
+        return
+    }
     w.Header().Set("Cache-Control","private, no-store")
     writeJSON(w,http.StatusOK,summary)
 }
+
 
 func (h *Handler) operatorProviders(w http.ResponseWriter, r *http.Request) {
     actor, err := h.actorForRole(r,RoleOperator)

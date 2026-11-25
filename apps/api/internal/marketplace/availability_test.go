@@ -39,6 +39,8 @@ func TestProviderAvailabilityAndNonOverlappingBookingsPostgres(t *testing.T) {
 	professional:=Actor{SubjectID:ids[1],TenantID:"market-dispatch",Role:RoleProfessional}
 	operator:=Actor{SubjectID:ids[2],TenantID:"market-dispatch",Role:RoleOperator}
 	marketOperator:=Actor{SubjectID:ids[2],TenantID:platformTenantID,Role:RoleOperator}
+	if err=ensureTestOperatorGrants(ctx,pool,marketOperator,ActionMarketConfigure); err!=nil { t.Fatal(err) }
+	if err=ensureTestOperatorGrants(ctx,pool,operator,ActionPolicyManage,ActionProviderVerify,ActionOrderAssign); err!=nil { t.Fatal(err) }
 	if _,err=store.SaveMarket(ctx,marketOperator,MarketConfig{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"dispatch-market-v1",Enabled:true,Locales:[]string{"en","ar"}}); err!=nil { t.Fatal(err) }
 	policyVersion:="dispatch-cancel-"+fmt.Sprint(time.Now().UnixNano())
 	if _,err=store.SaveCancellationPolicy(ctx,operator,CancellationPolicy{MarketCode:"OM",PolicyVersion:policyVersion,ActorRole:RoleCustomer,FromStatus:"requested",CutoffMinutes:60,FeeBasisPoints:1000,EffectiveFrom:time.Now().UTC().Add(-time.Hour)}); err!=nil { t.Fatal(err) }

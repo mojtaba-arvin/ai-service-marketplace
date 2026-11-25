@@ -81,9 +81,8 @@ func (s *Store) SaveMarket(ctx context.Context, actor Actor, config MarketConfig
 	config.Currency=strings.ToUpper(strings.TrimSpace(config.Currency))
 	config.Timezone=strings.TrimSpace(config.Timezone)
 	config.PolicyVersion=strings.TrimSpace(config.PolicyVersion)
-	// Market definitions are global, not tenant-owned. Only a platform-tenant
-	// operator may mutate them.
-	if err:=Authorize(actor,Resource{TenantID:platformTenantID},ActionMarketConfigure); err!=nil { return MarketConfig{},err }
+	// Market definitions are global, not tenant-owned. Authorization is checked
+	// against the platform tenant in the same transaction as the configuration write.
 	if !marketCodePattern.MatchString(config.Code) || !marketLocalePattern.MatchString(config.DefaultLocale) ||
 		ValidateAmount(1,config.Currency)!=nil || config.PolicyVersion=="" || len(config.PolicyVersion)>80 {
 		return MarketConfig{},ErrInvalidMarket
@@ -99,6 +98,9 @@ func (s *Store) SaveMarket(ctx context.Context, actor Actor, config MarketConfig
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{})
 	if err!=nil { return MarketConfig{},err }
 	defer tx.Rollback(ctx)
+	if err=authorizeOperatorTx(ctx,tx,actor,Resource{TenantID:platformTenantID},ActionMarketConfigure); err!=nil {
+		return MarketConfig{},err
+	}
 	if _,err=tx.Exec(ctx,`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,"market-config:"+config.Code); err!=nil {
 		return MarketConfig{},err
 	}
