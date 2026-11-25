@@ -1142,7 +1142,7 @@ func (h *Handler) operatorPermissions(w http.ResponseWriter, r *http.Request) {
 			Action string `json:"action"`
 			Reason string `json:"reason"`
 		}
-		decoder := json.NewDecoder(io.LimitReader(r.Body, 8*1024))
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8*1024))
 		decoder.DisallowUnknownFields()
 		if err = decoder.Decode(&in); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid permission grant request")
@@ -1179,7 +1179,7 @@ func (h *Handler) operatorPermissions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var in struct { Reason string `json:"reason"` }
-		decoder := json.NewDecoder(io.LimitReader(r.Body, 8*1024))
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8*1024))
 		decoder.DisallowUnknownFields()
 		if err = decoder.Decode(&in); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid permission revocation request")
