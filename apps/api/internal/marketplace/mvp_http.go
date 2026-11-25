@@ -440,6 +440,12 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.respondToOffer(w,r); return true
     case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/professional/orders/") && strings.HasSuffix(path,"/transition"):
         h.professionalTransition(w,r); return true
+    case r.Method == http.MethodGet && path == "/v1/operator/incidents":
+        h.operatorIncidents(w,r); return true
+    case r.Method == http.MethodGet && strings.HasPrefix(path,"/v1/operator/incidents/"):
+        h.operatorIncidents(w,r); return true
+    case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/operator/incidents/") && strings.HasSuffix(path,"/transition"):
+        h.operatorIncidents(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/operator/permissions":
         h.operatorPermissions(w,r); return true
     case r.Method == http.MethodPost && path == "/v1/operator/permissions/grants":
@@ -1207,6 +1213,98 @@ func (h *Handler) operatorPermissions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"grant": grant})
+		return
+	}
+	writeError(w, http.StatusNotFound, "not found")
+}
+
+
+// operatorIncidents is the reviewer-only surface. The Store enforces the
+// dedicated incident:review grant in the same tenant-scoped transaction.
+func (h *Handler) operatorIncidents(w http.ResponseWriter, r *http.Request) {
+	actor, err := h.actorForRole(r, RoleOperator)
+	if err != nil {
+		writeError(w, http.StatusForbidden, "operator membership is required")
+		return
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if r.Method == http.MethodGet && path == "/v1/operator/incidents" {
+		reports, listErr := h.Store.ListIncidentReportsForReviewer(r.Context(), actor, r.URL.Query().Get("status"))
+		if errors.Is(listErr, ErrForbidden) {
+			writeError(w, http.StatusForbidden, "active incident:review grant is required")
+			return
+		}
+		if errors.Is(listErr, ErrIncidentReportInput) {
+			writeError(w, http.StatusBadRequest, "invalid incident status filter")
+			return
+		}
+		if listErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not list incident reports")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"reports": reports})
+		return
+	}
+	if r.Method == http.MethodGet && len(parts) == 4 && parts[0] == "v1" && parts[1] == "operator" && parts[2] == "incidents" && parts[3] != "" {
+		report, getErr := h.Store.GetIncidentReportForReviewer(r.Context(), actor, parts[3])
+		if errors.Is(getErr, ErrForbidden) {
+			writeError(w, http.StatusForbidden, "active incident:review grant is required")
+			return
+		}
+		if errors.Is(getErr, ErrIncidentReportNotFound) {
+			writeError(w, http.StatusNotFound, "incident report not found")
+			return
+		}
+		if getErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not load incident report")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"report": report})
+		return
+	}
+	if r.Method == http.MethodPost && len(parts) == 5 && parts[0] == "v1" && parts[1] == "operator" && parts[2] == "incidents" && parts[3] != "" && parts[4] == "transition" {
+		var in struct {
+			Action string `json:"action"`
+			Status string `json:"status,omitempty"`
+			SeverityHint string `json:"severity_hint,omitempty"`
+			AssignedReviewerIdentityID string `json:"assigned_reviewer_identity_id,omitempty"`
+			Reason string `json:"reason"`
+		}
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8*1024))
+		decoder.DisallowUnknownFields()
+		if err = decoder.Decode(&in); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid incident transition request")
+			return
+		}
+		if decoder.Decode(&struct{}{}) != io.EOF {
+			writeError(w, http.StatusBadRequest, "request must contain one JSON object")
+			return
+		}
+		report, transitionErr := h.Store.TransitionIncidentReport(r.Context(), actor, parts[3], IncidentReportTransitionInput{
+			Action: in.Action,
+			Status: in.Status,
+			SeverityHint: in.SeverityHint,
+			AssignedReviewerIdentityID: in.AssignedReviewerIdentityID,
+			Reason: in.Reason,
+		})
+		if errors.Is(transitionErr, ErrForbidden) {
+			writeError(w, http.StatusForbidden, "active same-tenant incident:review grant is required")
+			return
+		}
+		if errors.Is(transitionErr, ErrIncidentReportNotFound) {
+			writeError(w, http.StatusNotFound, "incident report not found")
+			return
+		}
+		if errors.Is(transitionErr, ErrIncidentReportInput) {
+			writeError(w, http.StatusBadRequest, "invalid incident transition or missing reason")
+			return
+		}
+		if transitionErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not transition incident report")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"report": report})
 		return
 	}
 	writeError(w, http.StatusNotFound, "not found")

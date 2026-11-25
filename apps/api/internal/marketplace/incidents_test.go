@@ -63,7 +63,7 @@ func TestIncidentReportOrderParticipantPrivacyPostgres(t *testing.T) {
 		"005_pricing.sql", "006_provider_eligibility.sql", "015_order_schedule.sql",
 		"018_dispatch_offers.sql", "022_identity_memberships.sql",
 		"023_order_tenant_scope.sql", "031_operator_action_grants.sql",
-		"032_operator_permission_event_integrity.sql", "033_incident_report_intake.sql",
+		"032_operator_permission_event_integrity.sql", "033_incident_report_intake.sql", "034_incident_reviewer_workflow.sql",
 	}
 	for _, name := range migrations {
 		raw, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
@@ -123,6 +123,27 @@ func TestIncidentReportOrderParticipantPrivacyPostgres(t *testing.T) {
 	}
 
 	store := &Store{DB: pool}
+	reviewerID := newTestIdentity(t, ctx, pool)
+	targetReviewerID := newTestIdentity(t, ctx, pool)
+	unprivilegedReviewerID := newTestIdentity(t, ctx, pool)
+	supportID := newTestIdentity(t, ctx, pool)
+	managerID := newTestIdentity(t, ctx, pool)
+	otherTenant := "incident-other-tenant-" + time.Now().Format("150405.000000000")
+	reviewer := Actor{SubjectID: reviewerID, TenantID: tenantID, Role: RoleOperator}
+	targetReviewer := Actor{SubjectID: targetReviewerID, TenantID: tenantID, Role: RoleOperator}
+	manager := Actor{SubjectID: managerID, TenantID: tenantID, Role: RoleOperator}
+	otherTenantReviewer := Actor{SubjectID: newTestIdentity(t, ctx, pool), TenantID: otherTenant, Role: RoleOperator}
+	if err = ensureTestOperatorGrants(ctx, pool, reviewer, ActionIncidentReview); err != nil { t.Fatal(err) }
+	if err = ensureTestOperatorGrants(ctx, pool, targetReviewer, ActionIncidentReview); err != nil { t.Fatal(err) }
+	if err = ensureTestOperatorGrants(ctx, pool, manager, ActionOperatorPermissionsManage); err != nil { t.Fatal(err) }
+	if err = ensureTestOperatorGrants(ctx, pool, otherTenantReviewer, ActionIncidentReview); err != nil { t.Fatal(err) }
+	if _, err = pool.Exec(ctx, `
+		INSERT INTO identity_memberships(id,identity_id,tenant_id,role)
+		VALUES($1,$2,$3,'operator'),($4,$5,$3,'support')
+	`, "unprivileged-reviewer-"+time.Now().Format("150405.000000000"), unprivilegedReviewerID, tenantID,
+		"support-reviewer-"+time.Now().Format("150405.000000000"), supportID); err != nil { t.Fatal(err) }
+	unprivilegedReviewer := Actor{SubjectID: unprivilegedReviewerID, TenantID: tenantID, Role: RoleOperator}
+	supportReviewer := Actor{SubjectID: supportID, TenantID: tenantID, Role: RoleSupport}
 	customer := Actor{SubjectID: customerID, TenantID: tenantID, Role: RoleCustomer}
 	report, err := store.CreateIncidentReport(ctx, customer, IncidentReportInput{
 		OrderID: orderID, Category: "safety_concern",
@@ -192,6 +213,88 @@ func TestIncidentReportOrderParticipantPrivacyPostgres(t *testing.T) {
 	}
 	if events != 1 {
 		t.Fatalf("expected one atomic submission audit event, got %d", events)
+	}
+
+	if _, err = store.ListIncidentReportsForReviewer(ctx, unprivilegedReviewer, ""); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("operator without incident:review must be denied: %v", err)
+	}
+	if _, err = store.ListIncidentReportsForReviewer(ctx, supportReviewer, ""); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("support role alone must not authorize incident review: %v", err)
+	}
+	if _, err = store.ListIncidentReportsForReviewer(ctx, reviewer, "submitted"); err != nil {
+		t.Fatalf("explicit reviewer list: %v", err)
+	}
+	if _, err = store.GetIncidentReportForReviewer(ctx, reviewer, "missing-report"); !errors.Is(err, ErrIncidentReportNotFound) {
+		t.Fatalf("reviewer lookup should remain tenant-scoped: %v", err)
+	}
+	if _, err = store.GetIncidentReportForReviewer(ctx, otherTenantReviewer, report.ID); !errors.Is(err, ErrIncidentReportNotFound) {
+		t.Fatalf("cross-tenant reviewer read should be hidden: %v", err)
+	}
+	if _, err = store.GetIncidentReportForReporter(ctx, reviewer, report.ID); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("reviewer must not use reporter read path: %v", err)
+	}
+	if _, err = store.TransitionIncidentReport(ctx, reviewer, report.ID, IncidentReportTransitionInput{
+		Action:"assign",AssignedReviewerIdentityID:otherTenantReviewer.SubjectID,Reason:"cross-tenant assignment must fail",
+	}); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("cross-tenant reviewer assignment should be denied: %v", err)
+	}
+	assigned, err := store.TransitionIncidentReport(ctx, reviewer, report.ID, IncidentReportTransitionInput{
+		Action:"assign",AssignedReviewerIdentityID:targetReviewerID,Reason:"assign to active same-tenant reviewer",
+	})
+	if err != nil || assigned.AssignedReviewerIdentityID == nil || *assigned.AssignedReviewerIdentityID != targetReviewerID {
+		t.Fatalf("same-tenant reviewer assignment failed: %+v %v", assigned, err)
+	}
+	var targetGrantID string
+	if err = pool.QueryRow(ctx, `
+		SELECT id FROM operator_action_grants
+		WHERE identity_id=$1 AND tenant_id=$2 AND action=$3 AND revoked_at IS NULL
+	`, targetReviewerID, tenantID, string(ActionIncidentReview)).Scan(&targetGrantID); err != nil { t.Fatal(err) }
+	if _, err = store.RevokeOperatorAction(ctx, manager, tenantID, targetGrantID, "reviewer access removed"); err != nil {
+		t.Fatalf("revoke reviewer grant: %v", err)
+	}
+	if _, err = store.GetIncidentReportForReviewer(ctx, targetReviewer, report.ID); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("revoked reviewer must lose report access: %v", err)
+	}
+	assigned, err = store.TransitionIncidentReport(ctx, reviewer, report.ID, IncidentReportTransitionInput{
+		Action:"assign",AssignedReviewerIdentityID:reviewerID,Reason:"reviewer takes ownership",
+	})
+	if err != nil || assigned.AssignedReviewerIdentityID == nil || *assigned.AssignedReviewerIdentityID != reviewerID {
+		t.Fatalf("self-assignment by active reviewer failed: %+v %v", assigned, err)
+	}
+	if _, err = store.TransitionIncidentReport(ctx, reviewer, report.ID, IncidentReportTransitionInput{
+		Action:"assign",AssignedReviewerIdentityID:targetReviewerID,Reason:"revoked reviewer cannot be assigned",
+	}); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("revoked reviewer assignment should be denied: %v", err)
+	}
+	if _, err = store.TransitionIncidentReport(ctx, reviewer, report.ID, IncidentReportTransitionInput{
+		Action:"status",Status:"investigating",Reason:"skipping triage is prohibited",
+	}); !errors.Is(err, ErrIncidentReportInput) {
+		t.Fatalf("skipped status transition should be denied: %v", err)
+	}
+	updated, err := store.TransitionIncidentReport(ctx, reviewer, report.ID, IncidentReportTransitionInput{
+		Action:"severity",SeverityHint:"high",Reason:"reviewer triage changed severity hint",
+	})
+	if err != nil || updated.SeverityHint != "high" {
+		t.Fatalf("severity update failed: %+v %v", updated, err)
+	}
+	for _, next := range []string{"triaged","investigating","resolved","closed"} {
+		updated, err = store.TransitionIncidentReport(ctx, reviewer, report.ID, IncidentReportTransitionInput{
+			Action:"status",Status:next,Reason:"reviewer advanced the human workflow",
+		})
+		if err != nil || updated.Status != next {
+			t.Fatalf("status transition to %s failed: %+v %v", next, updated, err)
+		}
+	}
+	if _, err = store.TransitionIncidentReport(ctx, reviewer, report.ID, IncidentReportTransitionInput{
+		Action:"severity",SeverityHint:"critical",Reason:"closed reports are immutable",
+	}); !errors.Is(err, ErrIncidentReportInput) {
+		t.Fatalf("closed report mutation should be denied: %v", err)
+	}
+	if _, err = pool.Exec(ctx, "UPDATE incident_reports SET narrative='rewritten by direct SQL' WHERE id=$1", report.ID); err == nil {
+		t.Fatal("review workflow unexpectedly allowed reporter narrative mutation")
+	}
+	if _, err = pool.Exec(ctx, "UPDATE incident_reports SET status='closed' WHERE id=$1", professionalReport.ID); err == nil {
+		t.Fatal("incident state changed without reviewer workflow and audit")
 	}
 	if _, err = pool.Exec(ctx, "UPDATE incident_report_events SET reason='tampered' WHERE report_id=$1", report.ID); err == nil {
 		t.Fatal("incident audit event mutation unexpectedly succeeded")
