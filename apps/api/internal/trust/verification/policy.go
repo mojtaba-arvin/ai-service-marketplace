@@ -167,6 +167,7 @@ type Credential struct {
 	CheckID string
 	AdapterID string
 	Status Status
+	ProviderOutcome Outcome
 	EvidenceRef string
 	ProviderReference string
 	CheckedAt time.Time
@@ -254,6 +255,7 @@ func (s Service) RunCheck(ctx context.Context, policy Policy, requirement Requir
 		CheckID: requirement.CheckID,
 		AdapterID: requirement.AdapterID,
 		Status: status,
+		ProviderOutcome: result.Outcome,
 		EvidenceRef: result.EvidenceRef,
 		ProviderReference: result.ProviderReference,
 		CheckedAt: result.CheckedAt,
@@ -407,7 +409,9 @@ func EvaluateDispatch(policy Policy, credentials []Credential, now time.Time) er
 			credential.AdapterID != requirement.AdapterID {
 			return ErrCredentialNotDispatchable
 		}
-		if credential.Status != StatusVerified {
+		if credential.Status != StatusVerified ||
+			(credential.ProviderOutcome != OutcomeClear && credential.ProviderOutcome != OutcomeAdverse && credential.ProviderOutcome != OutcomeFailed) ||
+			((credential.ProviderOutcome == OutcomeAdverse || credential.ProviderOutcome == OutcomeFailed) && credential.ReviewerRef == "") {
 			return ErrCredentialNotDispatchable
 		}
 		if !now.Before(credential.ExpiresAt) {
