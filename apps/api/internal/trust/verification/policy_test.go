@@ -121,10 +121,13 @@ func TestAdverseResultRequiresHumanReviewAndBlocksDispatch(t *testing.T) {
 	if err := EvaluateDispatch(policy, []Credential{approved}, now); err != nil {
 		t.Fatalf("approved credential should be dispatchable: %v", err)
 	}
+	secondRequirement := Requirement{CheckID: "safety_check", AdapterID: "screening", Capability: "identity_check", ConsentMode: ConsentNotRequired, RecheckAfter: 30 * 24 * time.Hour}
+	policy.Requirements = append(policy.Requirements, secondRequirement)
 	mixedSubject := approved
+	mixedSubject.CheckID = secondRequirement.CheckID
 	mixedSubject.SubjectRef = "subject:other"
-	if err := EvaluateDispatch(policy, []Credential{approved, mixedSubject}, now); !errors.Is(err, ErrInvalidPolicy) {
-		t.Fatalf("duplicate check should be rejected: %v", err)
+	if err := EvaluateDispatch(policy, []Credential{approved, mixedSubject}, now); !errors.Is(err, ErrCredentialNotDispatchable) {
+		t.Fatalf("mixed-subject credentials should be denied: %v", err)
 	}
 }
 
