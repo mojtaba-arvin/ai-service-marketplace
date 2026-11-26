@@ -18,3 +18,14 @@ A timeout does not prove that a remote side effect failed. Payment, identity, me
 ## Verification
 
 Run go test ./internal/adapters from apps/api. The tests use deterministic local fakes and do not require credentials or network access.
+
+
+## Geocoding
+
+The `Geocoder` interface exposes a stable `AdapterID` and accepts a bounded market/locale request with a stable idempotency key. Callers must resolve that exact adapter and the `geocode` capability through the version-bound market matrix before invoking it. Results are rejected when formatted address metadata or coordinate bounds are invalid. `FakeGeocoder` provides deterministic, offline contract tests; it is not a production provider.
+
+## External identity verification
+
+`IdentityTokenVerifier` is the provider-neutral assertion boundary. `JWTIdentityVerifier` verifies configured Apple, Google, or email-provider JWTs using an injected `SigningKeyResolver`; it checks the configured issuer/audience, signature algorithm and key ID, signature, expiry, issued-at, optional not-before, nonce, and authorized party for multi-audience tokens. Email providers that do not use this JWT profile can supply a separate implementation of the same interface.
+
+The key resolver owns provider signing-key discovery and rotation. No live JWKS client, provider credentials, or network-dependent test behavior is included. Production wiring must use trusted provider-specific issuer, audience, algorithm and signing-key configuration. The identity module consumes the verified subject only after market capability checks and one-time nonce consumption. Nonce/link persistence requires the CMD-1754-owned shared tables proposed in issue #232.
