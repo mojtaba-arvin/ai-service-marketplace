@@ -310,7 +310,7 @@ func (s *EvidenceService) scan(ctx context.Context, data []byte) error {
 	}
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
-	if _, err = conn.Write([]byte("zINSTREAM\x00")); err != nil {
+	if err = writeEvidenceScanner(conn, []byte("zINSTREAM\x00")); err != nil {
 		return err
 	}
 	for offset := 0; offset < len(data); {
