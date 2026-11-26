@@ -28,6 +28,7 @@ const (
 	ActionProviderVerify    Action = "provider:verify"
 	ActionCaseRead          Action = "case:read"
 	ActionIncidentReview    Action = "incident:review"
+	ActionIncidentEvidenceManage Action = "incident:evidence:manage"
 	ActionSupportCaseRead   Action = "support:case:read"
 	ActionSupportCaseComment Action = "support:case:comment"
 	ActionLedgerPost        Action = "ledger:post"
