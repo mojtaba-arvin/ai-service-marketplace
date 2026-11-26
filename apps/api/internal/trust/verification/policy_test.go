@@ -80,6 +80,11 @@ func TestRunCheckRequiresExplicitConsentAndConfiguredAdapter(t *testing.T) {
 	if _, err := service.RunCheck(context.Background(), policy, requirement, "subject:123", "key-123", nil, now); !errors.Is(err, ErrConsentRequired) {
 		t.Fatalf("missing consent error = %v", err)
 	}
+	lateConsent := validConsent(now)
+	lateConsent.GrantedAt = now.Add(-30 * time.Minute)
+	if _, err := service.RunCheck(context.Background(), policy, requirement, "subject:123", "late-key", lateConsent, now); !errors.Is(err, ErrConsentRequired) {
+		t.Fatalf("consent granted after provider check error = %v", err)
+	}
 	delete(service.Adapters, requirement.AdapterID)
 	if _, err := service.RunCheck(context.Background(), policy, requirement, "subject:123", "key-123", validConsent(now), now); !errors.Is(err, ErrProviderUnavailable) {
 		t.Fatalf("missing adapter error = %v", err)
