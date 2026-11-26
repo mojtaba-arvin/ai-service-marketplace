@@ -129,3 +129,13 @@ These are repository capabilities, not evidence that every domain is complete or
 5. Event compatibility #110/#137: await external consumer compatibility approval; do not change event contracts without it.
 
 Independent acceptance remains `0/93`. No feature pass flag is changed by these merges.
+
+
+## Latest delivery — 2026-11-26 (TRUST-002 private evidence implementation in progress)
+
+- PR #216 merged the progress reconciliation. PR #218 merged as `4879935e770eacf6cf472267b6c5e87034f50eec`, recording ADR 0009's provider-neutral private-evidence boundary.
+- PR #219 is open with the first implementation slice: migration 035; replaceable private storage interface and self-hosted filesystem adapter; AES-256-GCM encryption with versioned key IDs; reporter upload and reporter/reviewer evidence listing and retrieval; byte/item limits, content sniffing and ClamAV scanning; append-only access audit; production configuration and OpenAPI/deployment documentation.
+- Production startup fails closed without the storage root, valid key ring, explicit allowed media types and private clamd endpoint. No public/presigned URLs or plaintext/unscanned fallback are introduced.
+- Explicit remaining work: retention expiry currently denies retrieval but does not delete bytes; legal-hold metadata has no audited operator workflow; deletion/backup-expiry coordination and tested key rotation/restore remain; independent acceptance remains pending.
+- TRUST-002 remains incomplete. ADMIN-001, Deployment/Core QA, Analytics/Support and Event Compatibility retain their existing operational/independent-acceptance gates. #110/#137 remain blocked on external consumer confirmation.
+- Independent acceptance remains `0/93`; no `passes=true` flags changed.

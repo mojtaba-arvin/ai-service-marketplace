@@ -63,7 +63,7 @@ func TestIncidentReportOrderParticipantPrivacyPostgres(t *testing.T) {
 		"005_pricing.sql", "006_provider_eligibility.sql", "015_order_schedule.sql",
 		"018_dispatch_offers.sql", "022_identity_memberships.sql",
 		"023_order_tenant_scope.sql", "031_operator_action_grants.sql",
-		"032_operator_permission_event_integrity.sql", "033_incident_report_intake.sql", "034_incident_reviewer_workflow.sql",
+		"032_operator_permission_event_integrity.sql", "033_incident_report_intake.sql", "034_incident_reviewer_workflow.sql", "035_private_incident_evidence.sql",
 	}
 	for _, name := range migrations {
 		raw, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))

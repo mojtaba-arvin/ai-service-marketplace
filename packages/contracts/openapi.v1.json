@@ -3729,6 +3729,442 @@
           }
         }
       }
+    },
+    "/v1/incidents/{report_id}/evidence": {
+      "post": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "Upload private evidence to an incident report as its original reporter",
+        "operationId": "uploadIncidentEvidence",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Evidence stored privately after content sniffing and malware scanning.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "evidence_id",
+                    "media_type",
+                    "size_bytes"
+                  ],
+                  "properties": {
+                    "evidence_id": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    },
+                    "media_type": {
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "description": "Evidence exceeds the configured byte limit."
+          },
+          "415": {
+            "description": "Sniffed media type is not allowed."
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "description": "Private storage, encryption key or malware scanner is unavailable."
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "List private evidence metadata as the original reporter",
+        "operationId": "listReporterIncidentEvidence",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized incident evidence metadata. No storage paths or URLs are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "evidence"
+                  ],
+                  "properties": {
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "evidence_id",
+                          "media_type",
+                          "size_bytes",
+                          "created_at",
+                          "legal_hold"
+                        ],
+                        "properties": {
+                          "evidence_id": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{32}$"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "retention_expires_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "legal_hold": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/incidents/{report_id}/evidence/{evidence_id}": {
+      "get": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "Download private evidence as the original incident reporter",
+        "operationId": "downloadIncidentEvidence",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Decrypted evidence bytes; response is private, no-store and nosniff.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "410": {
+            "description": "Configured retention access window has expired."
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "description": "Private storage, encryption key or malware scanner is unavailable."
+          }
+        }
+      }
+    },
+    "/v1/operator/incidents/{report_id}/evidence/{evidence_id}": {
+      "get": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "Download private evidence with an active same-tenant incident:review grant",
+        "operationId": "downloadIncidentEvidenceAsReviewer",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Decrypted evidence bytes; response is private, no-store and nosniff.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "410": {
+            "description": "Configured retention access window has expired."
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "description": "Private storage, encryption key or malware scanner is unavailable."
+          }
+        }
+      }
+    },
+    "/v1/operator/incidents/{report_id}/evidence": {
+      "get": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "List private evidence metadata with an active same-tenant incident:review grant",
+        "operationId": "listReviewerIncidentEvidence",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized incident evidence metadata. No storage paths or URLs are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "evidence"
+                  ],
+                  "properties": {
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "evidence_id",
+                          "media_type",
+                          "size_bytes",
+                          "created_at",
+                          "legal_hold"
+                        ],
+                        "properties": {
+                          "evidence_id": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{32}$"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "retention_expires_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "legal_hold": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
