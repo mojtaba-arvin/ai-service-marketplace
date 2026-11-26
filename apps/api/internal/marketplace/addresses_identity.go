@@ -80,18 +80,18 @@ func (s *Store) LinkExternalIdentity(ctx context.Context, actor Actor, matrix *m
 
 // ResolveExternalIdentity resolves only an existing provider link. It never
 // creates a phone identity or links accounts based on matching email claims.
-func (s *Store) ResolveExternalIdentity(ctx context.Context, matrix *marketconfig.Matrix, marketID, locale string, verifier adapters.IdentityTokenVerifier, nonceStore IdentityNonceStore, token string) (string,error) {
-	if matrix==nil||verifier==nil||nonceStore==nil{return "",ErrExternalIdentityInvalid}
-	assertion,err:=verifier.Verify(token);if err!=nil{return "",ErrExternalIdentityInvalid}
-	if err=validateExternalAssertion(assertion,time.Now());err!=nil{return "",err}
-	if err=matrix.Require(marketID,locale,"identity."+string(assertion.Provider),"login");err!=nil{return "",err}
-	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return "",err};defer tx.Rollback(ctx)
-	var identityID string
-	err=tx.QueryRow(ctx,`SELECT phone_identity_id FROM external_identity_links WHERE provider=$1 AND provider_subject=$2 FOR UPDATE`,string(assertion.Provider),assertion.Subject).Scan(&identityID)
-	if errors.Is(err,pgx.ErrNoRows){return "",ErrExternalIdentityNotFound};if err!=nil{return "",err}
-	if err=nonceStore.Consume(ctx,tx,"",string(assertion.Provider),assertion.Nonce,assertion.ExpiresAt);err!=nil{return "",err}
-	if err=tx.Commit(ctx);err!=nil{return "",err}
-	return identityID,nil
+func (s *Store) ResolveExternalIdentity(ctx context.Context, matrix *marketconfig.Matrix, marketID, locale string, verifier adapters.IdentityTokenVerifier, nonceStore IdentityNonceStore, token string) (VerifiedIdentity,error) {
+	if matrix==nil||verifier==nil||nonceStore==nil{return VerifiedIdentity{},ErrExternalIdentityInvalid}
+	assertion,err:=verifier.Verify(token);if err!=nil{return VerifiedIdentity{},ErrExternalIdentityInvalid}
+	if err=validateExternalAssertion(assertion,time.Now());err!=nil{return VerifiedIdentity{},err}
+	if err=matrix.Require(marketID,locale,"identity."+string(assertion.Provider),"login");err!=nil{return VerifiedIdentity{},err}
+	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return VerifiedIdentity{},err};defer tx.Rollback(ctx)
+	var identityID,phone string
+	err=tx.QueryRow(ctx,`SELECT p.id,p.phone_e164 FROM external_identity_links l JOIN phone_identities p ON p.id=l.phone_identity_id WHERE l.provider=$1 AND l.provider_subject=$2 FOR UPDATE OF l,p`,string(assertion.Provider),assertion.Subject).Scan(&identityID,&phone)
+	if errors.Is(err,pgx.ErrNoRows){return VerifiedIdentity{},ErrExternalIdentityNotFound};if err!=nil{return VerifiedIdentity{},err}
+	if err=nonceStore.Consume(ctx,tx,"",string(assertion.Provider),assertion.Nonce,assertion.ExpiresAt);err!=nil{return VerifiedIdentity{},err}
+	if err=tx.Commit(ctx);err!=nil{return VerifiedIdentity{},err}
+	return VerifiedIdentity{phone:phone},nil
 }
 
 
