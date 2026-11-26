@@ -591,7 +591,7 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 		WHERE id=$1 AND tenant_id=$2 FOR UPDATE
 	`, reportID, actor.TenantID).Scan(&currentStatus, &currentReporter); err != nil ||
 		currentReporter != actor.SubjectID || (currentStatus != "submitted" && currentStatus != "triaged" && currentStatus != "investigating") {
-		h.Evidence.remove(id)
+		h.Evidence.remove(r.Context(), id)
 		h.evidenceDenied(w, r.Context(), actor.TenantID, reportID, id, actor.SubjectID, "upload", "unauthorized", http.StatusConflict)
 		return
 	}
@@ -603,7 +603,7 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 		WHERE r.id=$1 AND r.tenant_id=$2
 		GROUP BY r.id,r.evidence_refs
 	`, reportID, actor.TenantID).Scan(&count); err != nil || count >= h.Evidence.MaxPerReport {
-		h.Evidence.remove(id)
+		h.Evidence.remove(r.Context(), id)
 		h.evidenceDenied(w, r.Context(), actor.TenantID, reportID, id, actor.SubjectID, "upload", "limit_reached", http.StatusConflict)
 		return
 	}
@@ -617,7 +617,7 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 		VALUES($1,$2,$3,$4,$5,$6,$7)
 	`, id, reportID, actor.TenantID, actor.SubjectID, mediaType, len(body), retentionUntil)
 	if err != nil || tag.RowsAffected() != 1 {
-		h.Evidence.remove(id)
+		h.Evidence.remove(r.Context(), id)
 		h.evidenceDenied(w, r.Context(), actor.TenantID, reportID, id, actor.SubjectID, "upload", "storage_failure", http.StatusConflict)
 		return
 	}
@@ -627,7 +627,7 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 		VALUES($1,$2,$3,$4,'upload','success','accepted')
 	`, actor.TenantID, reportID, id, actor.SubjectID)
 	if auditErr != nil || auditTag.RowsAffected() != 1 {
-		h.Evidence.remove(id)
+		h.Evidence.remove(r.Context(), id)
 		writeError(w, http.StatusInternalServerError, "evidence access audit unavailable")
 		return
 	}
