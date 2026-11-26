@@ -124,6 +124,21 @@ func lockCategoryHierarchy(ctx context.Context, tx pgx.Tx) error {
 	return err
 }
 
+func categoryHierarchyEnabledTx(ctx context.Context, tx pgx.Tx, id string) (bool, error) {
+	var exists, enabled bool
+	err := tx.QueryRow(ctx, `
+		WITH RECURSIVE ancestors AS (
+			SELECT id,parent_id,enabled FROM service_categories WHERE id=$1
+			UNION ALL
+			SELECT c.id,c.parent_id,c.enabled FROM service_categories c JOIN ancestors a ON c.id=a.parent_id
+		)
+		SELECT COUNT(*) > 0, COALESCE(bool_and(enabled),false) FROM ancestors
+	`, id).Scan(&exists, &enabled)
+	if err != nil { return false, err }
+	if !exists { return false, ErrCategoryNotFound }
+	return enabled, nil
+}
+
 // CreateCategoryForActor is the authorized application boundary for category
 // creation. The low-level CreateCategory helper is retained for trusted
 // internal setup and must not be exposed directly by HTTP handlers.
@@ -141,16 +156,8 @@ func (s *Store) CreateCategoryForActor(ctx context.Context, actor Actor, parentI
 	}
 	if err = lockCategoryHierarchy(ctx, tx); err != nil { return ServiceCategory{}, err }
 	if parentID != nil {
-		var enabled bool
-		err = tx.QueryRow(ctx, `
-			WITH RECURSIVE ancestors AS (
-				SELECT id,parent_id,enabled FROM service_categories WHERE id=$1
-				UNION ALL
-				SELECT c.id,c.parent_id,c.enabled FROM service_categories c JOIN ancestors a ON c.id=a.parent_id
-			)
-			SELECT COALESCE(bool_and(enabled),false) FROM ancestors
-		`, *parentID).Scan(&enabled)
-		if err != nil { return ServiceCategory{}, err }
+		enabled, checkErr := categoryHierarchyEnabledTx(ctx, tx, *parentID)
+		if checkErr != nil { return ServiceCategory{}, checkErr }
 		if !enabled { return ServiceCategory{}, ErrCategoryDisabled }
 	}
 	id, err := newID()
@@ -179,16 +186,8 @@ func (s *Store) MoveCategoryForActor(ctx context.Context, actor Actor, id string
 	}
 	if err = lockCategoryHierarchy(ctx, tx); err != nil { return err }
 	if parentID != nil {
-		var enabled bool
-		err = tx.QueryRow(ctx, `
-			WITH RECURSIVE ancestors AS (
-				SELECT id,parent_id,enabled FROM service_categories WHERE id=$1
-				UNION ALL
-				SELECT c.id,c.parent_id,c.enabled FROM service_categories c JOIN ancestors a ON c.id=a.parent_id
-			)
-			SELECT COALESCE(bool_and(enabled),false) FROM ancestors
-		`, *parentID).Scan(&enabled)
-		if err != nil { return err }
+		enabled, checkErr := categoryHierarchyEnabledTx(ctx, tx, *parentID)
+		if checkErr != nil { return checkErr }
 		if !enabled { return ErrCategoryDisabled }
 	}
 	tag, err := tx.Exec(ctx, `UPDATE service_categories SET parent_id=$2,updated_at=now() WHERE id=$1`, id, parentID)
@@ -217,16 +216,8 @@ func (s *Store) SetCategoryEnabledForActor(ctx context.Context, actor Actor, id 
 		if errors.Is(err, pgx.ErrNoRows) { return ErrCategoryNotFound }
 		if err != nil { return err }
 		if parentID != nil {
-			var parentEnabled bool
-			err = tx.QueryRow(ctx, `
-				WITH RECURSIVE ancestors AS (
-					SELECT id,parent_id,enabled FROM service_categories WHERE id=$1
-					UNION ALL
-					SELECT c.id,c.parent_id,c.enabled FROM service_categories c JOIN ancestors a ON c.id=a.parent_id
-				)
-				SELECT COALESCE(bool_and(enabled),false) FROM ancestors
-			`, *parentID).Scan(&parentEnabled)
-			if err != nil { return err }
+			parentEnabled, checkErr := categoryHierarchyEnabledTx(ctx, tx, *parentID)
+			if checkErr != nil { return checkErr }
 			if !parentEnabled { return ErrCategoryDisabled }
 		}
 	}
