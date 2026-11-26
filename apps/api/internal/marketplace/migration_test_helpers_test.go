@@ -52,9 +52,11 @@ func ensureTestOperatorGrants(ctx context.Context, pool *pgxpool.Pool, actor Act
 	var reviewerWorkflowInstalled bool
 	if err := pool.QueryRow(ctx, `
 		SELECT EXISTS (
-			SELECT 1 FROM pg_proc
-			WHERE proname='guard_incident_report_identity'
-			  AND pg_get_functiondef(oid) LIKE '%matching same-transaction audit event%'
+			SELECT 1 FROM pg_proc p
+			JOIN pg_namespace n ON n.oid=p.pronamespace
+			WHERE n.nspname=current_schema()
+			  AND p.proname='guard_incident_report_identity'
+			  AND pg_get_functiondef(p.oid) LIKE '%matching same-transaction audit event%'
 		)
 	`).Scan(&reviewerWorkflowInstalled); err != nil {
 		return fmt.Errorf("inspect incident reviewer workflow: %w", err)
