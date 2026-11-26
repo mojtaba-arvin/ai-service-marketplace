@@ -254,6 +254,17 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 		handler.ServeHTTP(rec, req)
 		return rec
 	}
+	otherTenantHandler := &Handler{Store: store, Evidence: service, SessionPepper: pepper, DefaultTenantID: otherTenant}
+	callOtherTenant := func(method, path, token string, body []byte) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(method, path, bytes.NewReader(body))
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		rec := httptest.NewRecorder()
+		otherTenantHandler.ServeHTTP(rec, req)
+		return rec
+	}
 	pdf := []byte("%PDF-1.7\nprivate incident evidence")
 
 	upload := call(http.MethodPost, "/v1/incidents/"+report.ID+"/evidence", customerToken, pdf)
@@ -307,7 +318,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	if denied := call(http.MethodGet, "/v1/incidents/"+otherReport.ID+"/evidence", customerToken, nil); denied.Code != http.StatusForbidden {
 		t.Fatalf("cross-tenant reporter must be denied, got %d: %s", denied.Code, denied.Body.String())
 	}
-	if visible := call(http.MethodGet, "/v1/incidents/"+otherReport.ID+"/evidence", otherCustomerToken, nil); visible.Code != http.StatusOK {
+	if visible := callOtherTenant(http.MethodGet, "/v1/incidents/"+otherReport.ID+"/evidence", otherCustomerToken, nil); visible.Code != http.StatusOK {
 		t.Fatalf("other tenant's own reporter must retain access, got %d: %s", visible.Code, visible.Body.String())
 	}
 
