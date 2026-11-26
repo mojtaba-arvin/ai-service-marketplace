@@ -3826,6 +3826,99 @@
             "description": "Private storage, encryption key or malware scanner is unavailable."
           }
         }
+      },
+      "get": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "List private evidence metadata as the original reporter",
+        "operationId": "listReporterIncidentEvidence",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized incident evidence metadata. No storage paths or URLs are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "evidence"
+                  ],
+                  "properties": {
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "evidence_id",
+                          "media_type",
+                          "size_bytes",
+                          "created_at",
+                          "legal_hold"
+                        ],
+                        "properties": {
+                          "evidence_id": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{32}$"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "retention_expires_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "legal_hold": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
       }
     },
     "/v1/incidents/{report_id}/evidence/{evidence_id}": {
@@ -3974,6 +4067,101 @@
           },
           "503": {
             "description": "Private storage, encryption key or malware scanner is unavailable."
+          }
+        }
+      }
+    },
+    "/v1/operator/incidents/{report_id}/evidence": {
+      "get": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "List private evidence metadata with an active same-tenant incident:review grant",
+        "operationId": "listReviewerIncidentEvidence",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized incident evidence metadata. No storage paths or URLs are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "evidence"
+                  ],
+                  "properties": {
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "evidence_id",
+                          "media_type",
+                          "size_bytes",
+                          "created_at",
+                          "legal_hold"
+                        ],
+                        "properties": {
+                          "evidence_id": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{32}$"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "retention_expires_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "legal_hold": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           }
         }
       }
