@@ -34,6 +34,10 @@ func TestProfessionalVerificationCasePostgres(t *testing.T){
  hidden,err:=store.GetProfessionalVerificationCase(ctx,professional,created.ID);if err!=nil{t.Fatal(err)}
  if hidden.EvidenceRef!=""{t.Fatal("subject must not receive private evidence reference")}
  if _,err=store.ReviewProfessionalVerificationCase(ctx,professional,created.ID,"approved","self review");!errors.Is(err,ErrForbidden){t.Fatalf("self review should be forbidden: %v",err)}
+ inReview,err:=store.StartProfessionalVerificationReview(ctx,operator,created.ID,"Review started")
+ if err!=nil{t.Fatal(err)}
+ if inReview.Status!="in_review"{t.Fatalf("case did not enter review: %+v",inReview)}
+ if _,err=store.StartProfessionalVerificationReview(ctx,operator,created.ID,"Duplicate review");!errors.Is(err,ErrVerificationState){t.Fatalf("duplicate review transition: %v",err)}
  approved,err:=store.ReviewProfessionalVerificationCase(ctx,operator,created.ID,"approved","Documents reviewed")
  if err!=nil{t.Fatal(err)}
  if approved.Status!="approved"||approved.ReviewerIdentityID==nil||approved.DecidedAt==nil{t.Fatalf("unexpected decision: %+v",approved)}
@@ -42,6 +46,9 @@ func TestProfessionalVerificationCasePostgres(t *testing.T){
  var verified bool
  if err=pool.QueryRow(ctx,`SELECT verified_at IS NOT NULL FROM provider_profiles WHERE id=$1`,providerID).Scan(&verified);err!=nil{t.Fatal(err)}
  if !verified{t.Fatal("approval did not verify provider")}
+ var fromStatus,toStatus string
+ if err=pool.QueryRow(ctx,`SELECT from_status,to_status FROM professional_verification_events WHERE case_id=$1 ORDER BY id DESC LIMIT 1`,created.ID).Scan(&fromStatus,&toStatus);err!=nil{t.Fatal(err)}
+ if fromStatus!="in_review"||toStatus!="approved"{t.Fatalf("review audit transition = %s -> %s",fromStatus,toStatus)}
  otherTenant:=Actor{SubjectID:newTestIdentity(t,ctx,pool),TenantID:"other-tenant",Role:RoleOperator}
  if _,err=store.GetProfessionalVerificationCase(ctx,otherTenant,created.ID);!errors.Is(err,ErrForbidden){t.Fatalf("cross-tenant read: %v",err)}
 }
