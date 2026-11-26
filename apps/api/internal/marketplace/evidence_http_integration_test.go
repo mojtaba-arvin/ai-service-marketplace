@@ -175,9 +175,29 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	if err = ensureTestOperatorGrants(ctx, pool, reviewer, ActionIncidentReview); err != nil {
 		t.Fatal(err)
 	}
-	if err = ensureTestOperatorGrants(ctx, pool, manager, ActionIncidentEvidenceManage); err != nil {
-		t.Fatal(err)
+	grantAction := func(actor Actor, action Action) {
+		t.Helper()
+		grantID, grantErr := newID()
+		if grantErr != nil {
+			t.Fatal(grantErr)
+		}
+		if _, grantErr = pool.Exec(ctx, `
+			INSERT INTO operator_action_grants
+				(id,identity_id,tenant_id,action,granted_by_kind,grant_reason)
+			VALUES($1,$2,$3,$4,'system_bootstrap','Explicit integration-test fixture grant')
+		`, grantID, actor.SubjectID, actor.TenantID, string(action)); grantErr != nil {
+			t.Fatal(grantErr)
+		}
+		if _, grantErr = pool.Exec(ctx, `
+			INSERT INTO operator_permission_events
+				(grant_id,tenant_id,identity_id,action,event_type,actor_kind,reason,after_state)
+			VALUES($1,$2,$3,$4,'granted','system_bootstrap',
+				'Explicit integration-test fixture grant','{"active":true}'::jsonb)
+		`, grantID, actor.TenantID, actor.SubjectID, string(action)); grantErr != nil {
+			t.Fatal(grantErr)
+		}
 	}
+	grantAction(manager, ActionIncidentEvidenceManage)
 	report, err := store.CreateIncidentReport(ctx, customer, IncidentReportInput{
 		OrderID: orderID, Category: "safety_concern",
 		Narrative: "A sharp object was left in the customer service area.",
@@ -221,12 +241,8 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err = ensureTestOperatorGrants(ctx, pool, otherReviewer, ActionIncidentReview); err != nil {
-		t.Fatal(err)
-	}
-	if err = ensureTestOperatorGrants(ctx, pool, otherManager, ActionIncidentEvidenceManage); err != nil {
-		t.Fatal(err)
-	}
+	grantAction(otherReviewer, ActionIncidentReview)
+	grantAction(otherManager, ActionIncidentEvidenceManage)
 	otherCustomerID, otherCustomerPhone := newEvidenceHTTPIdentity(t, ctx, pool)
 	if _, err = pool.Exec(ctx, `
 		INSERT INTO identity_memberships(id,identity_id,tenant_id,role)
