@@ -194,6 +194,46 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	reviewerToken := issueToken(reviewerPhone)
 	supportToken := issueToken(supportPhone)
 
+	unprivilegedID, unprivilegedPhone := newEvidenceHTTPIdentity(t, ctx, pool)
+	if _, err = pool.Exec(ctx, `
+		INSERT INTO identity_memberships(id,identity_id,tenant_id,role)
+		VALUES($1,$2,$3,'operator')
+	`, "membership-"+unprivilegedID, unprivilegedID, tenantID); err != nil {
+		t.Fatal(err)
+	}
+	otherTenant := "evidence-http-other-tenant-" + newTestID(t)
+	otherReviewerID, otherReviewerPhone := newEvidenceHTTPIdentity(t, ctx, pool)
+	otherReviewer := Actor{SubjectID: otherReviewerID, TenantID: otherTenant, Role: RoleOperator}
+	if err = ensureTestOperatorGrants(ctx, pool, otherReviewer, ActionIncidentReview); err != nil {
+		t.Fatal(err)
+	}
+	otherCustomerID, otherCustomerPhone := newEvidenceHTTPIdentity(t, ctx, pool)
+	if _, err = pool.Exec(ctx, `
+		INSERT INTO identity_memberships(id,identity_id,tenant_id,role)
+		VALUES($1,$2,$3,'customer')
+	`, "membership-"+otherCustomerID, otherCustomerID, otherTenant); err != nil {
+		t.Fatal(err)
+	}
+	otherOrderID := "order-" + newTestID(t)
+	if _, err = pool.Exec(ctx, `
+		INSERT INTO orders(id,customer_id,idempotency_key,amount_minor,currency,status,tenant_id)
+		VALUES($1,$2,$3,1000,'OMR','requested',$4)
+	`, otherOrderID, otherCustomerID, "evidence-http-"+newTestID(t), otherTenant); err != nil {
+		t.Fatal(err)
+	}
+	otherReport, err := store.CreateIncidentReport(ctx, Actor{
+		SubjectID: otherCustomerID, TenantID: otherTenant, Role: RoleCustomer,
+	}, IncidentReportInput{
+		OrderID: otherOrderID, Category: "safety_concern",
+		Narrative: "A separate tenant incident used to verify isolation.",
+	})
+	if err != nil {
+		t.Fatalf("create cross-tenant incident report: %v", err)
+	}
+	unprivilegedToken := issueToken(unprivilegedPhone)
+	otherReviewerToken := issueToken(otherReviewerPhone)
+	otherCustomerToken := issueToken(otherCustomerPhone)
+
 	storage := &integrationEvidenceStorage{objects: make(map[string][]byte)}
 	scanner := &integrationEvidenceScanner{}
 	service := &EvidenceService{
@@ -258,6 +298,18 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	if denied := call(http.MethodGet, "/v1/operator/incidents/"+report.ID+"/evidence", supportToken, nil); denied.Code != http.StatusForbidden {
 		t.Fatalf("support role alone must be denied, got %d: %s", denied.Code, denied.Body.String())
 	}
+	if denied := call(http.MethodGet, "/v1/operator/incidents/"+report.ID+"/evidence", unprivilegedToken, nil); denied.Code != http.StatusForbidden {
+		t.Fatalf("operator without incident:review grant must be denied, got %d: %s", denied.Code, denied.Body.String())
+	}
+	if denied := call(http.MethodGet, "/v1/operator/incidents/"+report.ID+"/evidence", otherReviewerToken, nil); denied.Code != http.StatusForbidden {
+		t.Fatalf("cross-tenant reviewer must be denied, got %d: %s", denied.Code, denied.Body.String())
+	}
+	if denied := call(http.MethodGet, "/v1/incidents/"+otherReport.ID+"/evidence", customerToken, nil); denied.Code != http.StatusForbidden {
+		t.Fatalf("cross-tenant reporter must be denied, got %d: %s", denied.Code, denied.Body.String())
+	}
+	if visible := call(http.MethodGet, "/v1/incidents/"+otherReport.ID+"/evidence", otherCustomerToken, nil); visible.Code != http.StatusOK {
+		t.Fatalf("other tenant's own reporter must retain access, got %d: %s", visible.Code, visible.Body.String())
+	}
 
 	// Scanner errors are fail-closed and separately classified in the audit log.
 	scanner.err = errors.New("clamd connection unavailable")
@@ -299,7 +351,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if successUploads != 1 || successDownloads != 2 || deniedUploads != 3 || deniedDownloads != 1 || deniedLists != 2 {
+	if successUploads != 1 || successDownloads != 2 || deniedUploads != 3 || deniedDownloads != 1 || deniedLists != 5 {
 		t.Fatalf("unexpected evidence audit totals: uploads=%d downloads=%d denied_uploads=%d denied_downloads=%d denied_lists=%d",
 			successUploads, successDownloads, deniedUploads, deniedDownloads, deniedLists)
 	}
