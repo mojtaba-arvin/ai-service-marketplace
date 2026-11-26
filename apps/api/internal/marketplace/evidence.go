@@ -35,8 +35,17 @@ type FilesystemEvidenceStorage struct {
 	Root string
 }
 
+type EvidenceScanner interface {
+	Scan(context.Context, []byte) error
+}
+
+type ClamAVScanner struct {
+	Address string
+}
+
 type EvidenceService struct {
 	Storage          PrivateEvidenceStorage
+	Scanner          EvidenceScanner
 	Keys             map[string][]byte
 	ActiveKeyID      string
 	MaxBytes         int64
@@ -124,7 +133,7 @@ func NewEvidenceServiceFromEnv() (*EvidenceService, error) {
 		return nil, err
 	}
 	service := &EvidenceService{
-		Storage: storage, Keys: keys, ActiveKeyID: keyID, MaxBytes: maxBytes,
+		Storage: storage, Scanner: ClamAVScanner{Address: scanner}, Keys: keys, ActiveKeyID: keyID, MaxBytes: maxBytes,
 		MaxPerReport: maxItems, AllowedMediaType: allowed,
 		RetentionDays: retentionDays, ScannerAddress: scanner,
 	}
@@ -303,8 +312,15 @@ func writeEvidenceScanner(conn net.Conn, data []byte) error {
 // scan uses ClamAV's clamd INSTREAM protocol. It deliberately has no permissive
 // fallback: timeout, connection failure, malformed response or FOUND rejects upload.
 func (s *EvidenceService) scan(ctx context.Context, data []byte) error {
+	if s == nil || s.Scanner == nil {
+		return ErrEvidenceUnavailable
+	}
+	return s.Scanner.Scan(ctx, data)
+}
+
+func (s ClamAVScanner) Scan(ctx context.Context, data []byte) error {
 	dialer := net.Dialer{Timeout: 3 * time.Second}
-	conn, err := dialer.DialContext(ctx, "tcp", s.ScannerAddress)
+	conn, err := dialer.DialContext(ctx, "tcp", s.Address)
 	if err != nil {
 		return fmt.Errorf("connect to malware scanner: %w", err)
 	}
