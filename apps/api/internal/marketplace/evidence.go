@@ -25,8 +25,18 @@ import (
 
 var ErrEvidenceUnavailable = errors.New("incident evidence service unavailable")
 
+type PrivateEvidenceStorage interface {
+	Put(context.Context, string, []byte) error
+	Get(context.Context, string, int64) ([]byte, error)
+	Delete(context.Context, string) error
+}
+
+type FilesystemEvidenceStorage struct {
+	Root string
+}
+
 type EvidenceService struct {
-	Root             string
+	Storage          PrivateEvidenceStorage
 	Keys             map[string][]byte
 	ActiveKeyID      string
 	MaxBytes         int64
@@ -109,18 +119,19 @@ func NewEvidenceServiceFromEnv() (*EvidenceService, error) {
 	if _, _, err := net.SplitHostPort(scanner); err != nil {
 		return nil, errors.New("EVIDENCE_CLAMD_ADDRESS must be a private clamd host:port")
 	}
+	storage := &FilesystemEvidenceStorage{Root: root}
+	if err := storage.ensurePrivateRoot(); err != nil {
+		return nil, err
+	}
 	service := &EvidenceService{
-		Root: root, Keys: keys, ActiveKeyID: keyID, MaxBytes: maxBytes,
+		Storage: storage, Keys: keys, ActiveKeyID: keyID, MaxBytes: maxBytes,
 		MaxPerReport: maxItems, AllowedMediaType: allowed,
 		RetentionDays: retentionDays, ScannerAddress: scanner,
-	}
-	if err := service.ensurePrivateRoot(); err != nil {
-		return nil, err
 	}
 	return service, nil
 }
 
-func (s *EvidenceService) ensurePrivateRoot() error {
+func (s *FilesystemEvidenceStorage) ensurePrivateRoot() error {
 	if s == nil || s.Root == "" {
 		return ErrEvidenceUnavailable
 	}
@@ -140,7 +151,7 @@ func (s *EvidenceService) ensurePrivateRoot() error {
 	return nil
 }
 
-func (s *EvidenceService) objectPath(id string) (string, error) {
+func (s *FilesystemEvidenceStorage) objectPath(id string) (string, error) {
 	if len(id) != 32 {
 		return "", errors.New("invalid evidence identifier")
 	}
@@ -150,7 +161,7 @@ func (s *EvidenceService) objectPath(id string) (string, error) {
 	return filepath.Join(s.Root, id+".enc"), nil
 }
 
-func (s *EvidenceService) put(id string, data []byte) error {
+func (s *FilesystemEvidenceStorage) Put(ctx context.Context, id string, data []byte) error {
 	path, err := s.objectPath(id)
 	if err != nil {
 		return err
@@ -177,7 +188,7 @@ func (s *EvidenceService) put(id string, data []byte) error {
 	return nil
 }
 
-func (s *EvidenceService) get(id string) ([]byte, error) {
+func (s *FilesystemEvidenceStorage) Get(ctx context.Context, id string, maxBytes int64) ([]byte, error) {
 	path, err := s.objectPath(id)
 	if err != nil {
 		return nil, err
@@ -187,13 +198,34 @@ func (s *EvidenceService) get(id string) ([]byte, error) {
 		return nil, err
 	}
 	defer file.Close()
-	return io.ReadAll(io.LimitReader(file, s.MaxBytes+4096))
+	return io.ReadAll(io.LimitReader(file, maxBytes+4096))
 }
 
-func (s *EvidenceService) remove(id string) {
+func (s *FilesystemEvidenceStorage) Delete(ctx context.Context, id string) error {
 	path, err := s.objectPath(id)
-	if err == nil {
-		_ = os.Remove(path)
+	if err != nil {
+		return err
+	}
+	return os.Remove(path)
+}
+
+func (s *EvidenceService) put(ctx context.Context, id string, data []byte) error {
+	if s == nil || s.Storage == nil {
+		return ErrEvidenceUnavailable
+	}
+	return s.Storage.Put(ctx, id, data)
+}
+
+func (s *EvidenceService) get(ctx context.Context, id string) ([]byte, error) {
+	if s == nil || s.Storage == nil {
+		return nil, ErrEvidenceUnavailable
+	}
+	return s.Storage.Get(ctx, id, s.MaxBytes)
+}
+
+func (s *EvidenceService) remove(ctx context.Context, id string) {
+	if s != nil && s.Storage != nil {
+		_ = s.Storage.Delete(ctx, id)
 	}
 }
 
@@ -410,13 +442,13 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 		h.evidenceDenied(w, r.Context(), actor.TenantID, reportID, id, actor.SubjectID, "upload", "key_failure", http.StatusServiceUnavailable)
 		return
 	}
-	if err = h.Evidence.put(id, encrypted); err != nil {
+	if err = h.Evidence.put(r.Context(), id, encrypted); err != nil {
 		h.evidenceDenied(w, r.Context(), actor.TenantID, reportID, id, actor.SubjectID, "upload", "storage_failure", http.StatusServiceUnavailable)
 		return
 	}
 	tx, err := h.Store.DB.BeginTx(r.Context(), pgx.TxOptions{})
 	if err != nil {
-		h.Evidence.remove(id)
+		h.Evidence.remove(r.Context(), id)
 		writeError(w, http.StatusInternalServerError, "could not persist evidence metadata")
 		return
 	}
@@ -553,7 +585,7 @@ func (h *Handler) downloadIncidentEvidence(w http.ResponseWriter, r *http.Reques
 		h.evidenceDenied(w, r.Context(), tenantID, reportID, evidenceID, principal.IdentityID, "download", "retention_expired", http.StatusGone)
 		return
 	}
-	encrypted, err := h.Evidence.get(evidenceID)
+	encrypted, err := h.Evidence.get(r.Context(), evidenceID)
 	if err != nil {
 		_ = tx.Rollback(r.Context())
 		h.evidenceDenied(w, r.Context(), tenantID, reportID, evidenceID, principal.IdentityID, "download", "storage_failure", http.StatusNotFound)
