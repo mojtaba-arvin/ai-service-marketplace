@@ -228,6 +228,9 @@ func (s Service) RunCheck(ctx context.Context, policy Policy, requirement Requir
 	if err != nil {
 		return Credential{}, err
 	}
+	if requirement.ConsentMode == ConsentRequired && consent.GrantedAt.After(result.CheckedAt) {
+		return Credential{}, ErrConsentRequired
+	}
 	if !validProviderResult(result, now) {
 		return Credential{}, ErrInvalidProviderResult
 	}
