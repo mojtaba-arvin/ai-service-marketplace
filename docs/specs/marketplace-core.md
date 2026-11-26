@@ -65,6 +65,10 @@ The customer can approve a professional-completed order through `POST /v1/orders
 - DISP-006 ranks only candidates that have passed deterministic eligibility gates and records ranking/fairness inputs for audit.
 
 
+## Catalog market visibility and localization
+
+Market visibility is inherited through the full category ancestry. A category is resolvable or listable only when the category and every ancestor are enabled and explicitly visible in the selected market. A visible child beneath a hidden or unconfigured ancestor is not independently discoverable. Locale resolution uses the requested locale only when it is configured for the market; otherwise it falls back to that market's configured default locale. Category visibility and translations are managed through the platform catalog-management authorization boundary. Public route and OpenAPI integration remains owned by CMD-1754.
+
 ## Invariants
 
 1. Disabled categories and market-invisible services cannot receive new orders.
