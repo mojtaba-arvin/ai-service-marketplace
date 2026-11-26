@@ -213,6 +213,14 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	otherManagerID, otherManagerPhone := newEvidenceHTTPIdentity(t, ctx, pool)
 	otherReviewer := Actor{SubjectID: otherReviewerID, TenantID: otherTenant, Role: RoleOperator}
 	otherManager := Actor{SubjectID: otherManagerID, TenantID: otherTenant, Role: RoleOperator}
+	for _, identityID := range []string{otherReviewerID, otherManagerID} {
+		if _, err = pool.Exec(ctx, `
+			INSERT INTO identity_memberships(id,identity_id,tenant_id,role)
+			VALUES($1,$2,$3,'operator')
+		`, "membership-"+identityID, identityID, otherTenant); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err = ensureTestOperatorGrants(ctx, pool, otherReviewer, ActionIncidentReview); err != nil {
 		t.Fatal(err)
 	}
