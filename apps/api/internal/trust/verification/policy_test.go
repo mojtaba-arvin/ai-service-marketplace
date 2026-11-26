@@ -121,6 +121,11 @@ func TestAdverseResultRequiresHumanReviewAndBlocksDispatch(t *testing.T) {
 	if err := EvaluateDispatch(policy, []Credential{approved}, now); err != nil {
 		t.Fatalf("approved credential should be dispatchable: %v", err)
 	}
+	missingReviewer := approved
+	missingReviewer.ReviewerRef = ""
+	if err := EvaluateDispatch(policy, []Credential{missingReviewer}, now); !errors.Is(err, ErrCredentialNotDispatchable) {
+		t.Fatalf("adverse result without reviewer provenance should be denied: %v", err)
+	}
 	secondRequirement := Requirement{CheckID: "safety_check", AdapterID: "screening", Capability: "identity_check", ConsentMode: ConsentNotRequired, RecheckAfter: 30 * 24 * time.Hour}
 	policy.Requirements = append(policy.Requirements, secondRequirement)
 	mixedSubject := approved
@@ -194,6 +199,11 @@ func TestFailedProviderResultRequiresAuthorizedReview(t *testing.T) {
 	}
 	if err := EvaluateDispatch(policy, []Credential{approved}, now); err != nil {
 		t.Fatalf("reviewed credential should be dispatchable: %v", err)
+	}
+	missingReviewer := approved
+	missingReviewer.ReviewerRef = ""
+	if err := EvaluateDispatch(policy, []Credential{missingReviewer}, now); !errors.Is(err, ErrCredentialNotDispatchable) {
+		t.Fatalf("failed result without reviewer provenance should be denied: %v", err)
 	}
 }
 
