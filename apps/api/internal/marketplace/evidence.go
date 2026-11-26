@@ -7,6 +7,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -161,10 +162,14 @@ func (s *FilesystemEvidenceStorage) objectPath(id string) (string, error) {
 	if len(id) != 32 {
 		return "", errors.New("invalid evidence identifier")
 	}
-	if _, err := hex.DecodeString(id); err != nil {
+	rawID, err := hex.DecodeString(id)
+	if err != nil {
 		return "", errors.New("invalid evidence identifier")
 	}
-	return filepath.Join(s.Root, id+".enc"), nil
+	// Hash the validated opaque identifier before using it in a filesystem path.
+	// This makes the path component fixed-length and independent of caller input.
+	digest := sha256.Sum256(rawID)
+	return filepath.Join(s.Root, hex.EncodeToString(digest[:])+".enc"), nil
 }
 
 func (s *FilesystemEvidenceStorage) Put(ctx context.Context, id string, data []byte) error {
