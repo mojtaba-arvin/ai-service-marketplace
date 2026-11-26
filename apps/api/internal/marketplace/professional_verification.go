@@ -62,6 +62,74 @@ func (s *Store) CreateProfessionalVerificationCase(ctx context.Context,actor Act
  return result,nil
 }
 
+
+func (s *Store) StartProfessionalVerificationReview(ctx context.Context, actor Actor, caseID, reason string) (ProfessionalVerificationCase, error) {
+	if actor.Role != RoleOperator || actor.SubjectID == "" || actor.TenantID == "" {
+		return ProfessionalVerificationCase{}, ErrForbidden
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" || len(reason) > 1000 {
+		return ProfessionalVerificationCase{}, ErrVerificationState
+	}
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return ProfessionalVerificationCase{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	var result ProfessionalVerificationCase
+	var tenantID string
+	err = tx.QueryRow(ctx, `
+		SELECT c.id,c.provider_id,c.subject_identity_id,c.status,c.evidence_ref,
+			c.created_at,c.updated_at,p.tenant_id
+		FROM professional_verification_cases c
+		JOIN provider_profiles p ON p.id=c.provider_id
+		WHERE c.id=$1
+		FOR UPDATE OF c,p
+	`, caseID).Scan(
+		&result.ID, &result.ProviderID, &result.SubjectIdentityID, &result.Status,
+		&result.EvidenceRef, &result.CreatedAt, &result.UpdatedAt, &tenantID,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ProfessionalVerificationCase{}, ErrVerificationCaseNotFound
+	}
+	if err != nil {
+		return ProfessionalVerificationCase{}, err
+	}
+	if tenantID != actor.TenantID || result.SubjectIdentityID == actor.SubjectID {
+		return ProfessionalVerificationCase{}, ErrForbidden
+	}
+	if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: tenantID}, ActionProviderVerify); err != nil {
+		return ProfessionalVerificationCase{}, err
+	}
+	if result.Status != "submitted" {
+		return ProfessionalVerificationCase{}, ErrVerificationState
+	}
+	_, err = tx.Exec(ctx, `
+		UPDATE professional_verification_cases SET status='in_review',updated_at=now()
+		WHERE id=$1 AND status='submitted'
+	`, caseID)
+	if err != nil {
+		return ProfessionalVerificationCase{}, err
+	}
+	if _, err = tx.Exec(ctx, `
+		INSERT INTO professional_verification_events(
+			case_id,actor_identity_id,action,from_status,to_status,reason,evidence_ref
+		) VALUES($1,$2,'reviewed','submitted','in_review',$3,$4)
+	`, caseID, actor.SubjectID, reason, result.EvidenceRef); err != nil {
+		return ProfessionalVerificationCase{}, err
+	}
+	if err = tx.QueryRow(ctx, `
+		SELECT status,updated_at FROM professional_verification_cases WHERE id=$1
+	`, caseID).Scan(&result.Status, &result.UpdatedAt); err != nil {
+		return ProfessionalVerificationCase{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return ProfessionalVerificationCase{}, err
+	}
+	return result, nil
+}
+
 func (s *Store) ReviewProfessionalVerificationCase(ctx context.Context,actor Actor,caseID,decision,reason string)(ProfessionalVerificationCase,error){
  if actor.Role!=RoleOperator||actor.SubjectID==""||actor.TenantID=="" {return ProfessionalVerificationCase{},ErrForbidden}
  if decision!="approved"&&decision!="rejected" {return ProfessionalVerificationCase{},ErrVerificationState}
@@ -78,6 +146,7 @@ func (s *Store) ReviewProfessionalVerificationCase(ctx context.Context,actor Act
  if tenantID!=actor.TenantID||result.SubjectIdentityID==actor.SubjectID{return ProfessionalVerificationCase{},ErrForbidden}
  if err=authorizeOperatorTx(ctx,tx,actor,Resource{TenantID:tenantID},ActionProviderVerify);err!=nil{return ProfessionalVerificationCase{},err}
  if result.Status!="submitted"&&result.Status!="in_review"{return ProfessionalVerificationCase{},ErrVerificationState}
+ fromStatus := result.Status
  var decided time.Time
  err=tx.QueryRow(ctx,`
  UPDATE professional_verification_cases SET status=$2,reviewer_identity_id=$3,decision_reason=$4,decided_at=now(),updated_at=now()
@@ -92,7 +161,7 @@ func (s *Store) ReviewProfessionalVerificationCase(ctx context.Context,actor Act
   _,err=tx.Exec(ctx,`UPDATE provider_profiles SET verified_at=NULL,verified_by_identity_id=NULL,updated_at=now() WHERE id=$1`,result.ProviderID)
   if err!=nil{return ProfessionalVerificationCase{},err}
  }
- if _,err=tx.Exec(ctx,`INSERT INTO professional_verification_events(case_id,actor_identity_id,action,from_status,to_status,reason,evidence_ref) VALUES($1,$2,'reviewed',$3,$4,$5,$6)`,caseID,actor.SubjectID,"submitted",decision,reason,result.EvidenceRef);err!=nil{return ProfessionalVerificationCase{},err}
+ if _,err=tx.Exec(ctx,`INSERT INTO professional_verification_events(case_id,actor_identity_id,action,from_status,to_status,reason,evidence_ref) VALUES($1,$2,'reviewed',$3,$4,$5,$6)`,caseID,actor.SubjectID,fromStatus,decision,reason,result.EvidenceRef);err!=nil{return ProfessionalVerificationCase{},err}
  if err=tx.Commit(ctx);err!=nil{return ProfessionalVerificationCase{},err}
  return result,nil
 }
