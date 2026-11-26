@@ -102,8 +102,6 @@ func (s *Store) ResolveExternalIdentity(ctx context.Context, matrix *marketconfi
 }
 
 
-// PostgresIdentityNonceStore consumes only a pre-issued, unexpired nonce once.
-// The nonce itself is never persisted; only its SHA-256 digest is stored.
 type PostgresIdentityNonceStore struct{}
 
 func (PostgresIdentityNonceStore) Consume(ctx context.Context, tx pgx.Tx, identityID, provider, nonce string, expiresAt time.Time) error {
@@ -117,9 +115,6 @@ func (PostgresIdentityNonceStore) Consume(ctx context.Context, tx pgx.Tx, identi
 	return nil
 }
 
-// CreateIdentityNonce issues a short-lived nonce for a link (identityID set)
-// or login (identityID empty) flow. Callers must bind it to the provider's
-// signed nonce claim and never expose the raw value in logs or URLs.
 func (s *Store) CreateIdentityNonce(ctx context.Context, identityID string, provider adapters.IdentityProvider, ttl time.Duration) (string,error) {
 	if !validExternalProvider(provider) || ttl<time.Minute || ttl>10*time.Minute {return "",ErrExternalIdentityInvalid}
 	if identityID!="" {
