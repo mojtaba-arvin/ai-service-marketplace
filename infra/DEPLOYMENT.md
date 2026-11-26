@@ -37,9 +37,25 @@ SESSION_PEPPER=replace-with-a-different-32-random-bytes
 DEFAULT_TENANT_ID=market-om
 DEFAULT_MARKET_CODE=OM
 BOOTSTRAP_OPERATOR_PHONE=+96890000000
+EVIDENCE_ACTIVE_KEY_ID=2026-11
+EVIDENCE_ENCRYPTION_KEYS='{"2026-11":"replace-with-64-hex-characters"}'
+EVIDENCE_MAX_BYTES=10485760
+EVIDENCE_MAX_PER_REPORT=5
+EVIDENCE_ALLOWED_MEDIA_TYPES=application/pdf,image/jpeg,image/png,text/plain
+EVIDENCE_CLAMD_ADDRESS=clamav.internal:3310
+# Optional; unset means no expiry is applied. Expired evidence is not retrievable.
+EVIDENCE_RETENTION_DAYS=
 ```
 
 Use URL encoding for reserved characters in the PostgreSQL password embedded in DATABASE_URL. Generate peppers on the host, for example with openssl rand -hex 32. Never commit .env.production.
+
+### Private incident evidence
+
+The API requires a private persistent storage volume, an AES-256 key ring and a reachable ClamAV `clamd` service on a private network. Generate a new evidence key with `openssl rand -hex 32`; keep the value in the untracked environment file or a secret manager, never in Git or PostgreSQL. `EVIDENCE_ENCRYPTION_KEYS` is a JSON object keyed by immutable key IDs. Keep every historical key needed to decrypt existing objects when rotating: add the new key, change `EVIDENCE_ACTIVE_KEY_ID`, deploy, then retire an old key only after its objects have been securely re-encrypted and verified. Back up the key ring separately from the encrypted evidence volume and database; loss of a key makes its evidence unrecoverable.
+
+Compose creates a named `evidence_data` volume with owner UID 10001 and mode 0700. The initial adapter stores authenticated-encrypted objects outside the web root with mode 0600. The scanner address must resolve to a trusted private clamd endpoint; scanner timeout, unavailability or a non-OK response rejects uploads. The API does not fall back to unscanned or plaintext storage.
+
+`EVIDENCE_RETENTION_DAYS` is optional and has no default. When explicitly set, the API denies retrieval after that interval. It does not automatically delete bytes. The metadata schema includes a legal-hold flag, but an audited retention/deletion administration workflow and backup-expiry coordination are not yet delivered; do not claim retention deletion or legal-hold operations are operational. Until that workflow is accepted, preserve evidence and backups according to the adopter's approved policy.
 
 ## Seed the initial market catalog and professional
 
