@@ -389,18 +389,6 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, "", principal.IdentityID, "upload", "unauthorized", http.StatusForbidden)
 		return
 	}
-	var count int
-	err = h.Store.DB.QueryRow(r.Context(), `
-		SELECT jsonb_array_length(r.evidence_refs) + count(e.id)
-		FROM incident_reports r LEFT JOIN incident_evidence e
-		  ON e.report_id=r.id AND e.tenant_id=r.tenant_id
-		WHERE r.id=$1 AND r.tenant_id=$2
-		GROUP BY r.id,r.evidence_refs
-	`, reportID, actor.TenantID).Scan(&count)
-	if err != nil || count >= h.Evidence.MaxPerReport {
-		h.evidenceDenied(w, r.Context(), actor.TenantID, reportID, "", actor.SubjectID, "upload", "limit_reached", http.StatusConflict)
-		return
-	}
 	scanCtx, cancel := context.WithTimeout(r.Context(), 12*time.Second)
 	err = h.Evidence.scan(scanCtx, body)
 	cancel()
@@ -433,19 +421,39 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	defer tx.Rollback(r.Context())
+	var currentStatus string
+	var currentReporter string
+	if err = tx.QueryRow(r.Context(), `
+		SELECT status,reporter_identity_id FROM incident_reports
+		WHERE id=$1 AND tenant_id=$2 FOR UPDATE
+	`, reportID, actor.TenantID).Scan(&currentStatus, &currentReporter); err != nil ||
+		currentReporter != actor.SubjectID || (currentStatus != "submitted" && currentStatus != "triaged" && currentStatus != "investigating") {
+		h.Evidence.remove(id)
+		h.evidenceDenied(w, r.Context(), actor.TenantID, reportID, id, actor.SubjectID, "upload", "unauthorized", http.StatusConflict)
+		return
+	}
+	var count int
+	if err = tx.QueryRow(r.Context(), `
+		SELECT jsonb_array_length(r.evidence_refs) + count(e.id)
+		FROM incident_reports r LEFT JOIN incident_evidence e
+		  ON e.report_id=r.id AND e.tenant_id=r.tenant_id
+		WHERE r.id=$1 AND r.tenant_id=$2
+		GROUP BY r.id,r.evidence_refs
+	`, reportID, actor.TenantID).Scan(&count); err != nil || count >= h.Evidence.MaxPerReport {
+		h.Evidence.remove(id)
+		h.evidenceDenied(w, r.Context(), actor.TenantID, reportID, id, actor.SubjectID, "upload", "limit_reached", http.StatusConflict)
+		return
+	}
 	var retentionUntil *time.Time
 	if h.Evidence.RetentionDays > 0 {
 		expiry := time.Now().UTC().Add(time.Duration(h.Evidence.RetentionDays) * 24 * time.Hour)
 		retentionUntil = &expiry
 	}
-	_, err = tx.Exec(r.Context(), `
+	tag, err := tx.Exec(r.Context(), `
 		INSERT INTO incident_evidence(id,report_id,tenant_id,reporter_identity_id,media_type,size_bytes,retention_expires_at)
-		SELECT $1,r.id,r.tenant_id,r.reporter_identity_id,$5,$6,$7
-		FROM incident_reports r
-		WHERE r.id=$2 AND r.tenant_id=$3 AND r.reporter_identity_id=$4
-		  AND r.status NOT IN ('resolved','closed')
+		VALUES($1,$2,$3,$4,$5,$6,$7)
 	`, id, reportID, actor.TenantID, actor.SubjectID, mediaType, len(body), retentionUntil)
-	if err != nil {
+	if err != nil || tag.RowsAffected() != 1 {
 		h.Evidence.remove(id)
 		h.evidenceDenied(w, r.Context(), actor.TenantID, reportID, id, actor.SubjectID, "upload", "storage_failure", http.StatusConflict)
 		return
@@ -461,7 +469,6 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	if err = tx.Commit(r.Context()); err != nil {
-		h.Evidence.remove(id)
 		writeError(w, http.StatusInternalServerError, "could not commit evidence metadata")
 		return
 	}
