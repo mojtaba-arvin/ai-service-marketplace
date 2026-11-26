@@ -348,7 +348,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 		t.Fatalf("expired evidence must not be retrievable, got %d: %s", expired.Code, expired.Body.String())
 	}
 
-	var successUploads, successDownloads, deniedUploads, deniedDownloads, deniedLists int
+	var successUploads, successDownloads, deniedUploads, deniedDownloads, deniedLists, crossTenantDenied int
 	err = pool.QueryRow(ctx, `
 		SELECT
 			count(*) FILTER (WHERE action='upload' AND outcome='success'),
@@ -362,7 +362,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if successUploads != 1 || successDownloads != 2 || deniedUploads != 3 || deniedDownloads != 1 || deniedLists != 5 {
+	if err = pool.QueryRow(ctx, `\n\t\tSELECT count(*) FROM incident_evidence_access_events\n\t\tWHERE report_id=$1 AND tenant_id=$2 AND action='list' AND outcome='denied'\n\t`, otherReport.ID, tenantID).Scan(&crossTenantDenied); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif successUploads != 1 || successDownloads != 2 || deniedUploads != 3 || deniedDownloads != 1 || deniedLists != 4 || crossTenantDenied != 1 {
 		t.Fatalf("unexpected evidence audit totals: uploads=%d downloads=%d denied_uploads=%d denied_downloads=%d denied_lists=%d",
 			successUploads, successDownloads, deniedUploads, deniedDownloads, deniedLists)
 	}
