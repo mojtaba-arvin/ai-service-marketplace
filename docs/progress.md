@@ -1,6 +1,6 @@
 # Development Progress
 
-> Rolling evidence snapshot: 2026-11-26 (updated after PR #219 private evidence merge). Git history and PRs retain detailed history. Never mark a feature QA-passing without independent evidence.
+> Rolling evidence snapshot: 2026-11-26 (updated after PR #220 acceptance matrix merge and evidence HTTP regression-test work). Git history and PRs retain detailed history. Never mark a feature QA-passing without independent evidence.
 
 ## Product direction
 
@@ -8,7 +8,7 @@ AI Service Marketplace is a complete open-source, self-hostable, multi-market ho
 
 ## Integrated on main
 
-- Main at snapshot: `e8593a64ac07133fc86b5b20db70ddcc8faa77f2` (after PR #219).
+- Main at snapshot: `0d2d67a274cbbb106b0ac52385cb1a445f46373d` (after PR #220).
 - PRs #146, #150, #149, #152, #148, #193, #194, #195, #196, #197, #198, #199, #200, #201, #202, #203, #204, #206, #208, #209, #210, #211, #212, #213, #214 and #215 are merged. #205 and #207 were closed as superseded by refreshed PRs #206 and #208. #148 adds deterministic AI timeout, caller-cancellation and output-bound tests; it is not independent AI safety acceptance. #195/#197 record analytics runtime and release-gate decisions; #198 delivers the historical rebuild/rollback command; #199 records that delivery and its remaining gates; #200 refreshes deployment and analytics operations guidance.
 - PR #194: migration 030, tenant/generation-scoped immutable analytics facts and quarantine, per-tenant active-generation pointer, bounded live analytics worker, active-generation-only summaries with pending-event readiness, production image and optional Compose profile. PostgreSQL integration tests cover restart, generation mismatch, idempotency, shadow isolation and pointer cutover; CI/E2E/Security/CodeQL/Agent Guard passed on exact head.
 - PR #196: authenticated `GET /v1/operator/analytics/summary`, operator-only `analytics:read`, tenant taken exclusively from the authenticated principal, RFC3339 bounded-window validation, `Cache-Control: private, no-store`, OpenAPI/metric contracts, and PostgreSQL privacy/quarantine/immutability/idempotency plus route-authorization tests. Exact-head Go tests, E2E, Compose validation, API/web image builds, Security/CodeQL and Agent Guard passed.
@@ -120,9 +120,9 @@ These are repository capabilities, not evidence that every domain is complete or
 
 
 
-## Current operational priorities after PR #215 — 2026-11-25
+## Current operational priorities after PR #220 — 2026-11-26
 
-1. TRUST-002 evidence boundary: implement private object storage, short-lived authorized retrieval, content/malware validation, access audit and adopter-configured retention/legal hold; keep opaque refs non-public.
+1. TRUST-002 evidence lifecycle: private encrypted storage and API-mediated retrieval are merged; finish `incident:evidence:manage`, audited retention/legal-hold administration, retryable/idempotent expiry deletion, backup-expiry coordination, re-encryption/restore rehearsal, PostgreSQL HTTP regression tests and independent acceptance. Keep opaque refs non-public and do not invent retention periods.
 2. Deployment/Core QA: execute against real adopter infrastructure and independent QA; GitHub CI cannot provide host, DNS, OTP provider, production secrets or backup-restore acceptance.
 3. ADMIN-001: perform independent tenant-isolation, bootstrap recovery and permission-revocation acceptance; merged implementation is not acceptance.
 4. Analytics/Support: execute the merged runbooks and retain operational evidence.
@@ -136,8 +136,8 @@ Independent acceptance remains `0/93`. No feature pass flag is changed by these 
 - PR #216 merged the progress reconciliation. PR #218 merged as `4879935e770eacf6cf472267b6c5e87034f50eec`, recording ADR 0009's provider-neutral private-evidence boundary.
 - PR #219 merged as `e8593a64ac07133fc86b5b20db70ddcc8faa77f2` after exact-head CI, Security (all CodeQL languages) and Agent Guard passed. It adds migration 035; a replaceable private storage interface and self-hosted filesystem adapter; AES-256-GCM encryption with versioned key IDs; reporter upload and reporter/reviewer evidence listing and retrieval; byte/item limits, content sniffing and ClamAV scanning; append-only access audit; production configuration, OpenAPI and deployment documentation.
 - Production startup fails closed without the storage root, valid key ring, explicit allowed media types and private clamd endpoint. No public/presigned URLs or plaintext/unscanned fallback are introduced.
-- PR #220 contains the independent acceptance matrix. Its branch was rebased onto the new main head; exact-head Agent Guard passed while CI and Security/CodeQL were still running at this snapshot.
+- PR #220 merged as `0d2d67a274cbbb106b0ac52385cb1a445f46373d`; it adds the independent acceptance matrix covering authorization, tenant isolation, scanner failures, append-only audit, encryption, key rotation, retention boundaries and restore. The matrix is a procedure, not independent acceptance evidence.
 - Explicit remaining work: retention expiry currently denies retrieval but does not delete bytes; legal-hold metadata has no separately permissioned, audited operator workflow; retryable deletion and backup-expiry coordination are not implemented; key rotation compatibility exists but re-encryption/restore rehearsal remains; independent acceptance is pending.
-- Automated test gap: current evidence tests cover encryption, private filesystem behavior and scanner framing/fail-closed behavior, but not the new HTTP evidence handlers end-to-end. Add PostgreSQL-backed upload/list/download authorization, cross-tenant denial, scanner/quota and audit regression tests before acceptance.
+- Automated test work: existing evidence unit tests cover encryption, key-ID compatibility, private filesystem behavior and scanner framing/fail-closed behavior. New PostgreSQL-backed HTTP regression coverage is in progress on branch `test/trust-002-evidence-http-integration`: reporter/reviewer upload/list/download, unrelated reporter and support-role denial, scanner failure/rejection, per-report quota, retention expiry and audit outcomes. The branch has not yet passed CI or merged; do not claim this coverage is verified.
 - TRUST-002 remains incomplete. ADMIN-001, Deployment/Core QA, Analytics/Support and Event Compatibility retain their existing operational/independent-acceptance gates. #110/#137 remain blocked on external consumer confirmation.
 - Independent acceptance remains `0/93`; no `passes: true` flags changed.
