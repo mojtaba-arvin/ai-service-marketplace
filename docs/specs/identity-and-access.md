@@ -46,15 +46,6 @@ No endpoint may accept a tenant or role from an untrusted request and use it wit
 
 Authentication failures return generic client-facing errors and must not disclose whether an arbitrary phone identity exists. OTP delivery failures invalidate the challenge. Database/provider failures fail closed; no fallback test token is permitted in production mode.
 
-
-## IDENT-008 / IDENT-009 module-private implementation (CMD-1722)
-
-- Saved-address module operations now validate the authenticated customer Actor and exact configured market/locale, scope reads and writes by identity and tenant, serialize default selection, and map referenced-address deletion to a typed conflict. The implementation is in `marketplace/addresses.go`.
-- Geocoding uses the policy-version-bound `maps/geocode` capability, a provider-neutral adapter executed through the bounded runner with a stable idempotency key, coordinate validation, and a deterministic fake. The implementation is in `adapters/geocoding.go`.
-- External identity linking requires an existing authenticated identity, a market-enabled provider/link capability, a freshly verified assertion, and a one-time nonce consumed in the same transaction as the unique provider-subject link. Provider login resolves only an existing link and returns an internal verified identity for normal session issuance; it never creates or merges a phone identity.
-- Apple/Google JWT verification validates configured issuer and audience, signing algorithm and key ID, signature, expiry, issued-at, optional not-before, nonce, and authorized party for multi-audience tokens. Signing-key discovery/rotation is injected through a resolver. Email providers must implement the provider-neutral verifier contract; the JWT verifier does not treat email as OIDC.
-- These are module-private implementation slices only. The additive `customer_addresses`, `external_identity_links`, and `external_identity_link_nonces` tables, OpenAPI schemas, HTTP registration, order-address snapshots/FK, order creation wiring, assignment-based exact-address retrieval, and PostgreSQL concurrency/replay tests remain owned by CMD-1754 and are proposed in issue #232. Do not mark IDENT-008/009 integrated or independently accepted until those gates are satisfied.
-
 ## Verification
 
 Relevant tests:
