@@ -5483,6 +5483,7 @@
               "policy:manage",
               "analytics:read",
               "operator:permissions:manage",
+              "incident:evidence:manage",
               "incident:review"
             ]
           },
