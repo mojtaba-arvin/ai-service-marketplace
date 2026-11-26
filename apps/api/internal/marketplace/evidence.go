@@ -286,6 +286,20 @@ func (s *EvidenceService) decrypt(id, mediaType string, ciphertext []byte) ([]by
 	return gcm.Open(nil, nonce, ciphertext[offset+gcm.NonceSize():], aad)
 }
 
+func writeEvidenceScanner(conn net.Conn, data []byte) error {
+	for len(data) > 0 {
+		n, err := conn.Write(data)
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return io.ErrShortWrite
+		}
+		data = data[n:]
+	}
+	return nil
+}
+
 // scan uses ClamAV's clamd INSTREAM protocol. It deliberately has no permissive
 // fallback: timeout, connection failure, malformed response or FOUND rejects upload.
 func (s *EvidenceService) scan(ctx context.Context, data []byte) error {
@@ -310,15 +324,15 @@ func (s *EvidenceService) scan(ctx context.Context, data []byte) error {
 		size[1] = byte(len(chunk) >> 16)
 		size[2] = byte(len(chunk) >> 8)
 		size[3] = byte(len(chunk))
-		if _, err = conn.Write(size[:]); err != nil {
+		if err = writeEvidenceScanner(conn, size[:]); err != nil {
 			return err
 		}
-		if _, err = conn.Write(chunk); err != nil {
+		if err = writeEvidenceScanner(conn, chunk); err != nil {
 			return err
 		}
 		offset = end
 	}
-	if _, err = conn.Write([]byte{0, 0, 0, 0}); err != nil {
+	if err = writeEvidenceScanner(conn, []byte{0, 0, 0, 0}); err != nil {
 		return err
 	}
 	response, err := bufio.NewReader(io.LimitReader(conn, 1024)).ReadString('\n')
@@ -490,7 +504,7 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 		h.evidenceDenied(w, r.Context(), actor.TenantID, reportID, id, actor.SubjectID, "upload", "storage_failure", http.StatusConflict)
 		return
 	}
-	tag, err := tx.Exec(r.Context(), `
+	auditTag, auditErr := tx.Exec(r.Context(), `
 		INSERT INTO incident_evidence_access_events
 			(tenant_id,report_id,evidence_id,actor_identity_id,action,outcome,reason_category)
 		VALUES($1,$2,$3,$4,'upload','success','accepted')
