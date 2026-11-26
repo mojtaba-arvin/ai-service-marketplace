@@ -37,9 +37,9 @@ func validExternalProvider(provider adapters.IdentityProvider) bool {
 }
 
 func validateExternalAssertion(assertion adapters.VerifiedExternalIdentity, now time.Time) error {
-	if !validExternalProvider(assertion.Provider) || strings.TrimSpace(assertion.Subject)=="" ||
-		strings.TrimSpace(assertion.Nonce)=="" || !assertion.ExpiresAt.After(now) ||
-		assertion.IssuedAt.After(now) || !assertion.ExpiresAt.After(assertion.IssuedAt) {
+	if !validExternalProvider(assertion.Provider) || strings.TrimSpace(assertion.Subject)=="" || len(assertion.Subject)>255 ||
+		strings.TrimSpace(assertion.Nonce)=="" || len(assertion.Nonce)>256 || !assertion.ExpiresAt.After(now) ||
+		assertion.IssuedAt.IsZero() || assertion.IssuedAt.After(now) || !assertion.ExpiresAt.After(assertion.IssuedAt) {
 		return ErrExternalIdentityInvalid
 	}
 	return nil
