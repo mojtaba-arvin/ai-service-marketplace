@@ -139,8 +139,8 @@ func (s *Store) UpdateSavedAddress(ctx context.Context, actor Actor, registry *m
 	var out SavedAddress
 	err:=s.DB.QueryRow(ctx,`
 		UPDATE customer_addresses SET label=$6,address_line1=$7,address_line2=$8,locality=$9,region=$10,postal_code=$11,country_code=$12,
-		formatted_address=$13,latitude=COALESCE($14,latitude),longitude=COALESCE($15,longitude),geocoder=COALESCE($16,geocoder),
-		geocoder_version=COALESCE($17,geocoder_version),updated_at=now()
+		formatted_address=$13,latitude=$14,longitude=$15,geocoder=$16,
+		geocoder_version=$17,updated_at=now()
 		WHERE id=$1 AND identity_id=$2 AND tenant_id=$3 AND market_code=$4 AND locale=$5
 		RETURNING id,label,address_line1,address_line2,locality,region,postal_code,country_code,formatted_address,latitude,longitude,geocoder,geocoder_version,is_default,created_at::text,updated_at::text
 	`,addressID,actor.SubjectID,actor.TenantID,marketID,locale,input.Label,input.AddressLine1,input.AddressLine2,input.Locality,input.Region,input.PostalCode,input.CountryCode,formatted,latitude,longitude,provider,version).
