@@ -367,7 +367,8 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 		WHERE report_id=$1 AND tenant_id=$2 AND action='list' AND outcome='denied'
 	`, otherReport.ID, tenantID).Scan(&crossTenantDenied); err != nil {
 		t.Fatal(err)
-	}\n\tif successUploads != 1 || successDownloads != 2 || deniedUploads != 3 || deniedDownloads != 1 || deniedLists != 4 || crossTenantDenied != 1 {
+	}
+	if successUploads != 1 || successDownloads != 2 || deniedUploads != 3 || deniedDownloads != 1 || deniedLists != 4 || crossTenantDenied != 1 {
 		t.Fatalf("unexpected evidence audit totals: uploads=%d downloads=%d denied_uploads=%d denied_downloads=%d denied_lists=%d",
 			successUploads, successDownloads, deniedUploads, deniedDownloads, deniedLists)
 	}
