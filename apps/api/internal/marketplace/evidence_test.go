@@ -68,7 +68,13 @@ func TestEvidenceFilesystemUsesPrivatePermissionsAndOpaqueNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	storage := service.Storage.(*FilesystemEvidenceStorage)
-	path := filepath.Join(storage.Root, id+".enc")
+	path, err := storage.objectPath(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(path) == id+".enc" || len(filepath.Base(path)) != 68 {
+		t.Fatalf("evidence path must use a fixed-length derived name, got %q", filepath.Base(path))
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
