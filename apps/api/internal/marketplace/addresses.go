@@ -62,7 +62,13 @@ func validateSavedAddress(in SavedAddressInput) error {
 	return nil
 }
 
-func validateAddressScope(registry *marketconfig.Registry, marketID, locale string) error {\n\tif registry==nil { return marketconfig.ErrUnknownMarket }\n\t_,err:=registry.Resolve(marketID,locale)\n\treturn err\n}\n\nfunc validateAddressActor(actor Actor) error {
+func validateAddressScope(registry *marketconfig.Registry, marketID, locale string) error {
+\tif registry==nil { return marketconfig.ErrUnknownMarket }
+\t_,err:=registry.Resolve(marketID,locale)
+\treturn err
+}
+
+func validateAddressActor(actor Actor) error {
 	if actor.Role!=RoleCustomer || strings.TrimSpace(actor.SubjectID)=="" || strings.TrimSpace(actor.TenantID)=="" {return ErrAddressForbidden}
 	return nil
 }
@@ -84,7 +90,8 @@ func GeocodeSavedAddress(ctx context.Context, matrix *marketconfig.Matrix, marke
 }
 
 func (s *Store) CreateSavedAddress(ctx context.Context, actor Actor, registry *marketconfig.Registry, marketID, locale string, input SavedAddressInput, geocoded *adapters.GeocodeResult) (SavedAddress,error) {
-	if err:=validateAddressActor(actor);err!=nil{return SavedAddress{},err}\n\tif err:=validateAddressScope(registry,marketID,locale);err!=nil{return SavedAddress{},err}
+	if err:=validateAddressActor(actor);err!=nil{return SavedAddress{},err}
+\tif err:=validateAddressScope(registry,marketID,locale);err!=nil{return SavedAddress{},err}
 	if err:=validateSavedAddress(input);err!=nil{return SavedAddress{},err}
 	if err:=validateGeocodeResult(geocoded);err!=nil{return SavedAddress{},err}
 	id,err:=newID();if err!=nil{return SavedAddress{},err}
@@ -104,7 +111,8 @@ func (s *Store) CreateSavedAddress(ctx context.Context, actor Actor, registry *m
 }
 
 func (s *Store) ListSavedAddresses(ctx context.Context, actor Actor, registry *marketconfig.Registry, marketID, locale string) ([]SavedAddress,error) {
-	if err:=validateAddressActor(actor);err!=nil{return nil,err}\n\tif err:=validateAddressScope(registry,marketID,locale);err!=nil{return nil,err}
+	if err:=validateAddressActor(actor);err!=nil{return nil,err}
+\tif err:=validateAddressScope(registry,marketID,locale);err!=nil{return nil,err}
 	rows,err:=s.DB.Query(ctx,`
 		SELECT id,label,address_line1,address_line2,locality,region,postal_code,country_code,formatted_address,latitude,longitude,geocoder,geocoder_version,is_default,created_at::text,updated_at::text
 		FROM customer_addresses WHERE identity_id=$1 AND tenant_id=$2 AND market_code=$3 AND locale=$4
@@ -140,8 +148,10 @@ func (s *Store) UpdateSavedAddress(ctx context.Context, actor Actor, registry *m
 	return out,err
 }
 
-func (s *Store) SetDefaultSavedAddress(ctx context.Context, actor Actor, marketID, locale, addressID string) error {
-	if err:=validateAddressActor(actor);err!=nil{return err}\n\tif err:=validateAddressScope(registry,marketID,locale);err!=nil{return err}
+func (s *Store) SetDefaultSavedAddress(ctx context.Context, actor Actor, registry *marketconfig.Registry, marketID, locale, addressID string) error {
+	if err:=validateAddressActor(actor);err!=nil{return err}
+	if err:=validateAddressScope(registry,marketID,locale);err!=nil{return err}
+\tif err:=validateAddressScope(registry,marketID,locale);err!=nil{return err}
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return err};defer tx.Rollback(ctx)
 	lockKey:=actor.SubjectID+":"+actor.TenantID+":"+marketID
 	if _,err=tx.Exec(ctx,`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,lockKey);err!=nil{return err}
@@ -153,8 +163,9 @@ func (s *Store) SetDefaultSavedAddress(ctx context.Context, actor Actor, marketI
 	return tx.Commit(ctx)
 }
 
-func (s *Store) DeleteSavedAddress(ctx context.Context, actor Actor, marketID, locale, addressID string) error {
+func (s *Store) DeleteSavedAddress(ctx context.Context, actor Actor, registry *marketconfig.Registry, marketID, locale, addressID string) error {
 	if err:=validateAddressActor(actor);err!=nil{return err}
+	if err:=validateAddressScope(registry,marketID,locale);err!=nil{return err}
 	tag,err:=s.DB.Exec(ctx,`DELETE FROM customer_addresses WHERE id=$1 AND identity_id=$2 AND tenant_id=$3 AND market_code=$4 AND locale=$5`,addressID,actor.SubjectID,actor.TenantID,marketID,locale)
 	if err!=nil {
 		var pgErr *pgconn.PgError
