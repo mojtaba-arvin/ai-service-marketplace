@@ -31,7 +31,45 @@ func ensureTestOperatorGrants(ctx context.Context, pool *pgxpool.Pool, actor Act
 	if _, err := pool.Exec(ctx, "ALTER TABLE orders ADD COLUMN IF NOT EXISTS tenant_id text"); err != nil {
 		return fmt.Errorf("prepare order tenant key for incident schema: %w", err)
 	}
-	for _, name := range []string{"001_walking_skeleton.sql", "002_identity.sql", "022_identity_memberships.sql", "031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql", "033_incident_report_intake.sql", "034_incident_reviewer_workflow.sql", "035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql"} {
+	baseMigrations := []string{
+		"001_walking_skeleton.sql", "002_identity.sql", "022_identity_memberships.sql",
+		"031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql",
+		"033_incident_report_intake.sql",
+	}
+	for _, name := range baseMigrations {
+		raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
+		if err != nil {
+			return fmt.Errorf("read %s: %w", name, err)
+		}
+		if _, err = execMigrationScript(ctx, pool, raw); err != nil {
+			return fmt.Errorf("apply %s: %w", name, err)
+		}
+	}
+	// Reapplying migration 034 after 036 would temporarily narrow the action
+	// allowlist and fail once an evidence-manager grant already exists. Apply
+	// the reviewer migration only when its action constraint is not present.
+	var reviewerActionEnabled bool
+	if err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid='operator_action_grants'::regclass
+			  AND conname='operator_action_grants_action_check'
+			  AND pg_get_constraintdef(oid) LIKE '%incident:review%'
+		)
+	`).Scan(&reviewerActionEnabled); err != nil {
+		return fmt.Errorf("inspect operator action constraint: %w", err)
+	}
+	if !reviewerActionEnabled {
+		name := "034_incident_reviewer_workflow.sql"
+		raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
+		if err != nil {
+			return fmt.Errorf("read %s: %w", name, err)
+		}
+		if _, err = execMigrationScript(ctx, pool, raw); err != nil {
+			return fmt.Errorf("apply %s: %w", name, err)
+		}
+	}
+	for _, name := range []string{"035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql"} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if err != nil {
 			return fmt.Errorf("read %s: %w", name, err)
