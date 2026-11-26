@@ -43,6 +43,18 @@ These are separate milestones:
 
 Implementation workers must not wait for downstream QA or risk review to publish implementation-readiness evidence. A downstream verifier must never be a prerequisite for the implementation evidence that starts that verifier. Preserve explicit target-side human approvals where the requirement itself says they must precede implementation or external effects.
 
+
+
+Use the typed evidence markers consistently:
+
+- `cmd_<id>_implementation_ready`: module-private implementation is complete; shared integration may still be pending.
+- `cmd_<id>_integration_ready`: all required shared migrations/contracts/wiring are merged on current main.
+- Legacy `cmd_<id>_acceptance_ready` aliases `integration_ready`; it must never be published while required shared integration is pending.
+- `cmd_<id>_independent_qa_pass`: verifier-only evidence from CMD-1760–1765.
+- CMD-1766 alone updates feature inventory acceptance fields.
+
+A worker may publish `implementation_ready` before CMD-1754 finishes a shared proposal. It must wait to publish `integration_ready` / `acceptance_ready` until the proposal is merged and verified, or until it proves no shared integration is required. QA commands that need the integrated surface must depend on `integration_ready` / `acceptance_ready`, not `implementation_ready`.
+
 ## 4. Reconcile existing implementation instead of stopping
 
 If code or tests already exist on `main`:
