@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -20,6 +21,11 @@ func execMigrationScript(ctx context.Context, pool *pgxpool.Pool, sql []byte) (p
 }
 
 
+var (
+	testOperatorGrantMigrationMu sync.Mutex
+	testOperatorGrantMigrationSchemas = map[string]bool{}
+)
+
 // ensureTestOperatorGrants provisions an explicit operator membership and
 // allowlisted grants for integration-test fixtures. It applies the grant and
 // audit-integrity migrations idempotently so legacy fixture migration lists
@@ -31,54 +37,31 @@ func ensureTestOperatorGrants(ctx context.Context, pool *pgxpool.Pool, actor Act
 	if _, err := pool.Exec(ctx, "ALTER TABLE orders ADD COLUMN IF NOT EXISTS tenant_id text"); err != nil {
 		return fmt.Errorf("prepare order tenant key for incident schema: %w", err)
 	}
-	baseMigrations := []string{
-		"001_walking_skeleton.sql", "002_identity.sql", "022_identity_memberships.sql",
-		"031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql",
-		"033_incident_report_intake.sql",
+	// Apply the migration chain once per isolated test schema. Replaying 034
+	// after a later helper call could narrow the grant allowlist after an
+	// evidence-manager grant has already been seeded.
+	var schemaKey string
+	if err := pool.QueryRow(ctx, "SELECT current_database() || ':' || current_schema()").Scan(&schemaKey); err != nil {
+		return fmt.Errorf("identify operator grant test schema: %w", err)
 	}
-	for _, name := range baseMigrations {
-		raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
-		if err != nil {
-			return fmt.Errorf("read %s: %w", name, err)
+	testOperatorGrantMigrationMu.Lock()
+	defer testOperatorGrantMigrationMu.Unlock()
+	if !testOperatorGrantMigrationSchemas[schemaKey] {
+		for _, name := range []string{
+			"001_walking_skeleton.sql", "002_identity.sql", "022_identity_memberships.sql",
+			"031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql",
+			"033_incident_report_intake.sql", "034_incident_reviewer_workflow.sql",
+			"035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql",
+		} {
+			raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
+			if err != nil {
+				return fmt.Errorf("read %s: %w", name, err)
+			}
+			if _, err = execMigrationScript(ctx, pool, raw); err != nil {
+				return fmt.Errorf("apply %s: %w", name, err)
+			}
 		}
-		if _, err = execMigrationScript(ctx, pool, raw); err != nil {
-			return fmt.Errorf("apply %s: %w", name, err)
-		}
-	}
-	// Reapplying migration 034 after 036 would temporarily narrow the action
-	// allowlist and fail once an evidence-manager grant already exists. Detect
-	// whether the reviewer workflow trigger itself is installed; an action
-	// constraint alone may have been widened by 036 in an otherwise old schema.
-	var reviewerWorkflowInstalled bool
-	if err := pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM pg_proc p
-			JOIN pg_namespace n ON n.oid=p.pronamespace
-			WHERE n.nspname=current_schema()
-			  AND p.proname='guard_incident_report_identity'
-			  AND pg_get_functiondef(p.oid) LIKE '%matching same-transaction audit event%'
-		)
-	`).Scan(&reviewerWorkflowInstalled); err != nil {
-		return fmt.Errorf("inspect incident reviewer workflow: %w", err)
-	}
-	if !reviewerWorkflowInstalled {
-		name := "034_incident_reviewer_workflow.sql"
-		raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
-		if err != nil {
-			return fmt.Errorf("read %s: %w", name, err)
-		}
-		if _, err = execMigrationScript(ctx, pool, raw); err != nil {
-			return fmt.Errorf("apply %s: %w", name, err)
-		}
-	}
-	for _, name := range []string{"035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql"} {
-		raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
-		if err != nil {
-			return fmt.Errorf("read %s: %w", name, err)
-		}
-		if _, err = execMigrationScript(ctx, pool, raw); err != nil {
-			return fmt.Errorf("apply %s: %w", name, err)
-		}
+		testOperatorGrantMigrationSchemas[schemaKey] = true
 	}
 	var identityExists bool
 	if err := pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM phone_identities WHERE id=$1)", actor.SubjectID).Scan(&identityExists); err != nil {
