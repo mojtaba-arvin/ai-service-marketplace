@@ -185,6 +185,11 @@ func (s *Store) MoveCategoryForActor(ctx context.Context, actor Actor, id string
 		return err
 	}
 	if err = lockCategoryHierarchy(ctx, tx); err != nil { return err }
+	var categoryExists bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM service_categories WHERE id=$1)`, id).Scan(&categoryExists); err != nil {
+		return err
+	}
+	if !categoryExists { return ErrCategoryNotFound }
 	if parentID != nil {
 		enabled, checkErr := categoryHierarchyEnabledTx(ctx, tx, *parentID)
 		if checkErr != nil { return checkErr }
