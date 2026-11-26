@@ -1,10 +1,10 @@
 package adapters
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto"
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
@@ -20,9 +20,11 @@ var (
 )
 
 type IdentityProvider string
+
 const (
 	ProviderApple IdentityProvider = "apple"
 	ProviderGoogle IdentityProvider = "google"
+	ProviderEmail IdentityProvider = "email"
 )
 
 type SigningKey struct {
