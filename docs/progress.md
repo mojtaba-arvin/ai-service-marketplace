@@ -122,7 +122,7 @@ These are repository capabilities, not evidence that every domain is complete or
 
 ## Current operational priorities after PR #220 — 2026-11-26
 
-1. TRUST-002 evidence boundary: implement private object storage, short-lived authorized retrieval, content/malware validation, access audit and adopter-configured retention/legal hold; keep opaque refs non-public.
+1. TRUST-002 evidence lifecycle: private encrypted storage and API-mediated retrieval are merged; finish `incident:evidence:manage`, audited retention/legal-hold administration, retryable/idempotent expiry deletion, backup-expiry coordination, re-encryption/restore rehearsal, PostgreSQL HTTP regression tests and independent acceptance. Keep opaque refs non-public and do not invent retention periods.
 2. Deployment/Core QA: execute against real adopter infrastructure and independent QA; GitHub CI cannot provide host, DNS, OTP provider, production secrets or backup-restore acceptance.
 3. ADMIN-001: perform independent tenant-isolation, bootstrap recovery and permission-revocation acceptance; merged implementation is not acceptance.
 4. Analytics/Support: execute the merged runbooks and retain operational evidence.
