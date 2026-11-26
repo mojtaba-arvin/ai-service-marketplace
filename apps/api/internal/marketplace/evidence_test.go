@@ -11,7 +11,7 @@ func testEvidenceService(t *testing.T) *EvidenceService {
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "private-evidence")
 	service := &EvidenceService{
-		Root: root,
+		Storage: &FilesystemEvidenceStorage{Root: root},
 		Keys: map[string][]byte{
 			"key-v1": []byte("0123456789abcdef0123456789abcdef"),
 			"key-v2": []byte("abcdef0123456789abcdef0123456789"),
@@ -22,7 +22,7 @@ func testEvidenceService(t *testing.T) *EvidenceService {
 		AllowedMediaType: map[string]bool{"application/pdf": true, "image/png": true},
 		ScannerAddress: "127.0.0.1:1",
 	}
-	if err := service.ensurePrivateRoot(); err != nil {
+	if err := service.Storage.(*FilesystemEvidenceStorage).ensurePrivateRoot(); err != nil {
 		t.Fatal(err)
 	}
 	return service
@@ -59,10 +59,11 @@ func TestEvidenceEncryptionAndKeyRotation(t *testing.T) {
 func TestEvidenceFilesystemUsesPrivatePermissionsAndOpaqueNames(t *testing.T) {
 	service := testEvidenceService(t)
 	id := "0123456789abcdef0123456789abcdef"
-	if err := service.put(id, []byte("ciphertext")); err != nil {
+	if err := service.put(context.Background(), id, []byte("ciphertext")); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(service.Root, id+".enc")
+	storage := service.Storage.(*FilesystemEvidenceStorage)
+	path := filepath.Join(storage.Root, id+".enc")
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
@@ -70,18 +71,18 @@ func TestEvidenceFilesystemUsesPrivatePermissionsAndOpaqueNames(t *testing.T) {
 	if info.Mode().Perm() != 0600 {
 		t.Fatalf("evidence object permissions = %o, want 600", info.Mode().Perm())
 	}
-	rootInfo, err := os.Stat(service.Root)
+	rootInfo, err := os.Stat(storage.Root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if rootInfo.Mode().Perm() != 0700 {
 		t.Fatalf("evidence root permissions = %o, want 700", rootInfo.Mode().Perm())
 	}
-	got, err := service.get(id)
+	got, err := service.get(context.Background(), id)
 	if err != nil || string(got) != "ciphertext" {
 		t.Fatalf("read private evidence: %q, %v", got, err)
 	}
-	if _, err = service.objectPath("../outside"); err == nil {
+	if _, err = storage.objectPath("../outside"); err == nil {
 		t.Fatal("path traversal identifier must be rejected")
 	}
 }
