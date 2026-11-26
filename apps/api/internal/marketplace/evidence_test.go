@@ -12,6 +12,7 @@ func testEvidenceService(t *testing.T) *EvidenceService {
 	root := filepath.Join(t.TempDir(), "private-evidence")
 	service := &EvidenceService{
 		Storage: &FilesystemEvidenceStorage{Root: root},
+		Scanner: ClamAVScanner{Address: "127.0.0.1:1"},
 		Keys: map[string][]byte{
 			"key-v1": []byte("0123456789abcdef0123456789abcdef"),
 			"key-v2": []byte("abcdef0123456789abcdef0123456789"),
