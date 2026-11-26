@@ -46,20 +46,20 @@ func ensureTestOperatorGrants(ctx context.Context, pool *pgxpool.Pool, actor Act
 		}
 	}
 	// Reapplying migration 034 after 036 would temporarily narrow the action
-	// allowlist and fail once an evidence-manager grant already exists. Apply
-	// the reviewer migration only when its action constraint is not present.
-	var reviewerActionEnabled bool
+	// allowlist and fail once an evidence-manager grant already exists. Detect
+	// whether the reviewer workflow trigger itself is installed; an action
+	// constraint alone may have been widened by 036 in an otherwise old schema.
+	var reviewerWorkflowInstalled bool
 	if err := pool.QueryRow(ctx, `
 		SELECT EXISTS (
-			SELECT 1 FROM pg_constraint
-			WHERE conrelid='operator_action_grants'::regclass
-			  AND conname='operator_action_grants_action_check'
-			  AND pg_get_constraintdef(oid) LIKE '%incident:review%'
+			SELECT 1 FROM pg_proc
+			WHERE proname='guard_incident_report_identity'
+			  AND pg_get_functiondef(oid) LIKE '%matching same-transaction audit event%'
 		)
-	`).Scan(&reviewerActionEnabled); err != nil {
-		return fmt.Errorf("inspect operator action constraint: %w", err)
+	`).Scan(&reviewerWorkflowInstalled); err != nil {
+		return fmt.Errorf("inspect incident reviewer workflow: %w", err)
 	}
-	if !reviewerActionEnabled {
+	if !reviewerWorkflowInstalled {
 		name := "034_incident_reviewer_workflow.sql"
 		raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if err != nil {
