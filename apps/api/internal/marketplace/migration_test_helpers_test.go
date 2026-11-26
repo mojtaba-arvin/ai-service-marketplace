@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -21,11 +20,6 @@ func execMigrationScript(ctx context.Context, pool *pgxpool.Pool, sql []byte) (p
 }
 
 
-var (
-	testOperatorGrantMigrationMu sync.Mutex
-	testOperatorGrantMigrationSchemas = map[string]bool{}
-)
-
 // ensureTestOperatorGrants provisions an explicit operator membership and
 // allowlisted grants for integration-test fixtures. It applies the grant and
 // audit-integrity migrations idempotently so legacy fixture migration lists
@@ -37,31 +31,58 @@ func ensureTestOperatorGrants(ctx context.Context, pool *pgxpool.Pool, actor Act
 	if _, err := pool.Exec(ctx, "ALTER TABLE orders ADD COLUMN IF NOT EXISTS tenant_id text"); err != nil {
 		return fmt.Errorf("prepare order tenant key for incident schema: %w", err)
 	}
-	// Apply the migration chain once per isolated test schema. Replaying 034
-	// after a later helper call could narrow the grant allowlist after an
-	// evidence-manager grant has already been seeded.
-	var schemaKey string
-	if err := pool.QueryRow(ctx, "SELECT current_database() || ':' || current_schema()").Scan(&schemaKey); err != nil {
-		return fmt.Errorf("identify operator grant test schema: %w", err)
+	// Apply the migration chain once per isolated test schema. A schema-local
+	// marker avoids replaying migration 034 after the evidence-manager grant is
+	// seeded; 034 narrows the allowlist before migration 036 widens it again.
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin operator grant fixture setup: %w", err)
 	}
-	testOperatorGrantMigrationMu.Lock()
-	defer testOperatorGrantMigrationMu.Unlock()
-	if !testOperatorGrantMigrationSchemas[schemaKey] {
-		for _, name := range []string{
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended(current_database() || ':' || current_schema() || ':test-operator-grants', 0))"); err != nil {
+		return fmt.Errorf("lock operator grant fixture migrations: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS _test_operator_grant_migration_state (
+			migration_key text PRIMARY KEY,
+			applied_at timestamptz NOT NULL DEFAULT now()
+		)
+	`); err != nil {
+		return fmt.Errorf("create operator grant fixture migration marker: %w", err)
+	}
+	var migrationsApplied bool
+	if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM _test_operator_grant_migration_state WHERE migration_key='trust-002-036')").Scan(&migrationsApplied); err != nil {
+		return fmt.Errorf("read operator grant fixture migration marker: %w", err)
+	}
+	if !migrationsApplied {
+		var evidenceManagerGrantExists bool
+		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM operator_action_grants WHERE action='incident:evidence:manage')").Scan(&evidenceManagerGrantExists); err != nil {
+			return fmt.Errorf("inspect evidence manager fixture grants: %w", err)
+		}
+		migrationNames := []string{
 			"001_walking_skeleton.sql", "002_identity.sql", "022_identity_memberships.sql",
 			"031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql",
-			"033_incident_report_intake.sql", "034_incident_reviewer_workflow.sql",
-			"035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql",
-		} {
-			raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
-			if err != nil {
-				return fmt.Errorf("read %s: %w", name, err)
+			"033_incident_report_intake.sql",
+		}
+		if !evidenceManagerGrantExists {
+			migrationNames = append(migrationNames, "034_incident_reviewer_workflow.sql")
+		}
+		migrationNames = append(migrationNames, "035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql")
+		for _, name := range migrationNames {
+			raw, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
+			if readErr != nil {
+				return fmt.Errorf("read %s: %w", name, readErr)
 			}
-			if _, err = execMigrationScript(ctx, pool, raw); err != nil {
+			if _, err = tx.Exec(ctx, string(raw), pgx.QueryExecModeSimpleProtocol); err != nil {
 				return fmt.Errorf("apply %s: %w", name, err)
 			}
 		}
-		testOperatorGrantMigrationSchemas[schemaKey] = true
+		if _, err = tx.Exec(ctx, "INSERT INTO _test_operator_grant_migration_state(migration_key) VALUES('trust-002-036')"); err != nil {
+			return fmt.Errorf("record operator grant fixture migrations: %w", err)
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit operator grant fixture migrations: %w", err)
 	}
 	var identityExists bool
 	if err := pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM phone_identities WHERE id=$1)", actor.SubjectID).Scan(&identityExists); err != nil {
