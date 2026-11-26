@@ -28,6 +28,11 @@ func TestMarketLocalizedCatalogVisibilityPostgres(t *testing.T) {
 	store:=&Store{DB:pool}
 	operator:=Actor{SubjectID:"catalog-operator",TenantID:"platform",Role:RoleOperator}
 	if err=ensureTestOperatorGrants(ctx,pool,operator,ActionMarketConfigure,ActionCatalogManage); err!=nil { t.Fatal(err) }
+	otherTenantOperator:=Actor{SubjectID:"catalog-other-tenant-operator",TenantID:"market-a",Role:RoleOperator}
+	if err=ensureTestOperatorGrants(ctx,pool,otherTenantOperator,ActionCatalogManage); err!=nil { t.Fatal(err) }
+	if _,err=store.CreateCategoryForActor(ctx,otherTenantOperator,nil,"other-tenant-category","Other tenant category"); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("non-platform operator must not create global catalog categories: %v",err)
+	}
 
 	protectedRoot,err:=store.CreateCategoryForActor(ctx,operator,nil,fmt.Sprintf("protected-%d",time.Now().UnixNano()),"Protected root")
 	if err!=nil { t.Fatalf("authorized category creation: %v",err) }
