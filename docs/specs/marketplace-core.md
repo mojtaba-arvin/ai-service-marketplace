@@ -67,6 +67,8 @@ The customer can approve a professional-completed order through `POST /v1/orders
 
 ## Catalog market visibility and localization
 
+Category create, move, enable and disable operations exposed to application handlers must use the actor-authorized `CreateCategoryForActor`, `MoveCategoryForActor` and `SetCategoryEnabledForActor` methods. They require a platform-tenant operator membership and an active `catalog:manage` grant in the same transaction as the write. A transaction-scoped hierarchy lock serializes parent-state validation with category mutations. The older low-level Store helpers are for trusted internal setup only and must not be wired directly to HTTP handlers.
+
 Market visibility is inherited through the full category ancestry. A category is resolvable or listable only when the category and every ancestor are enabled and explicitly visible in the selected market. A visible child beneath a hidden or unconfigured ancestor is not independently discoverable. Locale resolution uses the requested locale only when it is configured for the market; otherwise it falls back to that market's configured default locale. Category visibility and translations are managed through the platform catalog-management authorization boundary. Public route and OpenAPI integration remains owned by CMD-1754.
 
 ## Invariants
