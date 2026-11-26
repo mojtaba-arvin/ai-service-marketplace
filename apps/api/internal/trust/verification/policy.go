@@ -300,7 +300,7 @@ func AdvanceCredential(credential Credential, now time.Time) (Credential, error)
 		nextStatus = StatusExpired
 		action = "expired"
 	} else if !now.Before(credential.ReviewDueAt) &&
-		(credential.Status == StatusVerified || credential.Status == StatusReviewRequired) {
+		(credential.Status == StatusVerified || credential.Status == StatusReviewRequired || credential.Status == StatusFailed) {
 		nextStatus = StatusRecheckDue
 		action = "recheck_due"
 	}
