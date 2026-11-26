@@ -1,7 +1,12 @@
 package marketplace
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/binary"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -105,5 +110,57 @@ func TestEvidenceDecryptRejectsUnknownKey(t *testing.T) {
 	withoutOldKey.Keys = map[string][]byte{"key-v1": service.Keys["key-v1"]}
 	if _, err = withoutOldKey.decrypt("0123456789abcdef0123456789abcdef", "application/pdf", encrypted); err == nil {
 		t.Fatal("missing historical key must fail closed")
+	}
+}
+
+func TestClamAVScannerUsesBoundedINSTREAMProtocol(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	serverErr := make(chan error, 1)
+	go func() {
+		conn, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			serverErr <- acceptErr
+			return
+		}
+		defer conn.Close()
+		reader := bufio.NewReader(conn)
+		command, readErr := reader.ReadString('\x00')
+		if readErr != nil {
+			serverErr <- readErr
+			return
+		}
+		if command != "zINSTREAM\x00" {
+			serverErr <- io.ErrUnexpectedEOF
+			return
+		}
+		for {
+			var size [4]byte
+			if _, readErr = io.ReadFull(reader, size[:]); readErr != nil {
+				serverErr <- readErr
+				return
+			}
+			length := binary.BigEndian.Uint32(size[:])
+			if length == 0 {
+				break
+			}
+			if _, readErr = io.CopyN(io.Discard, reader, int64(length)); readErr != nil {
+				serverErr <- readErr
+				return
+			}
+		}
+		_, writeErr := io.WriteString(conn, "stream: OK\n")
+		serverErr <- writeErr
+	}()
+	scanner := ClamAVScanner{Address: listener.Addr().String()}
+	payload := bytes.Repeat([]byte("A"), 70*1024)
+	if err = scanner.Scan(context.Background(), payload); err != nil {
+		t.Fatalf("clamd scan: %v", err)
+	}
+	if err = <-serverErr; err != nil {
+		t.Fatalf("clamd protocol server: %v", err)
 	}
 }
