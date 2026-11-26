@@ -1,0 +1,52 @@
+name: Work Item Guard
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "Base branch used for protected-path comparison"
+        required: false
+        default: main
+        type: string
+      head_ref:
+        description: "Head branch being verified"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enforce protected paths for issue-scoped implementation branches
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || inputs.base_ref || 'main' }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref || inputs.head_ref || github.ref_name }}
+        run: |
+          # New work uses work/<issue>-<slug>. Keep the old prefix guarded
+          # while pre-existing pull requests finish; do not create new branches
+          # using the legacy prefix.
+          if [[ "$HEAD_REF" != work/* && "$HEAD_REF" != agent/* ]]; then
+            echo "Branch '$HEAD_REF' is not an issue-scoped work branch; implementation path restrictions do not apply."
+            exit 0
+          fi
+
+          git fetch origin "$BASE_REF"
+          changed="$(git diff --name-only "origin/$BASE_REF...HEAD")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)'; then
+            echo "Implementation agent branches may not modify protected policy or spec-test paths."
+            exit 1
+          fi
+          if printf '%s\n' "$changed" | grep -qx 'feature_list.json'; then
+            echo "feature_list.json status changes require independent QA; direct edits are forbidden."
+            exit 1
+          fi
