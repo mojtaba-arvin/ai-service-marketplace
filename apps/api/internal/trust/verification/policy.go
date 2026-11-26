@@ -44,6 +44,7 @@ type Requirement struct {
 }
 
 type Policy struct {
+	TenantRef string
 	MarketID string
 	Locale string
 	PolicyVersion string
@@ -55,7 +56,7 @@ type Policy struct {
 // configuration. It deliberately supplies no default providers, consent rules,
 // service-risk levels, or review intervals.
 func (p Policy) Validate(registry *marketconfig.Registry, matrix *marketconfig.Matrix) error {
-	if registry == nil || matrix == nil || !identifierPattern.MatchString(p.ServiceRisk) || p.PolicyVersion == "" {
+	if registry == nil || matrix == nil || p.TenantRef == "" || strings.TrimSpace(p.TenantRef) != p.TenantRef || !identifierPattern.MatchString(p.ServiceRisk) || p.PolicyVersion == "" {
 		return ErrInvalidPolicy
 	}
 	market, err := registry.Resolve(p.MarketID, p.Locale)
@@ -159,6 +160,7 @@ type Event struct {
 }
 
 type Credential struct {
+	TenantRef string
 	SubjectRef string
 	MarketID string
 	Locale string
@@ -250,6 +252,7 @@ func (s Service) RunCheck(ctx context.Context, policy Policy, requirement Requir
 		reviewDueAt = configuredReviewAt
 	}
 	credential := Credential{
+		TenantRef: policy.TenantRef,
 		SubjectRef: subjectRef,
 		MarketID: policy.MarketID,
 		Locale: policy.Locale,
@@ -403,7 +406,7 @@ func EvaluateDispatch(policy Policy, credentials []Credential, now time.Time) er
 	}
 	for _, requirement := range policy.Requirements {
 		credential, exists := byCheck[requirement.CheckID]
-		if !exists || credential.SubjectRef == "" ||
+		if !exists || credential.SubjectRef == "" || credential.TenantRef != policy.TenantRef ||
 			credential.MarketID != policy.MarketID ||
 			credential.Locale != policy.Locale ||
 			credential.PolicyVersion != policy.PolicyVersion ||
