@@ -26,7 +26,6 @@ func testEvidenceService(t *testing.T) *EvidenceService {
 		MaxBytes: 1 << 20,
 		MaxPerReport: 5,
 		AllowedMediaType: map[string]bool{"application/pdf": true, "image/png": true},
-		ScannerAddress: "127.0.0.1:1",
 	}
 	if err := service.Storage.(*FilesystemEvidenceStorage).ensurePrivateRoot(); err != nil {
 		t.Fatal(err)
