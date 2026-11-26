@@ -14,11 +14,11 @@ import (
 )
 
 func TestParseActions(t *testing.T) {
-	actions, err := parseActions("analytics:read, incident:review, order:assign,order:read")
+	actions, err := parseActions("analytics:read, incident:review, incident:evidence:manage, order:assign,order:read")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"analytics:read", "incident:review", "order:assign", "order:read"}
+	want := []string{"analytics:read", "incident:evidence:manage", "incident:review", "order:assign", "order:read"}
 	if !reflect.DeepEqual(actions, want) {
 		t.Fatalf("parseActions() = %#v, want %#v", actions, want)
 	}
@@ -73,7 +73,7 @@ func TestBootstrapPostgresOneTimeAndImmutableAudit(t *testing.T) {
 	if _, err = pool.Exec(ctx, "ALTER TABLE orders ADD COLUMN IF NOT EXISTS tenant_id text"); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"002_identity.sql", "022_identity_memberships.sql", "031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql", "033_incident_report_intake.sql", "034_incident_reviewer_workflow.sql"} {
+	for _, name := range []string{"002_identity.sql", "022_identity_memberships.sql", "031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql", "033_incident_report_intake.sql", "034_incident_reviewer_workflow.sql", "035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql"} {
 		raw, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if readErr != nil {
 			t.Fatal(readErr)
@@ -96,7 +96,7 @@ func TestBootstrapPostgresOneTimeAndImmutableAudit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	actions, err := parseActions("incident:review,order:assign,order:read")
+	actions, err := parseActions("incident:review,incident:evidence:manage,order:assign,order:read")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestBootstrapPostgresOneTimeAndImmutableAudit(t *testing.T) {
 	if err = pool.QueryRow(ctx, "SELECT count(*) FROM operator_permission_bootstraps WHERE tenant_id=$1", tenantID).Scan(&markers); err != nil {
 		t.Fatal(err)
 	}
-	if grants != 3 || events != 3 || markers != 1 {
+	if grants != 4 || events != 4 || markers != 1 {
 		t.Fatalf("unexpected bootstrap counts: grants=%d events=%d markers=%d", grants, events, markers)
 	}
 
@@ -125,7 +125,7 @@ func TestBootstrapPostgresOneTimeAndImmutableAudit(t *testing.T) {
 	if err = pool.QueryRow(ctx, "SELECT count(*) FROM operator_action_grants WHERE tenant_id=$1", tenantID).Scan(&grants); err != nil {
 		t.Fatal(err)
 	}
-	if grants != 3 {
+	if grants != 4 {
 		t.Fatalf("replayed bootstrap changed grants: %d", grants)
 	}
 
