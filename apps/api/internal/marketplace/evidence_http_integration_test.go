@@ -115,7 +115,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 		"015_order_schedule.sql", "018_dispatch_offers.sql", "022_identity_memberships.sql",
 		"023_order_tenant_scope.sql", "025_auth_devices.sql", "031_operator_action_grants.sql",
 		"032_operator_permission_event_integrity.sql", "033_incident_report_intake.sql",
-		"034_incident_reviewer_workflow.sql", "035_private_incident_evidence.sql",
+		"034_incident_reviewer_workflow.sql", "035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql",
 	}
 	for _, name := range migrations {
 		raw, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
@@ -131,6 +131,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	outsiderID, outsiderPhone := newEvidenceHTTPIdentity(t, ctx, pool)
 	professionalID, _ := newEvidenceHTTPIdentity(t, ctx, pool)
 	reviewerID, reviewerPhone := newEvidenceHTTPIdentity(t, ctx, pool)
+	managerID, managerPhone := newEvidenceHTTPIdentity(t, ctx, pool)
 	supportID, supportPhone := newEvidenceHTTPIdentity(t, ctx, pool)
 	tenantID := "evidence-http-tenant-" + newTestID(t)
 	for _, membership := range []struct {
@@ -141,6 +142,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 		{outsiderID, RoleCustomer},
 		{professionalID, RoleProfessional},
 		{reviewerID, RoleOperator},
+		{managerID, RoleOperator},
 		{supportID, RoleSupport},
 	} {
 		if _, err = pool.Exec(ctx, `
@@ -169,7 +171,11 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	store := &Store{DB: pool}
 	customer := Actor{SubjectID: customerID, TenantID: tenantID, Role: RoleCustomer}
 	reviewer := Actor{SubjectID: reviewerID, TenantID: tenantID, Role: RoleOperator}
+	manager := Actor{SubjectID: managerID, TenantID: tenantID, Role: RoleOperator}
 	if err = ensureTestOperatorGrants(ctx, pool, reviewer, ActionIncidentReview); err != nil {
+		t.Fatal(err)
+	}
+	if err = ensureTestOperatorGrants(ctx, pool, manager, ActionIncidentEvidenceManage); err != nil {
 		t.Fatal(err)
 	}
 	report, err := store.CreateIncidentReport(ctx, customer, IncidentReportInput{
@@ -192,6 +198,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	customerToken := issueToken(customerPhone)
 	outsiderToken := issueToken(outsiderPhone)
 	reviewerToken := issueToken(reviewerPhone)
+	managerToken := issueToken(managerPhone)
 	supportToken := issueToken(supportPhone)
 
 	unprivilegedID, unprivilegedPhone := newEvidenceHTTPIdentity(t, ctx, pool)
@@ -203,8 +210,13 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	}
 	otherTenant := "evidence-http-other-tenant-" + newTestID(t)
 	otherReviewerID, otherReviewerPhone := newEvidenceHTTPIdentity(t, ctx, pool)
+	otherManagerID, otherManagerPhone := newEvidenceHTTPIdentity(t, ctx, pool)
 	otherReviewer := Actor{SubjectID: otherReviewerID, TenantID: otherTenant, Role: RoleOperator}
+	otherManager := Actor{SubjectID: otherManagerID, TenantID: otherTenant, Role: RoleOperator}
 	if err = ensureTestOperatorGrants(ctx, pool, otherReviewer, ActionIncidentReview); err != nil {
+		t.Fatal(err)
+	}
+	if err = ensureTestOperatorGrants(ctx, pool, otherManager, ActionIncidentEvidenceManage); err != nil {
 		t.Fatal(err)
 	}
 	otherCustomerID, otherCustomerPhone := newEvidenceHTTPIdentity(t, ctx, pool)
@@ -232,6 +244,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	}
 	unprivilegedToken := issueToken(unprivilegedPhone)
 	otherReviewerToken := issueToken(otherReviewerPhone)
+	otherManagerToken := issueToken(otherManagerPhone)
 	otherCustomerToken := issueToken(otherCustomerPhone)
 
 	storage := &integrationEvidenceStorage{objects: make(map[string][]byte)}
@@ -346,6 +359,72 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	}
 	if expired := call(http.MethodGet, "/v1/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, customerToken, nil); expired.Code != http.StatusGone {
 		t.Fatalf("expired evidence must not be retrievable, got %d: %s", expired.Code, expired.Body.String())
+	}
+
+
+	// Lifecycle management is a separate, reasoned permission; reviewer and
+	// support roles must not inherit it.
+	lifecyclePath := "/v1/operator/incidents/" + report.ID + "/evidence/" + uploaded.EvidenceID + "/lifecycle"
+	unauthorizedReviewerUpdate := call(http.MethodPatch, lifecyclePath, reviewerToken,
+		[]byte(`{"legal_hold":true,"reason":"reviewer must not manage evidence"}`))
+	if unauthorizedReviewerUpdate.Code != http.StatusForbidden {
+		t.Fatalf("incident reviewer must not manage evidence lifecycle, got %d: %s", unauthorizedReviewerUpdate.Code, unauthorizedReviewerUpdate.Body.String())
+	}
+	unauthorizedSupportUpdate := call(http.MethodPatch, lifecyclePath, supportToken,
+		[]byte(`{"legal_hold":true,"reason":"support must not manage evidence"}`))
+	if unauthorizedSupportUpdate.Code != http.StatusForbidden {
+		t.Fatalf("support role must not manage evidence lifecycle, got %d: %s", unauthorizedSupportUpdate.Code, unauthorizedSupportUpdate.Body.String())
+	}
+	crossTenantManagerUpdate := callOtherTenant(http.MethodPatch, lifecyclePath, otherManagerToken,
+		[]byte(`{"legal_hold":true,"reason":"cross-tenant attempt"}`))
+	if crossTenantManagerUpdate.Code != http.StatusNotFound {
+		t.Fatalf("other-tenant evidence manager must not see target evidence, got %d: %s", crossTenantManagerUpdate.Code, crossTenantManagerUpdate.Body.String())
+	}
+	managerUpdate := call(http.MethodPatch, lifecyclePath, managerToken,
+		[]byte(`{"retention_expires_at":"2020-01-01T00:00:00Z","legal_hold":true,"reason":"Preserve evidence during active safety review"}`))
+	if managerUpdate.Code != http.StatusOK {
+		t.Fatalf("authorized evidence manager update: %d: %s", managerUpdate.Code, managerUpdate.Body.String())
+	}
+	if held := call(http.MethodGet, "/v1/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, customerToken, nil); held.Code != http.StatusOK {
+		t.Fatalf("legal hold must override an elapsed retrieval expiry, got %d: %s", held.Code, held.Body.String())
+	}
+	clearHold := call(http.MethodPatch, lifecyclePath, managerToken,
+		[]byte(`{"legal_hold":false,"reason":"Safety review concluded; release legal hold"}`))
+	if clearHold.Code != http.StatusOK {
+		t.Fatalf("authorized legal-hold release: %d: %s", clearHold.Code, clearHold.Body.String())
+	}
+	if expiredAgain := call(http.MethodGet, "/v1/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, customerToken, nil); expiredAgain.Code != http.StatusGone {
+		t.Fatalf("clearing legal hold must restore expiry denial, got %d: %s", expiredAgain.Code, expiredAgain.Body.String())
+	}
+	clearExpiry := call(http.MethodPatch, lifecyclePath, managerToken,
+		[]byte(`{"retention_expires_at":null,"reason":"Adopter policy explicitly clears the expiry"}`))
+	if clearExpiry.Code != http.StatusOK {
+		t.Fatalf("explicit expiry clearing: %d: %s", clearExpiry.Code, clearExpiry.Body.String())
+	}
+	if accessible := call(http.MethodGet, "/v1/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, customerToken, nil); accessible.Code != http.StatusOK {
+		t.Fatalf("clearing expiry must restore retrieval when no hold is set, got %d: %s", accessible.Code, accessible.Body.String())
+	}
+	var retentionUpdates, legalHoldSets, legalHoldClears int
+	if err = pool.QueryRow(ctx, `
+		SELECT
+			count(*) FILTER (WHERE action='retention_update' AND outcome='success'),
+			count(*) FILTER (WHERE action='legal_hold_set' AND outcome='success'),
+			count(*) FILTER (WHERE action='legal_hold_cleared' AND outcome='success')
+		FROM incident_evidence_access_events
+		WHERE report_id=$1 AND tenant_id=$2
+	`, report.ID, tenantID).Scan(&retentionUpdates, &legalHoldSets, &legalHoldClears); err != nil {
+		t.Fatal(err)
+	}
+	if retentionUpdates != 2 || legalHoldSets != 1 || legalHoldClears != 1 {
+		t.Fatalf("unexpected lifecycle audit totals: retention=%d hold_set=%d hold_clear=%d", retentionUpdates, legalHoldSets, legalHoldClears)
+	}
+	var lifecycleReason string
+	if err = pool.QueryRow(ctx, `
+		SELECT reason FROM incident_evidence_access_events
+		WHERE report_id=$1 AND tenant_id=$2 AND action='legal_hold_set' AND outcome='success'
+		ORDER BY id DESC LIMIT 1
+	`, report.ID, tenantID).Scan(&lifecycleReason); err != nil || lifecycleReason != "Preserve evidence during active safety review" {
+		t.Fatalf("lifecycle reason must be preserved in audit: %q, %v", lifecycleReason, err)
 	}
 
 	var successUploads, successDownloads, deniedUploads, deniedDownloads, deniedLists, crossTenantDenied int
