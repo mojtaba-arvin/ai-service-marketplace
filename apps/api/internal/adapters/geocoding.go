@@ -29,6 +29,7 @@ type GeocodeResult struct {
 }
 
 type Geocoder interface {
+	AdapterID() string
 	Geocode(context.Context, GeocodeRequest) (GeocodeResult, error)
 }
 
@@ -60,10 +61,13 @@ func Geocode(ctx context.Context, runner Runner, provider Geocoder, request Geoc
 
 // FakeGeocoder is deterministic and intended only for unit and contract tests.
 type FakeGeocoder struct {
+	ID string
 	Results map[string]GeocodeResult
 	Calls int
 	LastKey string
 }
+
+func (f *FakeGeocoder) AdapterID() string { return f.ID }
 
 func (f *FakeGeocoder) Geocode(ctx context.Context, request GeocodeRequest) (GeocodeResult, error) {
 	if err := ctx.Err(); err != nil { return GeocodeResult{}, err }
