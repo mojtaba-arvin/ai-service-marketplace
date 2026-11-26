@@ -74,7 +74,10 @@ func (s *Store) LinkExternalIdentity(ctx context.Context, actor Actor, matrix *m
 	var linkedIdentity string
 	err=tx.QueryRow(ctx,`SELECT phone_identity_id FROM external_identity_links WHERE provider=$1 AND provider_subject=$2`,string(assertion.Provider),assertion.Subject).Scan(&linkedIdentity)
 	if err!=nil{return err}
-	if linkedIdentity!=identityID{return ErrExternalIdentityLinkedElsewhere}
+	if linkedIdentity!=identityID {
+		if err=tx.Commit(ctx);err!=nil{return err}
+		return ErrExternalIdentityLinkedElsewhere
+	}
 	return tx.Commit(ctx)
 }
 
@@ -86,10 +89,14 @@ func (s *Store) ResolveExternalIdentity(ctx context.Context, matrix *marketconfi
 	if err=validateExternalAssertion(assertion,time.Now());err!=nil{return VerifiedIdentity{},err}
 	if err=matrix.Require(marketID,locale,"identity."+string(assertion.Provider),"login");err!=nil{return VerifiedIdentity{},err}
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return VerifiedIdentity{},err};defer tx.Rollback(ctx)
+	if err=nonceStore.Consume(ctx,tx,"",string(assertion.Provider),assertion.Nonce,assertion.ExpiresAt);err!=nil{return VerifiedIdentity{},err}
 	var identityID,phone string
 	err=tx.QueryRow(ctx,`SELECT p.id,p.phone_e164 FROM external_identity_links l JOIN phone_identities p ON p.id=l.phone_identity_id WHERE l.provider=$1 AND l.provider_subject=$2 FOR UPDATE OF l,p`,string(assertion.Provider),assertion.Subject).Scan(&identityID,&phone)
-	if errors.Is(err,pgx.ErrNoRows){return VerifiedIdentity{},ErrExternalIdentityNotFound};if err!=nil{return VerifiedIdentity{},err}
-	if err=nonceStore.Consume(ctx,tx,"",string(assertion.Provider),assertion.Nonce,assertion.ExpiresAt);err!=nil{return VerifiedIdentity{},err}
+	if errors.Is(err,pgx.ErrNoRows) {
+		if commitErr:=tx.Commit(ctx);commitErr!=nil{return VerifiedIdentity{},commitErr}
+		return VerifiedIdentity{},ErrExternalIdentityNotFound
+	}
+	if err!=nil{return VerifiedIdentity{},err}
 	if err=tx.Commit(ctx);err!=nil{return VerifiedIdentity{},err}
 	return VerifiedIdentity{phone:phone},nil
 }
