@@ -13,6 +13,7 @@ type OTPDelivery interface { SendOTP(ctx context.Context,phone,code,idempotencyK
 
 type Handler struct {
  Store *Store
+ Evidence *EvidenceService
  OTPCode string
  TestMode bool
  OTPPepper []byte
@@ -30,6 +31,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
  w.Header().Set("Content-Type","application/json")
  if strings.HasPrefix(r.URL.Path,"/v1/auth/") { w.Header().Set("Cache-Control","no-store") }
  if !h.enforceCookieCSRF(w,r) { return }
+ if h.serveIncidentEvidence(w,r) { return }
  if h.serveMVP(w,r) { return }
  switch {
  case r.Method==http.MethodGet&&r.URL.Path=="/healthz":
