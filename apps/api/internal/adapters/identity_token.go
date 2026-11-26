@@ -69,7 +69,7 @@ type jwtClaims struct {
 	Subject string `json:"sub"`
 	ExpiresAt int64 `json:"exp"`
 	IssuedAt int64 `json:"iat"`
-	NotBefore int64 `json:"nbf,omitempty"
+	NotBefore int64 `json:"nbf,omitempty"`
 	AuthorizedParty string `json:"azp,omitempty"`
 	Nonce string `json:"nonce"`
 }
