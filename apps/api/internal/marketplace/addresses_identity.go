@@ -104,7 +104,7 @@ func (PostgresIdentityNonceStore) Consume(ctx context.Context, tx pgx.Tx, identi
 	digest:=sha256.Sum256([]byte(nonce))
 	tag,err:=tx.Exec(ctx,`UPDATE external_identity_link_nonces SET consumed_at=now()
 		WHERE COALESCE(identity_id,'')=$1 AND provider=$2 AND nonce_hash=$3 AND consumed_at IS NULL
-		AND expires_at>now() AND expires_at=$4`,identityID,provider,digest[:],expiresAt)
+		AND expires_at>now()`,identityID,provider,digest[:])
 	if err!=nil{return err}
 	if tag.RowsAffected()!=1{return ErrIdentityNonceReplay}
 	return nil
