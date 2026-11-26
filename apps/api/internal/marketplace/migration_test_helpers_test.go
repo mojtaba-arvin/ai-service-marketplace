@@ -55,17 +55,26 @@ func ensureTestOperatorGrants(ctx context.Context, pool *pgxpool.Pool, actor Act
 		return fmt.Errorf("read operator grant fixture migration marker: %w", err)
 	}
 	if !migrationsApplied {
+		baseMigrations := []string{
+			"001_walking_skeleton.sql", "002_identity.sql", "022_identity_memberships.sql",
+			"031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql",
+		}
+		for _, name := range baseMigrations {
+			raw, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
+			if readErr != nil {
+				return fmt.Errorf("read %s: %w", name, readErr)
+			}
+			if _, err = tx.Exec(ctx, string(raw), pgx.QueryExecModeSimpleProtocol); err != nil {
+				return fmt.Errorf("apply %s: %w", name, err)
+			}
+		}
 		var evidenceManagerGrantExists bool
 		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM operator_action_grants WHERE action='incident:evidence:manage')").Scan(&evidenceManagerGrantExists); err != nil {
 			return fmt.Errorf("inspect evidence manager fixture grants: %w", err)
 		}
-		migrationNames := []string{
-			"001_walking_skeleton.sql", "002_identity.sql", "022_identity_memberships.sql",
-			"031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql",
-			"033_incident_report_intake.sql",
-		}
+		migrationNames := []string{}
 		if !evidenceManagerGrantExists {
-			migrationNames = append(migrationNames, "034_incident_reviewer_workflow.sql")
+			migrationNames = append(migrationNames, "033_incident_report_intake.sql", "034_incident_reviewer_workflow.sql")
 		}
 		migrationNames = append(migrationNames, "035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql")
 		for _, name := range migrationNames {
