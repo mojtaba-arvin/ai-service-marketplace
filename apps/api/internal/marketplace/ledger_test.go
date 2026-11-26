@@ -135,4 +135,58 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 	if _,err=pool.Exec(ctx,`UPDATE ledger_journals SET description='tampered' WHERE id=$1`,journal.ID); err==nil {
 		t.Fatal("posted ledger journals must be immutable")
 	}
+
+	// Concurrent reversal requests with distinct idempotency keys must still
+	// produce exactly one compensating journal for the original posting.
+	reversalRaceOriginal, err := store.PostJournal(ctx, "ledger-reversal-race-original-"+suffix, "OMR", "Concurrent reversal original", lines)
+	if err != nil {
+		t.Fatalf("post original journal for reversal race: %v", err)
+	}
+	type reversalResult struct {
+		journal LedgerJournal
+		err     error
+	}
+	reversalStart := make(chan struct{})
+	reversalResults := make(chan reversalResult, 2)
+	var reversalWG sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		reversalWG.Add(1)
+		go func(index int) {
+			defer reversalWG.Done()
+			<-reversalStart
+			reversed, reverseErr := store.ReverseJournal(
+				ctx,
+				fmt.Sprintf("ledger-reversal-race-%s-%d", suffix, index),
+				reversalRaceOriginal.ID,
+				"Concurrent correction",
+			)
+			reversalResults <- reversalResult{journal: reversed, err: reverseErr}
+		}(i)
+	}
+	close(reversalStart)
+	reversalWG.Wait()
+	close(reversalResults)
+
+	var reversalSuccesses, reversalConflicts int
+	for result := range reversalResults {
+		switch {
+		case result.err == nil:
+			reversalSuccesses++
+		case errors.Is(result.err, ErrLedgerAlreadyReversed):
+			reversalConflicts++
+		default:
+			t.Fatalf("unexpected concurrent reversal result: %v", result.err)
+		}
+	}
+	if reversalSuccesses != 1 || reversalConflicts != 1 {
+		t.Fatalf("concurrent reversal must yield one success and one conflict: successes=%d conflicts=%d", reversalSuccesses, reversalConflicts)
+	}
+	var reversalCount int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM ledger_journals WHERE reversal_of_id=$1`, reversalRaceOriginal.ID).Scan(&reversalCount); err != nil {
+		t.Fatal(err)
+	}
+	if reversalCount != 1 {
+		t.Fatalf("concurrent reversal must persist exactly one compensating journal: got %d", reversalCount)
+	}
+
 }
