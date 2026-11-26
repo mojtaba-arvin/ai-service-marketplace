@@ -1,13 +1,13 @@
 # M7 and M9 — Trust, Safety and Support Specification
 
 **Feature IDs:** TRUST-001–TRUST-004, SUP-001–SUP-002  
-**Status:** support case lifecycle and append-only support action audit are implemented. TRUST-002 incident intake and reviewer workflow are integrated; private evidence storage/retrieval, retention/legal hold and independent acceptance remain incomplete. Dispute workflow and privacy-contact capabilities remain incomplete.
+**Status:** support case lifecycle and append-only support action audit are implemented. TRUST-002 incident intake/reviewer workflow and the first private evidence upload/retrieval slice are implemented; complete retention/legal-hold administration, operational recovery and independent acceptance remain incomplete. Dispute workflow and privacy-contact capabilities remain incomplete.
 
 ## Ownership
 
 - **Professional verification:** verification case lifecycle, private evidence references, reviewer decisions and append-only review events. Implementation: `professional_verification.go`, migration `020_professional_verification.sql`.
 - **Support:** requester-owned cases, tenant-scoped support agents, assignment, guarded status transitions and append-only action events. Implementation: `support_cases.go`, migration `021_support_cases.sql`. Creation, assignment and status changes record actor, action, reason and before/after JSON in the same transaction; PostgreSQL rejects UPDATE/DELETE on event rows. This implements SUP-001 and SUP-002.
-- **Incident/safety reports:** `incident_reports` and `incident_report_events` own order-bound intake, reporter reads and the explicit `incident:review` workflow (migrations 033–034; `incidents.go`). Opaque evidence references are metadata only; private bytes, upload/retrieval, access audit and adopter-configured retention/legal hold are tracked in #217.
+- **Incident/safety reports:** `incident_reports` and `incident_report_events` own order-bound intake, reporter reads and the explicit `incident:review` workflow (migrations 033–034; `incidents.go`). Evidence bytes use the replaceable private storage interface in `evidence.go`, encrypted filesystem adapter, API-mediated reporter/reviewer retrieval, ClamAV scanning and append-only access events (migration 035; #217). Retention expiry denies retrieval but does not delete bytes; legal-hold administration, audited deletion and backup coordination remain open.
 - **Dispute adjudication and privacy-preserving contact:** remain separate backlog capabilities until their own policy, data and workflow contracts are approved. They must not be inferred from support cases or order cancellation.
 
 ## Data and evidence boundaries
@@ -53,4 +53,4 @@ Every result sets `requires_human_adjudication=true`. AI cannot determine liabil
 - Complete the private evidence storage/retrieval and access-audit boundary in #217. Retention/legal-hold behavior must be adopter-configured; do not invent a universal duration or enable automatic deletion without an explicit policy.
 - Define dispute states, roles, evidence access, appeal and resolution authority before implementing TRUST-003.
 - Define contact relay, disclosure controls, abuse reporting and retention before implementing TRUST-004.
-- Replace reference-only evidence handling with a private storage adapter and explicit authorization contract.
+- Complete audited retention/legal-hold administration, deletion and backup-expiry coordination; prove encryption-key rotation/restore and scanner/storage failure recovery. Do not infer that expiry deleted bytes or that legal hold is operational.
