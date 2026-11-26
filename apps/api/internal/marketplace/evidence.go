@@ -52,7 +52,6 @@ type EvidenceService struct {
 	MaxPerReport     int
 	AllowedMediaType map[string]bool
 	RetentionDays    int
-	ScannerAddress   string
 }
 
 type incidentEvidenceMetadata struct {
@@ -133,7 +132,7 @@ func NewEvidenceServiceFromEnv() (*EvidenceService, error) {
 	service := &EvidenceService{
 		Storage: storage, Scanner: ClamAVScanner{Address: scanner}, Keys: keys, ActiveKeyID: keyID, MaxBytes: maxBytes,
 		MaxPerReport: maxItems, AllowedMediaType: allowed,
-		RetentionDays: retentionDays, ScannerAddress: scanner,
+		RetentionDays: retentionDays,
 	}
 	return service, nil
 }
