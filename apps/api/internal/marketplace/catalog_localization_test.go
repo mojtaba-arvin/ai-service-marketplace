@@ -39,6 +39,9 @@ func TestMarketLocalizedCatalogVisibilityPostgres(t *testing.T) {
 	source,err:=store.CreateCategoryForActor(ctx,operator,nil,fmt.Sprintf("source-%d",time.Now().UnixNano()),"Source")
 	if err!=nil { t.Fatal(err) }
 	if err=store.MoveCategoryForActor(ctx,operator,source.ID,&protectedRoot.ID); err!=nil { t.Fatalf("authorized category move: %v",err) }
+	if err=store.MoveCategoryForActor(ctx,operator,"missing-category",nil); !errors.Is(err,ErrCategoryNotFound) {
+		t.Fatalf("moving a missing category must return not found: %v",err)
+	}
 	moved,err:=store.GetCategory(ctx,source.ID)
 	if err!=nil || moved.ParentID==nil || *moved.ParentID!=protectedRoot.ID { t.Fatalf("authorized move parent mismatch: %#v %v",moved,err) }
 	if err=store.MoveCategoryForActor(ctx,operator,protectedRoot.ID,&source.ID); !errors.Is(err,ErrInvalidCategory) {
