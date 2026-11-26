@@ -59,6 +59,10 @@ func main() {
 		if deliveryErr != nil {
 			log.Fatalf("configure OTP delivery: %v", deliveryErr)
 		}
+		evidence, evidenceErr := marketplace.NewEvidenceServiceFromEnv()
+		if evidenceErr != nil {
+			log.Fatalf("configure private incident evidence: %v", evidenceErr)
+		}
 		tenantID := requiredValue("DEFAULT_TENANT_ID")
 		marketCode := strings.ToUpper(requiredValue("DEFAULT_MARKET_CODE"))
 		if len(marketCode) != 2 {
@@ -69,7 +73,7 @@ func main() {
 			log.Fatalf("BOOTSTRAP_OPERATOR_PHONE is invalid: %v", phoneErr)
 		}
 		handler = &marketplace.Handler{
-			Store: store, OTPPepper: requiredSecret("OTP_PEPPER"), SessionPepper: requiredSecret("SESSION_PEPPER"),
+			Store: store, Evidence: evidence, OTPPepper: requiredSecret("OTP_PEPPER"), SessionPepper: requiredSecret("SESSION_PEPPER"),
 			OTPDelivery: delivery, AccessTTL: 15 * time.Minute, RefreshTTL: 30 * 24 * time.Hour,
 			DefaultTenantID: tenantID, DefaultMarketCode: marketCode,
 			BootstrapOperatorPhone: operatorPhone, CookieSecure: true,
