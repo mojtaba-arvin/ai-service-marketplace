@@ -85,7 +85,8 @@ func validateGeocodeResult(result *adapters.GeocodeResult) error {
 
 func GeocodeSavedAddress(ctx context.Context, matrix *marketconfig.Matrix, marketID, locale string, runner adapters.Runner, geocoder adapters.Geocoder, address, idempotencyKey string) (adapters.GeocodeResult,error) {
 	if matrix==nil{return adapters.GeocodeResult{},marketconfig.ErrUnknownMarket}
-	if err:=matrix.Require(marketID,locale,"maps","geocode");err!=nil{return adapters.GeocodeResult{},err}
+	if geocoder==nil || strings.TrimSpace(geocoder.AdapterID())=="" {return adapters.GeocodeResult{},adapters.ErrGeocoderUnavailable}
+	if err:=matrix.Require(marketID,locale,geocoder.AdapterID(),"geocode");err!=nil{return adapters.GeocodeResult{},err}
 	return adapters.Geocode(ctx,runner,geocoder,adapters.GeocodeRequest{MarketID:marketID,Locale:locale,Address:address,IdempotencyKey:idempotencyKey})
 }
 
