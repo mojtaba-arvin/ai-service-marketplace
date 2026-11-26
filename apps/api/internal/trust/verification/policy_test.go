@@ -110,6 +110,9 @@ func TestAdverseResultRequiresHumanReviewAndBlocksDispatch(t *testing.T) {
 	if _, err := Review(credential, "operator:1", "Reviewed evidence", ReviewApprove, false, now); !errors.Is(err, ErrReviewUnauthorized) {
 		t.Fatalf("unauthorized review error = %v", err)
 	}
+	if _, err := Review(credential, credential.SubjectRef, "Self review", ReviewApprove, true, now); !errors.Is(err, ErrReviewUnauthorized) {
+		t.Fatalf("self review error = %v", err)
+	}
 	approved, err := Review(credential, "operator:1", "Reviewed evidence", ReviewApprove, true, now)
 	if err != nil { t.Fatal(err) }
 	if approved.Status != StatusVerified || len(approved.Events) != 2 || approved.Events[1].ActorRef != "operator:1" {
@@ -117,6 +120,11 @@ func TestAdverseResultRequiresHumanReviewAndBlocksDispatch(t *testing.T) {
 	}
 	if err := EvaluateDispatch(policy, []Credential{approved}, now); err != nil {
 		t.Fatalf("approved credential should be dispatchable: %v", err)
+	}
+	mixedSubject := approved
+	mixedSubject.SubjectRef = "subject:other"
+	if err := EvaluateDispatch(policy, []Credential{approved, mixedSubject}, now); !errors.Is(err, ErrInvalidPolicy) {
+		t.Fatalf("duplicate check should be rejected: %v", err)
 	}
 }
 
