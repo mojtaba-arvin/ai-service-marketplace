@@ -6,7 +6,7 @@ Thank you for helping improve this open-source marketplace platform. Contributio
 
 1. Read [AGENTS.md](AGENTS.md), the relevant [module specification](docs/specs/README.md), applicable [ADRs](docs/adr/), and the linked issue.
 2. For non-trivial work, open or select a focused issue with acceptance criteria before implementation.
-3. Work on a short-lived branch using the repository convention `agent/<issue>-<slug>`.
+3. Work on a short-lived issue-based branch using `work/<issue>-<slug>`, where the number is the linked GitHub Issue and the slug describes the change.
 4. Keep changes focused. Avoid unrelated formatting, dependency churn and premature service/infrastructure extraction.
 
 ## Development and verification
