@@ -56,14 +56,12 @@ type EvidenceService struct {
 }
 
 type incidentEvidenceMetadata struct {
-	ID             string
-	ReportID       string
-	TenantID       string
-	ReporterID     string
-	MediaType      string
-	SizeBytes      int64
-	RetentionUntil *time.Time
-	LegalHold      bool
+	ID             string     `json:"evidence_id"`
+	MediaType      string     `json:"media_type"`
+	SizeBytes      int64      `json:"size_bytes"`
+	CreatedAt      time.Time  `json:"created_at"`
+	RetentionUntil *time.Time `json:"retention_expires_at,omitempty"`
+	LegalHold      bool       `json:"legal_hold"`
 }
 
 func NewEvidenceServiceFromEnv() (*EvidenceService, error) {
@@ -366,6 +364,14 @@ func (s ClamAVScanner) Scan(ctx context.Context, data []byte) error {
 func (h *Handler) serveIncidentEvidence(w http.ResponseWriter, r *http.Request) bool {
 	path := strings.Trim(r.URL.Path, "/")
 	parts := strings.Split(path, "/")
+	if len(parts) == 4 && parts[0] == "v1" && parts[1] == "incidents" && parts[2] != "" && parts[3] == "evidence" && r.Method == http.MethodGet {
+		h.listIncidentEvidence(w, r, parts[2], false)
+		return true
+	}
+	if len(parts) == 5 && parts[0] == "v1" && parts[1] == "operator" && parts[2] == "incidents" && parts[3] != "" && parts[4] == "evidence" && r.Method == http.MethodGet {
+		h.listIncidentEvidence(w, r, parts[3], true)
+		return true
+	}
 	if len(parts) == 4 && parts[0] == "v1" && parts[1] == "incidents" && parts[2] != "" && parts[3] == "evidence" && r.Method == http.MethodPost {
 		h.uploadIncidentEvidence(w, r, parts[2])
 		return true
@@ -399,6 +405,101 @@ func (h *Handler) evidenceDenied(w http.ResponseWriter, ctx context.Context, ten
 		return
 	}
 	writeError(w, status, "evidence access denied")
+}
+
+func (h *Handler) listIncidentEvidence(w http.ResponseWriter, r *http.Request, reportID string, reviewerOnly bool) {
+	principal, err := h.principal(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if reportID == "" || len(reportID) > 200 {
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, "", principal.IdentityID, "list", "not_found", http.StatusNotFound)
+		return
+	}
+	tx, err := h.Store.DB.BeginTx(r.Context(), pgx.TxOptions{})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not authorize evidence listing")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	tenantID := h.DefaultTenantID
+	authorized := false
+	if reviewerOnly {
+		actor, actorErr := h.actorForRole(r, RoleOperator)
+		if actorErr == nil {
+			tenantID = actor.TenantID
+			if authorizeOperatorTx(r.Context(), tx, actor, Resource{TenantID: actor.TenantID}, ActionIncidentReview) == nil {
+				var exists bool
+				if queryErr := tx.QueryRow(r.Context(), `
+					SELECT EXISTS(SELECT 1 FROM incident_reports WHERE id=$1 AND tenant_id=$2)
+				`, reportID, tenantID).Scan(&exists); queryErr == nil && exists {
+					authorized = true
+				}
+			}
+		}
+	} else {
+		for _, role := range []Role{RoleCustomer, RoleProfessional} {
+			actor, actorErr := h.Store.ResolveActor(r.Context(), principal.IdentityID, h.DefaultTenantID, role)
+			if actorErr != nil {
+				continue
+			}
+			var exists bool
+			queryErr := tx.QueryRow(r.Context(), `
+				SELECT EXISTS(SELECT 1 FROM incident_reports
+				WHERE id=$1 AND tenant_id=$2 AND reporter_identity_id=$3 AND reporter_role=$4)
+			`, reportID, actor.TenantID, principal.IdentityID, string(role)).Scan(&exists)
+			if queryErr == nil && exists {
+				tenantID = actor.TenantID
+				authorized = true
+				break
+			}
+		}
+	}
+	if !authorized {
+		_ = tx.Rollback(r.Context())
+		h.evidenceDenied(w, r.Context(), tenantID, reportID, "", principal.IdentityID, "list", "unauthorized", http.StatusForbidden)
+		return
+	}
+	rows, err := tx.Query(r.Context(), `
+		SELECT id,media_type,size_bytes,created_at,retention_expires_at,legal_hold
+		FROM incident_evidence WHERE report_id=$1 AND tenant_id=$2
+		ORDER BY created_at,id
+	`, reportID, tenantID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not list private evidence")
+		return
+	}
+	items := make([]incidentEvidenceMetadata, 0)
+	for rows.Next() {
+		var item incidentEvidenceMetadata
+		if err = rows.Scan(&item.ID, &item.MediaType, &item.SizeBytes, &item.CreatedAt, &item.RetentionUntil, &item.LegalHold); err != nil {
+			rows.Close()
+			writeError(w, http.StatusInternalServerError, "could not list private evidence")
+			return
+		}
+		items = append(items, item)
+	}
+	if err = rows.Err(); err != nil {
+		rows.Close()
+		writeError(w, http.StatusInternalServerError, "could not list private evidence")
+		return
+	}
+	rows.Close()
+	if _, err = tx.Exec(r.Context(), `
+		INSERT INTO incident_evidence_access_events
+			(tenant_id,report_id,evidence_id,actor_identity_id,action,outcome,reason_category)
+		VALUES($1,$2,'',$3,'list','success','accepted')
+	`, tenantID, reportID, principal.IdentityID); err != nil {
+		writeError(w, http.StatusInternalServerError, "evidence access audit unavailable")
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "evidence access audit unavailable")
+		return
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	writeJSON(w, http.StatusOK, map[string]any{"evidence": items})
 }
 
 func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request, reportID string) {
