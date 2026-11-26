@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 )
@@ -20,7 +19,7 @@ func TestJWTIdentityVerifierValidatesSignatureAndClaims(t *testing.T) {
 	private,err:=rsa.GenerateKey(rand.Reader,2048);if err!=nil{t.Fatal(err)}
 	now:=time.Unix(1_800_000_000,0)
 	header,_:=json.Marshal(jwtHeader{Algorithm:"RS256",KeyID:"key-1"})
-	claims,_:=json.Marshal(jwtClaims{Issuer:"https://accounts.example.test",Audience:json.RawMessage(`"marketplace-client"`),Subject:"provider-subject",Nonce:"one-time-state",IssuedAt:now.Add(-time.Minute).Unix(),ExpiresAt:now.Add(time.Minute).Unix()})
+	claims,_:=json.Marshal(jwtClaims{Issuer:"https://accounts.example.test",Audience:json.RawMessage(`["marketplace-client","secondary-client"]`),AuthorizedParty:"marketplace-client",Subject:"provider-subject",Nonce:"one-time-state",IssuedAt:now.Add(-time.Minute).Unix(),ExpiresAt:now.Add(time.Minute).Unix()})
 	enc:=base64.RawURLEncoding.EncodeToString
 	unsigned:=enc(header)+"."+enc(claims)
 	digest:=sha256.Sum256([]byte(unsigned))
@@ -45,5 +44,18 @@ func TestJWTIdentityVerifierRejectsTamperingAndAudienceMismatch(t *testing.T) {
 	if _,err:=v.Verify(token);!errors.Is(err,ErrInvalidIdentityToken){t.Fatalf("audience mismatch accepted: %v",err)}
 	tampered:=unsigned+"."+enc(sig)+"x"
 	if _,err:=v.Verify(tampered);!errors.Is(err,ErrInvalidIdentityToken){t.Fatalf("tampered token accepted: %v",err)}
-	_ = fmt.Sprintf("%v",tampered)
+}
+
+type unavailableSigningKey struct{}
+func (unavailableSigningKey) ResolveSigningKey(IdentityProvider,string)(SigningKey,error) {
+	return SigningKey{},ErrIdentityKeyUnavailable
+}
+
+func TestJWTIdentityVerifierFailsClosedWhenProviderKeysAreUnavailable(t *testing.T) {
+	enc:=base64.RawURLEncoding.EncodeToString
+	header,_:=json.Marshal(jwtHeader{Algorithm:"RS256",KeyID:"rotated-key"})
+	claims,_:=json.Marshal(jwtClaims{Issuer:"issuer",Audience:json.RawMessage(`"client"`),Subject:"subject",Nonce:"nonce",IssuedAt:time.Now().Add(-time.Minute).Unix(),ExpiresAt:time.Now().Add(time.Minute).Unix()})
+	token:=enc(header)+"."+enc(claims)+"."+enc([]byte("signature"))
+	verifier:=JWTIdentityVerifier{Policy:IdentityTokenPolicy{Provider:ProviderGoogle,Issuer:"issuer",Audience:"client",AllowedAlgorithms:[]string{"RS256"}},Keys:unavailableSigningKey{}}
+	if _,err:=verifier.Verify(token);!errors.Is(err,ErrIdentityKeyUnavailable){t.Fatalf("provider key outage did not fail closed: %v",err)}
 }
