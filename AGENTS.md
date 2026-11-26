@@ -42,7 +42,7 @@ Build a production-grade, open-source, multi-market home-services marketplace. R
 - Do not self-approve or merge a pull request.
 
 ## Workflow
-- Use short-lived branches: `agent/<issue>-<slug>`.
+- Use short-lived issue-based branches: `work/<issue>-<slug>`. The number is the linked GitHub Issue, and the slug describes the change; never encode the contributor or automation identity in the branch name.
 - Use Conventional Commits and link each PR to its issue.
 - Keep PRs small, focused, and normally below 400 changed lines.
 - Run `make verify`; run `make verify-full` when infrastructure or integration behavior changes.

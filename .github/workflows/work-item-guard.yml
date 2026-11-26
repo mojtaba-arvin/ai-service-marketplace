@@ -1,4 +1,4 @@
-name: Agent Guard
+name: Work Item Guard
 
 on:
   pull_request:
@@ -26,13 +26,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Enforce protected paths for implementation-agent branches
+      - name: Enforce protected paths for issue-scoped implementation branches
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref || inputs.base_ref || 'main' }}
           HEAD_REF: ${{ github.event.pull_request.head.ref || inputs.head_ref || github.ref_name }}
         run: |
-          if [[ "$HEAD_REF" != agent/* ]]; then
-            echo "Branch '$HEAD_REF' is not agent-managed; protected-path restrictions do not apply."
+          # New work uses work/<issue>-<slug>. Keep the old prefix guarded
+          # while pre-existing pull requests finish; do not create new branches
+          # using the legacy prefix.
+          if [[ "$HEAD_REF" != work/* && "$HEAD_REF" != agent/* ]]; then
+            echo "Branch '$HEAD_REF' is not an issue-scoped work branch; implementation path restrictions do not apply."
             exit 0
           fi
 
