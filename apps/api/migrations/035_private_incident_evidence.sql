@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS incident_evidence_access_events (
     report_id text NOT NULL,
     evidence_id text NOT NULL,
     actor_identity_id text NOT NULL DEFAULT '',
-    action text NOT NULL CHECK (action IN ('upload','download')),
+    action text NOT NULL CHECK (action IN ('upload','download','list')),
     outcome text NOT NULL CHECK (outcome IN ('success','denied')),
     reason_category text NOT NULL CHECK (reason_category IN (
         'accepted','unauthorized','not_found','invalid_content','too_large',
