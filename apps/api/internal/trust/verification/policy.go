@@ -143,6 +143,8 @@ const (
 	StatusReviewRequired Status = "review_required"
 	StatusFailed Status = "failed"
 	StatusRevoked Status = "revoked"
+	StatusRecheckDue Status = "recheck_due"
+	StatusExpired Status = "expired"
 )
 
 type Event struct {
@@ -283,6 +285,42 @@ func validPrivateReference(value string) bool {
 		!strings.ContainsAny(value, "?#\r\n")
 }
 
+// AdvanceCredential records the expiry or periodic recheck transition. It is
+// idempotent: repeated scheduler delivery does not append duplicate events.
+func AdvanceCredential(credential Credential, now time.Time) (Credential, error) {
+	if now.IsZero() || now.Before(credential.CheckedAt) {
+		return Credential{}, ErrInvalidReview
+	}
+	if credential.Status == StatusRevoked || credential.Status == StatusExpired {
+		return credential, nil
+	}
+	nextStatus := credential.Status
+	action := ""
+	if !now.Before(credential.ExpiresAt) {
+		nextStatus = StatusExpired
+		action = "expired"
+	} else if !now.Before(credential.ReviewDueAt) &&
+		(credential.Status == StatusVerified || credential.Status == StatusReviewRequired) {
+		nextStatus = StatusRecheckDue
+		action = "recheck_due"
+	}
+	if action == "" {
+		return credential, nil
+	}
+	next := credential
+	next.Events = append([]Event(nil), credential.Events...)
+	next.Status = nextStatus
+	next.Events = append(next.Events, Event{
+		Action: action,
+		At: now,
+		From: credential.Status,
+		To: nextStatus,
+		EvidenceRef: credential.EvidenceRef,
+		ProviderReference: credential.ProviderReference,
+	})
+	return next, nil
+}
+
 type ReviewDecision string
 
 const (
@@ -302,7 +340,7 @@ func Review(credential Credential, reviewerRef, reason string, decision ReviewDe
 	if reason == "" || len(reason) > 1000 || now.IsZero() || now.Before(credential.CheckedAt) {
 		return Credential{}, ErrInvalidReview
 	}
-	if credential.Status != StatusReviewRequired && credential.Status != StatusVerified {
+	if credential.Status != StatusReviewRequired && credential.Status != StatusVerified && credential.Status != StatusFailed {
 		return Credential{}, ErrInvalidReview
 	}
 	next := credential
@@ -310,12 +348,12 @@ func Review(credential Credential, reviewerRef, reason string, decision ReviewDe
 	from := credential.Status
 	switch decision {
 	case ReviewApprove:
-		if from != StatusReviewRequired || !now.Before(credential.ExpiresAt) || !now.Before(credential.ReviewDueAt) {
+		if (from != StatusReviewRequired && from != StatusFailed) || !now.Before(credential.ExpiresAt) || !now.Before(credential.ReviewDueAt) {
 			return Credential{}, ErrInvalidReview
 		}
 		next.Status = StatusVerified
 	case ReviewReject:
-		if from != StatusReviewRequired {
+		if from != StatusReviewRequired && from != StatusFailed {
 			return Credential{}, ErrInvalidReview
 		}
 		next.Status = StatusFailed
