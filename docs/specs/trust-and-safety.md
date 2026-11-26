@@ -18,7 +18,7 @@ Support case records and events are tenant-scoped. Support assignment must targe
 
 ## Background checks and periodic review
 
-TRUST-008 extends professional verification with market- and service-risk-specific background-check adapters, consent/evidence minimization, expiry, re-review and deterministic dispatch blocking for failed or expired checks. The platform does not invent check providers or legal criteria; adopters configure approved sources and policy.
+TRUST-008 extends professional verification with market- and service-risk-specific background-check adapters, consent/evidence minimization, expiry, re-review and deterministic dispatch blocking for failed or expired checks. The platform does not invent check providers or legal criteria; adopters configure approved sources and policy.\n\nThe current module-private domain boundary is `apps/api/internal/trust/verification`: it validates an exact market/locale/policy version and configured adapter capability, validates consent chronology and opaque evidence references, records provider outcomes, applies configured recheck/expiry transitions, requires reasoned human review for adverse/failed outcomes, and evaluates dispatch eligibility fail-closed. The trusted application boundary must supply the tenant-scoped policy; provider requests receive opaque subject/consent references, not raw identity documents or tenant identifiers.\n\nThis package is not yet wired to durable credential/consent/audit storage, the existing private evidence storage/access-control adapter, HTTP routes or production dispatch. CMD-1754 owns the shared migration/store/contract/HTTP/dispatch integration proposal. A `private://` prefix is only reference syntax and does not prove storage authorization, encryption, malware scanning, retention or deletion controls. Revoked credentials require a fresh provider result in this slice; any human-reinstatement exception requires an explicit adopter-approved policy. No live background-check provider or legal screening policy is configured.
 
 ## Invariants
 
@@ -37,7 +37,7 @@ Unknown evidence references, duplicate open verification cases, cross-tenant acc
 
 ## Verification
 
-- Verification: `professional_verification_test.go`
+- Verification: `professional_verification_test.go` (PostgreSQL case lifecycle); `apps/api/internal/trust/verification/policy_test.go` (offline provider fakes, consent chronology, tenant binding, review provenance, expiry/recheck and dispatch denial). Durable TRUST-008 audit/persistence and production dispatch integration remain pending CMD-1754.
 - Support: `support_cases_test.go`
 - Support audit storage: `021_support_cases.sql` enforces append-only event rows with a database trigger.
 - Required negatives: wrong profile owner, cross-tenant reviewer, self-review, duplicate submission, inactive support actor, cross-tenant support read, unassigned support user, invalid transition and immutable audit-event mutation.
