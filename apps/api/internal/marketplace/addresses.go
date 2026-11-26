@@ -130,6 +130,7 @@ func (s *Store) ListSavedAddresses(ctx context.Context, actor Actor, registry *m
 
 func (s *Store) UpdateSavedAddress(ctx context.Context, actor Actor, registry *marketconfig.Registry, marketID, locale, addressID string, input SavedAddressInput, geocoded *adapters.GeocodeResult) (SavedAddress,error) {
 	if err:=validateAddressActor(actor);err!=nil{return SavedAddress{},err}
+	if err:=validateAddressScope(registry,marketID,locale);err!=nil{return SavedAddress{},err}
 	if err:=validateSavedAddress(input);err!=nil{return SavedAddress{},err}
 	if err:=validateGeocodeResult(geocoded);err!=nil{return SavedAddress{},err}
 	formatted:=strings.Join([]string{input.AddressLine1,input.Locality,input.Region,input.PostalCode,input.CountryCode},", ")
@@ -150,7 +151,6 @@ func (s *Store) UpdateSavedAddress(ctx context.Context, actor Actor, registry *m
 
 func (s *Store) SetDefaultSavedAddress(ctx context.Context, actor Actor, registry *marketconfig.Registry, marketID, locale, addressID string) error {
 	if err:=validateAddressActor(actor);err!=nil{return err}
-	if err:=validateAddressScope(registry,marketID,locale);err!=nil{return err}
 	if err:=validateAddressScope(registry,marketID,locale);err!=nil{return err}
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return err};defer tx.Rollback(ctx)
 	lockKey:=actor.SubjectID+":"+actor.TenantID+":"+marketID
