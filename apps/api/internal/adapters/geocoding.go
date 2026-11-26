@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -49,7 +50,8 @@ func Geocode(ctx context.Context, runner Runner, provider Geocoder, request Geoc
 		result, err := provider.Geocode(ctx, request)
 		if err != nil { return GeocodeResult{}, err }
 		if strings.TrimSpace(result.FormattedAddress) == "" || result.Latitude < -90 || result.Latitude > 90 ||
-			result.Longitude < -180 || result.Longitude > 180 || result.Provider == "" || result.ProviderVersion == "" {
+			result.Longitude < -180 || result.Longitude > 180 || math.IsNaN(result.Latitude) || math.IsNaN(result.Longitude) ||
+			math.IsInf(result.Latitude, 0) || math.IsInf(result.Longitude, 0) || result.Provider == "" || result.ProviderVersion == "" {
 			return GeocodeResult{}, fmt.Errorf("%w: provider returned an invalid result", ErrGeocoderUnavailable)
 		}
 		return result, nil
