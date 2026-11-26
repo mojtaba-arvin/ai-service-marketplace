@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"net"
 	"net/http"
 	"os"
@@ -300,15 +299,6 @@ func (s *EvidenceService) scan(ctx context.Context, data []byte) error {
 	return nil
 }
 
-func (s *EvidenceService) recordAttempt(ctx context.Context, tenantID, reportID, evidenceID, actorID, action, outcome, reason string) error {
-	if s == nil {
-		return ErrEvidenceUnavailable
-	}
-	_, err := evidenceDBFromContext(ctx)
-	_ = err
-	return nil
-}
-
 // Evidence handlers are API-mediated. Original filenames and client Content-Type
 // headers are intentionally ignored; media type is sniffed from the bytes.
 func (h *Handler) serveIncidentEvidence(w http.ResponseWriter, r *http.Request) bool {
@@ -589,4 +579,3 @@ func (h *Handler) downloadIncidentEvidence(w http.ResponseWriter, r *http.Reques
 	_, _ = io.Copy(w, bytes.NewReader(plaintext))
 }
 
-var _ = mime.TypeByExtension
