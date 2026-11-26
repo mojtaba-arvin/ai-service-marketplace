@@ -833,6 +833,11 @@ func (h *Handler) updateIncidentEvidenceLifecycle(w http.ResponseWriter, r *http
 				"legal_hold_set", "invalid_input", http.StatusBadRequest)
 			return
 		}
+		if err = json.Unmarshal(legalRaw, &legalHold); err != nil {
+			h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
+				"legal_hold_set", "invalid_input", http.StatusBadRequest)
+			return
+		}
 	}
 
 	actor, err := h.actorForRole(r, RoleOperator)
