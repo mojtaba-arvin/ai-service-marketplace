@@ -75,7 +75,7 @@ type jwtClaims struct {
 }
 
 func (v JWTIdentityVerifier) Verify(token string) (VerifiedExternalIdentity,error) {
-	if v.Keys==nil || (v.Policy.Provider!=ProviderApple && v.Policy.Provider!=ProviderGoogle) ||
+	if v.Keys==nil || (v.Policy.Provider!=ProviderApple && v.Policy.Provider!=ProviderGoogle && v.Policy.Provider!=ProviderEmail) ||
 		v.Policy.Issuer=="" || v.Policy.Audience=="" || strings.TrimSpace(token)!=token || len(token)>16*1024 { return VerifiedExternalIdentity{},ErrInvalidIdentityToken }
 	parts:=strings.Split(token,".")
 	if len(parts)!=3 {return VerifiedExternalIdentity{},ErrInvalidIdentityToken}
