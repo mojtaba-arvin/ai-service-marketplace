@@ -42,6 +42,11 @@ func TestJWTIdentityVerifierRejectsTamperingAndAudienceMismatch(t *testing.T) {
 	token:=unsigned+"."+enc(sig)
 	v:=JWTIdentityVerifier{Policy:IdentityTokenPolicy{Provider:ProviderApple,Issuer:"issuer",Audience:"expected-client",AllowedAlgorithms:[]string{"RS256"}},Keys:staticSigningKey{SigningKey{Algorithm:"RS256",RSA:&private.PublicKey}}}
 	if _,err:=v.Verify(token);!errors.Is(err,ErrInvalidIdentityToken){t.Fatalf("audience mismatch accepted: %v",err)}
+	wrongIssuerClaims,_:=json.Marshal(jwtClaims{Issuer:"wrong-issuer",Audience:json.RawMessage(`"expected-client"`),Subject:"subject",Nonce:"nonce",IssuedAt:now.Add(-time.Minute).Unix(),ExpiresAt:now.Add(time.Minute).Unix()})
+	wrongIssuerUnsigned:=enc(header)+"."+enc(wrongIssuerClaims)
+	wrongIssuerDigest:=sha256.Sum256([]byte(wrongIssuerUnsigned))
+	wrongIssuerSignature,_:=rsa.SignPKCS1v15(rand.Reader,private,crypto.SHA256,wrongIssuerDigest[:])
+	if _,err:=v.Verify(wrongIssuerUnsigned+"."+enc(wrongIssuerSignature));!errors.Is(err,ErrInvalidIdentityToken){t.Fatalf("issuer mismatch accepted: %v",err)}
 	tampered:=unsigned+"."+enc(sig)+"x"
 	if _,err:=v.Verify(tampered);!errors.Is(err,ErrInvalidIdentityToken){t.Fatalf("tampered token accepted: %v",err)}
 }
