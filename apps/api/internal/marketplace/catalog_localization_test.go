@@ -49,8 +49,13 @@ func TestMarketLocalizedCatalogVisibilityPostgres(t *testing.T) {
 	if err!=nil || de.DisplayName!="Haushaltsdienste" || de.MarketCode!="DE" { t.Fatalf("German category: %#v %v",de,err) }
 	fallback,err:=store.ResolveLocalizedCategory(ctx,"OM","fr",root.ID)
 	if err!=nil || fallback.Locale!="en" || fallback.DisplayName!="Home services" { t.Fatalf("default locale fallback: %#v %v",fallback,err) }
+	child,err:=store.CreateCategory(ctx,&root.ID,fmt.Sprintf("plumbing-%d",time.Now().UnixNano()),"Plumbing")
+	if err!=nil { t.Fatal(err) }
+	if err=store.SetCategoryVisibility(ctx,operator,"OM",child.ID,true); err!=nil { t.Fatal(err) }
+	if err=store.SetCategoryTranslation(ctx,operator,"OM",child.ID,"en","Plumbing","Localized plumbing description"); err!=nil { t.Fatal(err) }
+	if _,err=store.ResolveLocalizedCategory(ctx,"OM","en",child.ID); err!=nil { t.Fatalf("visible child with visible ancestor should resolve: %v",err) }
 	listed,err:=store.ListLocalizedCategories(ctx,"OM","en",nil)
-	if err!=nil || len(listed)!=1 || listed[0].ID!=root.ID { t.Fatalf("visible category listing: %#v %v",listed,err) }
+	if err!=nil || len(listed)!=2 { t.Fatalf("visible category listing should include root and child: %#v %v",listed,err) }
 	if _,err=store.ResolveLocalizedCategory(ctx,"DE","en",root.ID); err!=nil { t.Fatalf("unsupported locale should resolve to market default: %v",err) }
 
 	hidden,err:=store.CreateCategory(ctx,nil,fmt.Sprintf("hidden-%d",time.Now().UnixNano()),"Hidden")
@@ -62,6 +67,13 @@ func TestMarketLocalizedCatalogVisibilityPostgres(t *testing.T) {
 	if _,err=store.ResolveLocalizedCategory(ctx,"OM","en",root.ID); !errors.Is(err,ErrCategoryUnavailable) {
 		t.Fatalf("hidden category must not resolve: %v",err)
 	}
+	if _,err=store.ResolveLocalizedCategory(ctx,"OM","en",child.ID); !errors.Is(err,ErrCategoryUnavailable) {
+		t.Fatalf("visible child beneath a market-hidden ancestor must not resolve: %v",err)
+	}
+	hiddenAncestorList,err:=store.ListLocalizedCategories(ctx,"OM","en",nil)
+	if err!=nil || len(hiddenAncestorList)!=0 {
+		t.Fatalf("market-hidden ancestor must hide its entire subtree: %#v %v",hiddenAncestorList,err)
+	}
 	if err=store.SetCategoryVisibility(ctx,operator,"OM",root.ID,true); err!=nil { t.Fatal(err) }
 	if err=store.SetCategoryEnabled(ctx,root.ID,false); err!=nil { t.Fatal(err) }
 	disabledList,err:=store.ListLocalizedCategories(ctx,"OM","en",nil)
@@ -71,7 +83,11 @@ func TestMarketLocalizedCatalogVisibilityPostgres(t *testing.T) {
 	if err=store.SetCategoryVisibility(ctx,operator,"ZZ",root.ID,true); !errors.Is(err,ErrMarketUnavailable) {
 		t.Fatalf("unknown market must fail closed: %v",err)
 	}
-	if err=store.SetCategoryTranslation(ctx,Actor{SubjectID:"support",TenantID:"platform",Role:RoleSupport},"OM",root.ID,"en","Blocked",""); !errors.Is(err,ErrForbidden) {
+	support:=Actor{SubjectID:"support",TenantID:"platform",Role:RoleSupport}
+	if err=store.SetCategoryTranslation(ctx,support,"OM",root.ID,"en","Blocked",""); !errors.Is(err,ErrForbidden) {
 		t.Fatalf("support must not edit catalog translations: %v",err)
+	}
+	if err=store.SetCategoryVisibility(ctx,support,"OM",root.ID,false); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("support must not change catalog visibility: %v",err)
 	}
 }
