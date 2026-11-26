@@ -38,7 +38,7 @@ func testSetup(t *testing.T, outcome Outcome) (Service, Policy, Requirement, *fa
 		RecheckAfter: 30 * 24 * time.Hour,
 	}
 	policy := Policy{
-		MarketID: "OM", Locale: "en-OM", PolicyVersion: "om-trust-v1",
+		TenantRef: "tenant-1", MarketID: "OM", Locale: "en-OM", PolicyVersion: "om-trust-v1",
 		ServiceRisk: "standard", Requirements: []Requirement{requirement},
 	}
 	now := time.Date(2026, 11, 27, 0, 0, 0, 0, time.UTC)
@@ -241,5 +241,17 @@ func TestAdvanceCredentialAuditsPeriodicRecheckAndExpiry(t *testing.T) {
 	}
 	if expired.Status != StatusExpired || len(expired.Events) != 3 || expired.Events[2].Action != "expired" {
 		t.Fatalf("expiry transition was not audited: %+v", expired)
+	}
+}
+
+func TestDispatchRejectsCrossTenantCredential(t *testing.T) {
+	service, policy, requirement, _, now := testSetup(t, OutcomeClear)
+	credential, err := service.RunCheck(context.Background(), policy, requirement, "subject:123", "key-tenant", validConsent(now), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	credential.TenantRef = "tenant-2"
+	if err := EvaluateDispatch(policy, []Credential{credential}, now); !errors.Is(err, ErrCredentialNotDispatchable) {
+		t.Fatalf("cross-tenant credential dispatch error = %v", err)
 	}
 }
