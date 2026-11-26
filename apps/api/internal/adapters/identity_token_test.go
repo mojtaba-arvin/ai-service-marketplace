@@ -64,3 +64,17 @@ func TestJWTIdentityVerifierFailsClosedWhenProviderKeysAreUnavailable(t *testing
 	verifier:=JWTIdentityVerifier{Policy:IdentityTokenPolicy{Provider:ProviderGoogle,Issuer:"issuer",Audience:"client",AllowedAlgorithms:[]string{"RS256"}},Keys:unavailableSigningKey{}}
 	if _,err:=verifier.Verify(token);!errors.Is(err,ErrIdentityKeyUnavailable){t.Fatalf("provider key outage did not fail closed: %v",err)}
 }
+
+func TestJWTIdentityVerifierSupportsConfiguredEmailProvider(t *testing.T) {
+	private,err:=rsa.GenerateKey(rand.Reader,2048);if err!=nil{t.Fatal(err)}
+	now:=time.Now()
+	enc:=base64.RawURLEncoding.EncodeToString
+	header,_:=json.Marshal(jwtHeader{Algorithm:"RS256",KeyID:"email-key"})
+	claims,_:=json.Marshal(jwtClaims{Issuer:"https://email.example.test",Audience:json.RawMessage(`"marketplace-email-client"`),Subject:"verified-email-subject",Nonce:"email-nonce",IssuedAt:now.Add(-time.Minute).Unix(),ExpiresAt:now.Add(time.Minute).Unix()})
+	unsigned:=enc(header)+"."+enc(claims)
+	digest:=sha256.Sum256([]byte(unsigned))
+	signature,err:=rsa.SignPKCS1v15(rand.Reader,private,crypto.SHA256,digest[:]);if err!=nil{t.Fatal(err)}
+	verifier:=JWTIdentityVerifier{Policy:IdentityTokenPolicy{Provider:ProviderEmail,Issuer:"https://email.example.test",Audience:"marketplace-email-client",AllowedAlgorithms:[]string{"RS256"}},Keys:staticSigningKey{SigningKey{Algorithm:"RS256",RSA:&private.PublicKey}}}
+	verified,err:=verifier.Verify(unsigned+"."+enc(signature));if err!=nil{t.Fatal(err)}
+	if verified.Provider!=ProviderEmail||verified.Subject!="verified-email-subject"{t.Fatalf("unexpected email identity: %#v",verified)}
+}
