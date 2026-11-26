@@ -295,7 +295,7 @@ const (
 // target tenant/operator permission using the application authorization boundary;
 // Authorized is an assertion from that trusted boundary, never request input.
 func Review(credential Credential, reviewerRef, reason string, decision ReviewDecision, authorized bool, now time.Time) (Credential, error) {
-	if !authorized || reviewerRef == "" || strings.TrimSpace(reviewerRef) != reviewerRef {
+	if !authorized || reviewerRef == "" || strings.TrimSpace(reviewerRef) != reviewerRef || reviewerRef == credential.SubjectRef {
 		return Credential{}, ErrReviewUnauthorized
 	}
 	reason = strings.TrimSpace(reason)
@@ -310,7 +310,7 @@ func Review(credential Credential, reviewerRef, reason string, decision ReviewDe
 	from := credential.Status
 	switch decision {
 	case ReviewApprove:
-		if from != StatusReviewRequired || !now.Before(credential.ExpiresAt) {
+		if from != StatusReviewRequired || !now.Before(credential.ExpiresAt) || !now.Before(credential.ReviewDueAt) {
 			return Credential{}, ErrInvalidReview
 		}
 		next.Status = StatusVerified
@@ -346,9 +346,15 @@ func EvaluateDispatch(policy Policy, credentials []Credential, now time.Time) er
 		return ErrInvalidPolicy
 	}
 	byCheck := make(map[string]Credential, len(credentials))
+	subjectRef := ""
 	for _, credential := range credentials {
 		if _, exists := byCheck[credential.CheckID]; exists {
 			return ErrInvalidPolicy
+		}
+		if subjectRef == "" {
+			subjectRef = credential.SubjectRef
+		} else if credential.SubjectRef != subjectRef {
+			return ErrCredentialNotDispatchable
 		}
 		byCheck[credential.CheckID] = credential
 	}
