@@ -509,7 +509,7 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 			(tenant_id,report_id,evidence_id,actor_identity_id,action,outcome,reason_category)
 		VALUES($1,$2,$3,$4,'upload','success','accepted')
 	`, actor.TenantID, reportID, id, actor.SubjectID)
-	if err != nil || tag.RowsAffected() != 1 {
+	if auditErr != nil || auditTag.RowsAffected() != 1 {
 		h.Evidence.remove(id)
 		writeError(w, http.StatusInternalServerError, "evidence access audit unavailable")
 		return
