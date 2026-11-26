@@ -455,8 +455,8 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	`, otherReport.ID, tenantID).Scan(&crossTenantDenied); err != nil {
 		t.Fatal(err)
 	}
-	if successUploads != 1 || successDownloads != 2 || deniedUploads != 3 || deniedDownloads != 1 || deniedLists != 4 || crossTenantDenied != 1 {
-		t.Fatalf("unexpected evidence audit totals: uploads=%d downloads=%d denied_uploads=%d denied_downloads=%d denied_lists=%d",
-			successUploads, successDownloads, deniedUploads, deniedDownloads, deniedLists)
+	if successUploads != 1 || successDownloads != 4 || deniedUploads != 3 || deniedDownloads != 2 || deniedLists != 4 || crossTenantDenied != 1 {
+		t.Fatalf("unexpected evidence audit totals: uploads=%d downloads=%d denied_uploads=%d denied_downloads=%d denied_lists=%d cross_tenant_denied_lists=%d",
+			successUploads, successDownloads, deniedUploads, deniedDownloads, deniedLists, crossTenantDenied)
 	}
 }
