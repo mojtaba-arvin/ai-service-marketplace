@@ -138,7 +138,20 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 
 	// Concurrent reversal requests with distinct idempotency keys must still
 	// produce exactly one compensating journal for the original posting.
-	reversalRaceOriginal, err := store.PostJournal(ctx, "ledger-reversal-race-original-"+suffix, "OMR", "Concurrent reversal original", lines)
+	// Use fresh enabled accounts because the earlier test disables the cash account.
+	reversalCash, err := store.CreateLedgerAccount(ctx, "test_reversal_cash_"+suffix, "OMR", "debit")
+	if err != nil {
+		t.Fatalf("create reversal cash account: %v", err)
+	}
+	reversalPayable, err := store.CreateLedgerAccount(ctx, "test_reversal_payable_"+suffix, "OMR", "credit")
+	if err != nil {
+		t.Fatalf("create reversal payable account: %v", err)
+	}
+	reversalLines := []JournalLine{
+		{AccountCode: reversalCash.Code, Side: "debit", AmountMinor: 4250, Currency: "OMR"},
+		{AccountCode: reversalPayable.Code, Side: "credit", AmountMinor: 4250, Currency: "OMR"},
+	}
+	reversalRaceOriginal, err := store.PostJournal(ctx, "ledger-reversal-race-original-"+suffix, "OMR", "Concurrent reversal original", reversalLines)
 	if err != nil {
 		t.Fatalf("post original journal for reversal race: %v", err)
 	}
