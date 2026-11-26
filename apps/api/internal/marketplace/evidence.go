@@ -816,7 +816,7 @@ func (h *Handler) updateIncidentEvidenceLifecycle(w http.ResponseWriter, r *http
 		return
 	}
 	var retentionUntil *time.Time
-	if retentionSpecified && string(retentionRaw) != "null" {
+	if retentionSpecified && !bytes.Equal(bytes.TrimSpace(retentionRaw), []byte("null")) {
 		var value time.Time
 		if err = json.Unmarshal(retentionRaw, &value); err != nil || value.IsZero() {
 			h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
@@ -828,7 +828,7 @@ func (h *Handler) updateIncidentEvidenceLifecycle(w http.ResponseWriter, r *http
 	}
 	var legalHold bool
 	if legalHoldSpecified {
-		if err = json.Unmarshal(legalRaw, &legalHold); err != nil {
+		if !bytes.Equal(bytes.TrimSpace(legalRaw), []byte("true")) && !bytes.Equal(bytes.TrimSpace(legalRaw), []byte("false")) {
 			h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
 				"legal_hold_set", "invalid_input", http.StatusBadRequest)
 			return
