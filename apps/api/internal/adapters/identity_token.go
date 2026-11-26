@@ -76,7 +76,7 @@ type jwtClaims struct {
 
 func (v JWTIdentityVerifier) Verify(token string) (VerifiedExternalIdentity,error) {
 	if v.Keys==nil || (v.Policy.Provider!=ProviderApple && v.Policy.Provider!=ProviderGoogle) ||
-		v.Policy.Issuer=="" || v.Policy.Audience=="" || strings.TrimSpace(token)!=token { return VerifiedExternalIdentity{},ErrInvalidIdentityToken }
+		v.Policy.Issuer=="" || v.Policy.Audience=="" || strings.TrimSpace(token)!=token || len(token)>16*1024 { return VerifiedExternalIdentity{},ErrInvalidIdentityToken }
 	parts:=strings.Split(token,".")
 	if len(parts)!=3 {return VerifiedExternalIdentity{},ErrInvalidIdentityToken}
 	decode:=func(s string)([]byte,error){return base64.RawURLEncoding.DecodeString(s)}
@@ -90,7 +90,7 @@ func (v JWTIdentityVerifier) Verify(token string) (VerifiedExternalIdentity,erro
 	if !verifyJWTSignature(header.Algorithm,key,digest[:],signature){return VerifiedExternalIdentity{},ErrInvalidIdentityToken}
 	claimBytes,err:=decode(parts[1]);if err!=nil{return VerifiedExternalIdentity{},ErrInvalidIdentityToken}
 	var claims jwtClaims
-	if json.Unmarshal(claimBytes,&claims)!=nil || claims.Issuer!=v.Policy.Issuer || claims.Subject=="" || claims.Nonce=="" {return VerifiedExternalIdentity{},ErrInvalidIdentityToken}
+	if json.Unmarshal(claimBytes,&claims)!=nil || claims.Issuer!=v.Policy.Issuer || strings.TrimSpace(claims.Subject)=="" || strings.TrimSpace(claims.Nonce)=="" {return VerifiedExternalIdentity{},ErrInvalidIdentityToken}
 	var audience string
 	audienceCount:=1
 	if len(claims.Audience)>0 && claims.Audience[0]=='"' { _=json.Unmarshal(claims.Audience,&audience) } else {
@@ -116,9 +116,9 @@ func (v JWTIdentityVerifier) allowed(algorithm string) bool {
 func verifyJWTSignature(algorithm string,key SigningKey,digest,signature []byte) bool {
 	switch algorithm {
 	case "RS256":
-		return key.Algorithm==algorithm && key.RSA!=nil && rsa.VerifyPKCS1v15(key.RSA,crypto.SHA256,digest,signature)==nil
+		return key.Algorithm==algorithm && key.RSA!=nil && key.RSA.N!=nil && key.RSA.N.BitLen()>=2048 && rsa.VerifyPKCS1v15(key.RSA,crypto.SHA256,digest,signature)==nil
 	case "ES256":
-		if key.Algorithm!=algorithm || key.ECDSA==nil || len(signature)!=64{return false}
+		if key.Algorithm!=algorithm || key.ECDSA==nil || key.ECDSA.Curve==nil || key.ECDSA.Curve.Params().BitSize!=256 || len(signature)!=64{return false}
 		r:=new(big.Int).SetBytes(signature[:32]);s:=new(big.Int).SetBytes(signature[32:])
 		der,err:=asn1.Marshal(struct{R,S *big.Int}{r,s});if err!=nil{return false}
 		return ecdsa.VerifyASN1(key.ECDSA,digest,der)
