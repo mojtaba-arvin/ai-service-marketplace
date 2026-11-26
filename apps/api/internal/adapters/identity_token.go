@@ -69,6 +69,8 @@ type jwtClaims struct {
 	Subject string `json:"sub"`
 	ExpiresAt int64 `json:"exp"`
 	IssuedAt int64 `json:"iat"`
+	NotBefore int64 `json:"nbf,omitempty"
+	AuthorizedParty string `json:"azp,omitempty"`
 	Nonce string `json:"nonce"`
 }
 
@@ -90,17 +92,19 @@ func (v JWTIdentityVerifier) Verify(token string) (VerifiedExternalIdentity,erro
 	var claims jwtClaims
 	if json.Unmarshal(claimBytes,&claims)!=nil || claims.Issuer!=v.Policy.Issuer || claims.Subject=="" || claims.Nonce=="" {return VerifiedExternalIdentity{},ErrInvalidIdentityToken}
 	var audience string
+	audienceCount:=1
 	if len(claims.Audience)>0 && claims.Audience[0]=='"' { _=json.Unmarshal(claims.Audience,&audience) } else {
 		var values []string
 		if json.Unmarshal(claims.Audience,&values)!=nil {return VerifiedExternalIdentity{},ErrInvalidIdentityToken}
+		audienceCount=len(values)
 		for _,value:=range values {if value==v.Policy.Audience {audience=value;break}}
 	}
-	if audience!=v.Policy.Audience {return VerifiedExternalIdentity{},ErrInvalidIdentityToken}
+	if audience!=v.Policy.Audience || (audienceCount>1 && claims.AuthorizedParty!=v.Policy.Audience) {return VerifiedExternalIdentity{},ErrInvalidIdentityToken}
 	now:=time.Now()
 	if v.Now!=nil {now=v.Now()}
 	issued:=time.Unix(claims.IssuedAt,0)
 	expires:=time.Unix(claims.ExpiresAt,0)
-	if claims.IssuedAt<=0 || claims.ExpiresAt<=claims.IssuedAt || !now.Before(expires) || issued.After(now) {return VerifiedExternalIdentity{},ErrInvalidIdentityToken}
+	if claims.IssuedAt<=0 || claims.ExpiresAt<=claims.IssuedAt || !now.Before(expires) || issued.After(now) || (claims.NotBefore>0 && now.Before(time.Unix(claims.NotBefore,0))) {return VerifiedExternalIdentity{},ErrInvalidIdentityToken}
 	return VerifiedExternalIdentity{Provider:v.Policy.Provider,Subject:claims.Subject,Nonce:claims.Nonce,IssuedAt:issued,ExpiresAt:expires},nil
 }
 
