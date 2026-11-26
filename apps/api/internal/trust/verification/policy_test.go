@@ -169,3 +169,62 @@ func TestPolicyRejectsMissingConsentPolicyAndUnconfiguredCapability(t *testing.T
 		t.Fatalf("unconfigured capability error = %v", err)
 	}
 }
+
+func TestFailedProviderResultRequiresAuthorizedReview(t *testing.T) {
+	service, policy, requirement, _, now := testSetup(t, OutcomeFailed)
+	credential, err := service.RunCheck(context.Background(), policy, requirement, "subject:123", "key-failed", validConsent(now), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if credential.Status != StatusFailed {
+		t.Fatalf("failed provider result status = %q", credential.Status)
+	}
+	if err := EvaluateDispatch(policy, []Credential{credential}, now); !errors.Is(err, ErrCredentialNotDispatchable) {
+		t.Fatalf("failed provider result dispatch error = %v", err)
+	}
+	if _, err := Review(credential, "operator:1", "False positive", ReviewApprove, false, now); !errors.Is(err, ErrReviewUnauthorized) {
+		t.Fatalf("unauthorized failed-result review error = %v", err)
+	}
+	approved, err := Review(credential, "operator:1", "False positive verified", ReviewApprove, true, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if approved.Status != StatusVerified {
+		t.Fatalf("approved failed-result status = %q", approved.Status)
+	}
+	if err := EvaluateDispatch(policy, []Credential{approved}, now); err != nil {
+		t.Fatalf("reviewed credential should be dispatchable: %v", err)
+	}
+}
+
+func TestAdvanceCredentialAuditsPeriodicRecheckAndExpiry(t *testing.T) {
+	service, policy, requirement, _, now := testSetup(t, OutcomeClear)
+	credential, err := service.RunCheck(context.Background(), policy, requirement, "subject:123", "key-recheck", validConsent(now), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	due, err := AdvanceCredential(credential, credential.ReviewDueAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if due.Status != StatusRecheckDue || len(due.Events) != 2 || due.Events[1].Action != "recheck_due" {
+		t.Fatalf("periodic recheck transition was not audited: %+v", due)
+	}
+	if err := EvaluateDispatch(policy, []Credential{due}, credential.ReviewDueAt); !errors.Is(err, ErrCredentialNotDispatchable) {
+		t.Fatalf("recheck-due credential dispatch error = %v", err)
+	}
+	repeated, err := AdvanceCredential(due, credential.ReviewDueAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(repeated.Events) != len(due.Events) {
+		t.Fatal("repeated recheck scheduler delivery appended a duplicate event")
+	}
+	expired, err := AdvanceCredential(due, credential.ExpiresAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expired.Status != StatusExpired || len(expired.Events) != 3 || expired.Events[2].Action != "expired" {
+		t.Fatalf("expiry transition was not audited: %+v", expired)
+	}
+}
