@@ -40,10 +40,11 @@ var (
 )
 
 type AdapterConfig struct {
-	MarketID     string
-	Locale       string
-	Adapter      string
-	Capabilities []string
+	MarketID      string
+	Locale        string
+	PolicyVersion string
+	Adapter       string
+	Capabilities  []string
 }
 
 type adapterKey struct {
@@ -57,16 +58,20 @@ type Matrix struct {
 }
 
 // NewMatrix builds an immutable, explicit market/locale-to-adapter capability
-// matrix. Every row must reference a known market configuration. An adapter
-// with an empty capability list is available but supports no optional feature.
+// matrix. Every row must reference the exact policy version in the registry.
+// An adapter with an empty capability list is available but supports no optional feature.
 func NewMatrix(registry *Registry, configs []AdapterConfig) (*Matrix, error) {
 	if registry == nil || len(configs) == 0 {
 		return nil, fmt.Errorf("%w: registry and at least one adapter row are required", ErrInvalidConfig)
 	}
 	entries := make(map[adapterKey]map[string]struct{}, len(configs))
 	for _, cfg := range configs {
-		if _, err := registry.Resolve(cfg.MarketID, cfg.Locale); err != nil {
+		market, err := registry.Resolve(cfg.MarketID, cfg.Locale)
+		if err != nil {
 			return nil, err
+		}
+		if cfg.PolicyVersion == "" || cfg.PolicyVersion != market.PolicyVersion {
+			return nil, fmt.Errorf("%w: adapter policy version does not match market configuration", ErrInvalidConfig)
 		}
 		if !capabilityNamePattern.MatchString(cfg.Adapter) {
 			return nil, fmt.Errorf("%w: invalid adapter identifier %q", ErrInvalidConfig, cfg.Adapter)
