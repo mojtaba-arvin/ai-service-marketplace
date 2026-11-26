@@ -1,6 +1,6 @@
 # ADR 0010: Private incident evidence retention and deletion lifecycle
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-26
 - **Owners:** Marketplace platform maintainers
 - **Related:** ADR 0008 (incident reviewer workflow), ADR 0009 (private incident evidence), #217, #11
@@ -29,7 +29,7 @@ Keep retention adopter-configured. The platform does not assign a default expiry
 
 An authorized evidence manager may set, change or clear an evidence expiry. The API accepts an explicit timestamp (or explicit null to clear it), validates and normalizes it to UTC, and records before/after values plus the actor and reason. An expiry in the past is valid as an explicit immediate-expiry instruction, but bytes are deleted only by the lifecycle worker.
 
-A legal hold is an independent boolean control. Setting and clearing it both require an explicit reason and audit. A held object is never eligible for expiry deletion, even when its configured expiry is in the past.
+A legal hold is an independent boolean control. Setting and clearing it both require an explicit reason and audit. A held object is never eligible for expiry deletion, even when its configured expiry is in the past. A hold does not grant new identity, tenant, reviewer, or download permissions. The existing retrieval contract exempts an otherwise-authorized reporter or reviewer from expiry denial while the hold is active; `incident:evidence:manage` alone never grants read access.
 
 ### 3. Deletion is a retryable state machine
 
