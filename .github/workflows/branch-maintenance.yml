@@ -136,7 +136,7 @@ jobs:
 
             if [[ "$already_current" == "true" ]]; then
               checks_complete=true
-              for workflow in ci.yml security.yml agent-guard.yml; do
+              for workflow in ci.yml security.yml work-item-guard.yml; do
                 existing_run="$(gh run list --workflow "$workflow" --branch "$branch" --event pull_request --limit 20 --json headSha,status,conclusion | jq -c --arg sha "$new_head" '[.[] | select(.headSha == $sha)] | first // empty')"
                 if [[ -z "$existing_run" ]] ||
                    [[ "$(jq -r '.status' <<< "$existing_run")" != "completed" ]] ||
@@ -181,7 +181,7 @@ jobs:
             for attempt in $(seq 1 120); do
               ci_run="$(gh run list --workflow ci.yml --branch "$branch" --event pull_request --limit 20 --json databaseId,headSha,status,conclusion,createdAt,url | jq -c --arg sha "$new_head" --arg started "$started_at" '[.[] | select(.headSha == $sha and .createdAt >= $started)] | first // empty')"
               security_run="$(gh run list --workflow security.yml --branch "$branch" --event pull_request --limit 20 --json databaseId,headSha,status,conclusion,createdAt,url | jq -c --arg sha "$new_head" --arg started "$started_at" '[.[] | select(.headSha == $sha and .createdAt >= $started)] | first // empty')"
-              guard_run="$(gh run list --workflow agent-guard.yml --branch "$branch" --event pull_request --limit 20 --json databaseId,headSha,status,conclusion,createdAt,url | jq -c --arg sha "$new_head" --arg started "$started_at" '[.[] | select(.headSha == $sha and .createdAt >= $started)] | first // empty')"
+              guard_run="$(gh run list --workflow work-item-guard.yml --branch "$branch" --event pull_request --limit 20 --json databaseId,headSha,status,conclusion,createdAt,url | jq -c --arg sha "$new_head" --arg started "$started_at" '[.[] | select(.headSha == $sha and .createdAt >= $started)] | first // empty')"
 
               if [[ -n "$ci_run" && -n "$security_run" && -n "$guard_run" ]] &&
                  [[ "$(jq -r '.status' <<< "$ci_run")" == "completed" ]] &&
@@ -195,7 +195,7 @@ jobs:
             done
 
             if [[ "$all_done" != "true" ]]; then
-              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CHECK TIMEOUT | Rebased to `%s`; pull_request CI/Security/Agent Guard did not all complete within 30 minutes |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CHECK TIMEOUT | Rebased to `%s`; pull_request CI/Security/Work Item Guard did not all complete within 30 minutes |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
               failures=$((failures + 1))
               continue
             fi
@@ -213,9 +213,9 @@ jobs:
               else
                 result_label="REBASED + ALL CHECKS PASSED"
               fi
-              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | %s | [CI](%s), [Security](%s), [Agent Guard](%s) on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$result_label" "$ci_url" "$security_url" "$guard_url" "$new_head" >> "$summary"
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | %s | [CI](%s), [Security](%s), [Work Item Guard](%s) on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$result_label" "$ci_url" "$security_url" "$guard_url" "$new_head" >> "$summary"
             else
-              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CHECK FAILED | CI=%s, Security=%s, Agent Guard=%s on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$ci_conclusion" "$security_conclusion" "$guard_conclusion" "$new_head" >> "$summary"
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CHECK FAILED | CI=%s, Security=%s, Work Item Guard=%s on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$ci_conclusion" "$security_conclusion" "$guard_conclusion" "$new_head" >> "$summary"
               failures=$((failures + 1))
             fi
           done < <(jq -c '.[]' "$RUNNER_TEMP/pulls.json")
