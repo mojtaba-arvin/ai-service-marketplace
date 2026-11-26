@@ -42,8 +42,13 @@ Build a production-grade, open-source, multi-market home-services marketplace. R
 - Do not self-approve or merge a pull request.
 
 ## Workflow
-- Use short-lived issue-based branches: `work/<issue>-<slug>`. The number is the linked GitHub Issue, and the slug describes the change; never encode the contributor or automation identity in the branch name.
-- Use Conventional Commits and link each PR to its issue.
+- Create or identify the GitHub Issue before creating a work branch. The Issue number is mandatory and must be embedded in the branch name.
+- Canonical branch format: `<type>/issue-<number>-<slug>`.
+- Allowed type prefixes: `feature`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, `chore`, `perf`, `revert`.
+- The slug must be lowercase kebab-case, non-empty, and describe the Issue; do not include a contributor, agent, or automation identity.
+- Examples: `feature/issue-123-new-login`, `fix/issue-124-token-refresh`, `docs/issue-125-api-authentication`.
+- Do not create new `work/*` or `agent/*` branches. Those prefixes are legacy-only and may remain on pre-existing branches/PRs during transition; do not rename them as part of unrelated work.
+- Use Conventional Commits and link each PR to its exact Issue with `Closes #<number>` or `Refs #<number>`.
 - Keep PRs small, focused, and normally below 400 changed lines.
 - Run `make verify`; run `make verify-full` when infrastructure or integration behavior changes.
 - Report exact commands and outcomes. Never claim a check passed unless it was actually run.
