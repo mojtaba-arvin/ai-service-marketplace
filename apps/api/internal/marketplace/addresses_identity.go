@@ -2,6 +2,9 @@ package marketplace
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
@@ -86,7 +89,53 @@ func (s *Store) ResolveExternalIdentity(ctx context.Context, matrix *marketconfi
 	var identityID string
 	err=tx.QueryRow(ctx,`SELECT phone_identity_id FROM external_identity_links WHERE provider=$1 AND provider_subject=$2 FOR UPDATE`,string(assertion.Provider),assertion.Subject).Scan(&identityID)
 	if errors.Is(err,pgx.ErrNoRows){return "",ErrExternalIdentityNotFound};if err!=nil{return "",err}
-	if err=nonceStore.Consume(ctx,tx,identityID,string(assertion.Provider),assertion.Nonce,assertion.ExpiresAt);err!=nil{return "",err}
+	if err=nonceStore.Consume(ctx,tx,"",string(assertion.Provider),assertion.Nonce,assertion.ExpiresAt);err!=nil{return "",err}
 	if err=tx.Commit(ctx);err!=nil{return "",err}
 	return identityID,nil
+}
+
+
+// PostgresIdentityNonceStore consumes only a pre-issued, unexpired nonce once.
+// The nonce itself is never persisted; only its SHA-256 digest is stored.
+type PostgresIdentityNonceStore struct{}
+
+func (PostgresIdentityNonceStore) Consume(ctx context.Context, tx pgx.Tx, identityID, provider, nonce string, expiresAt time.Time) error {
+	if tx==nil || nonce=="" || !expiresAt.After(time.Now()) {return ErrIdentityNonceReplay}
+	digest:=sha256.Sum256([]byte(nonce))
+	tag,err:=tx.Exec(ctx,`UPDATE external_identity_link_nonces SET consumed_at=now()
+		WHERE COALESCE(identity_id,'')=$1 AND provider=$2 AND nonce_hash=$3 AND consumed_at IS NULL
+		AND expires_at>now() AND expires_at=$4`,identityID,provider,digest[:],expiresAt)
+	if err!=nil{return err}
+	if tag.RowsAffected()!=1{return ErrIdentityNonceReplay}
+	return nil
+}
+
+// CreateIdentityNonce issues a short-lived nonce for a link (identityID set)
+// or login (identityID empty) flow. Callers must bind it to the provider's
+// signed nonce claim and never expose the raw value in logs or URLs.
+func (s *Store) CreateIdentityNonce(ctx context.Context, identityID string, provider adapters.IdentityProvider, ttl time.Duration) (string,error) {
+	if !validExternalProvider(provider) || ttl<time.Minute || ttl>10*time.Minute {return "",ErrExternalIdentityInvalid}
+	if identityID!="" {
+		var found string
+		if err:=s.DB.QueryRow(ctx,`SELECT id FROM phone_identities WHERE id=$1`,identityID).Scan(&found);err!=nil{return "",ErrForbidden}
+	}
+	var raw [32]byte
+	if _,err:=rand.Read(raw[:]);err!=nil{return "",fmt.Errorf("generate identity nonce: %w",err)}
+	nonce:=base64.RawURLEncoding.EncodeToString(raw[:])
+	digest:=sha256.Sum256([]byte(nonce))
+	var owner any
+	if identityID!="" {owner=identityID}
+	_,err:=s.DB.Exec(ctx,`INSERT INTO external_identity_link_nonces(identity_id,provider,nonce_hash,expires_at)
+		VALUES($1,$2,$3,now()+($4 * interval '1 second'))`,owner,string(provider),digest[:],ttl.Seconds())
+	if err!=nil{return "",fmt.Errorf("persist identity nonce: %w",err)}
+	return nonce,nil
+}
+
+// IssueSessionForExternalIdentity issues a normal opaque session only for an
+// already linked phone identity; it never creates or merges identities.
+func (s *Store) IssueSessionForExternalIdentity(ctx context.Context, identityID string, pepper []byte, accessTTL, refreshTTL time.Duration) (SessionTokens,error) {
+	if strings.TrimSpace(identityID)=="" {return SessionTokens{},ErrSessionInvalid}
+	var phone string
+	if err:=s.DB.QueryRow(ctx,`SELECT phone_e164 FROM phone_identities WHERE id=$1`,identityID).Scan(&phone);err!=nil{return SessionTokens{},ErrSessionInvalid}
+	return s.IssueSession(ctx,VerifiedIdentity{phone:phone},pepper,accessTTL,refreshTTL)
 }
