@@ -6,8 +6,32 @@ Thank you for helping improve this open-source marketplace platform. Contributio
 
 1. Read [AGENTS.md](AGENTS.md), the relevant [module specification](docs/specs/README.md), applicable [ADRs](docs/adr/), and the linked issue.
 2. For non-trivial work, open or select a focused issue with acceptance criteria before implementation.
-3. Work on a short-lived issue-based branch using `work/<issue>-<slug>`, where the number is the linked GitHub Issue and the slug describes the change.
+3. Work on a short-lived issue-based branch using `<type>/issue-<number>-<slug>`, where the type is one of `feature`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, `chore`, `perf`, or `revert`; the slug is lowercase kebab-case.
 4. Keep changes focused. Avoid unrelated formatting, dependency churn and premature service/infrastructure extraction.
+
+## Issue title convention
+
+Every GitHub Issue title must follow this exact format:
+
+```text
+<type>(<scope>): <short, clear description>
+```
+
+- `type` must be a lowercase Conventional Commit type: `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, `chore`, `perf`, or `revert`.
+- `scope` must be a concise lowercase kebab-case domain/component, such as `identity`, `events`, `api`, or `deployment`.
+- The description must state the work clearly and actionably.
+- Keep priority, milestone, feature/command IDs, agent names, and run metadata in labels, milestones, or the Issue body—not the title.
+- Do not use bracketed prefixes, standalone priority codes, `Recover:`, or agent/supervisor identity prefixes.
+- Use `chore(roadmap): <description>` for milestone bookkeeping and `chore(supervisor): <description>` for supervisor run records.
+
+Examples:
+
+- `feat(identity): add customer address book`
+- `fix(events): preserve additive event compatibility`
+- `test(ai): expand safety evaluation gates`
+- `docs(agents): clarify worker execution rules`
+
+When correcting an existing title, preserve the Issue number, body, labels, milestone, assignees, and all relationships.
 
 ## Development and verification
 

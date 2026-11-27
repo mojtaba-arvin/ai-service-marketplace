@@ -42,6 +42,16 @@ Build a production-grade, open-source, multi-market home-services marketplace. R
 - Never self-approve a pull request. Maintainer acceptance of a feature is distinct from GitHub PR approval and branch-protection requirements.
 - Do not self-approve or merge a pull request.
 
+## Issue title contract
+- Every Issue title must use `<type>(<scope>): <short, clear description>`.
+- Use a lowercase Conventional Commit type: `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, `chore`, `perf`, or `revert`.
+- Use a concise lowercase kebab-case scope naming the affected domain/component (for example `identity`, `events`, `api`, `deployment`).
+- Write a specific, action-oriented description. Keep priority, milestone, feature IDs, command IDs, agent names, and workflow/run metadata in labels, milestones, or the Issue body—not in the title.
+- Do not use bracketed prefixes, standalone priority codes, `Recover:`, or agent/supervisor identity prefixes.
+- For roadmap/milestone bookkeeping, use `chore(roadmap): <description>`; for supervisor ledgers use `chore(supervisor): <description>`.
+- Examples: `feat(identity): add customer address book`, `fix(events): preserve additive event compatibility`, `test(ai): expand safety evaluation gates`, `docs(agents): clarify worker execution rules`.
+- Preserve the Issue number and all body, labels, milestone, assignees, and relationships when renaming.
+
 ## Workflow
 - Create or identify the GitHub Issue before creating a work branch. The Issue number is mandatory and must be embedded in the branch name.
 - Canonical branch format: `<type>/issue-<number>-<slug>`.
