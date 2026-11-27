@@ -17,15 +17,22 @@ A timeout does not prove that a remote side effect failed. Payment, identity, me
 
 ## Verification
 
-Run go test ./internal/adapters from apps/api. The tests use deterministic local fakes and do not require credentials or network access.
+Run `go test ./internal/adapters` from `apps/api`. The tests use deterministic local fakes and do not require credentials or network access.
 
+## Geocoding capability slice (Issue #269)
 
-## Geocoding
+The Issue #269 implementation branch defines a `Geocoder` interface with a stable `AdapterID`, bounded market/locale request, stable idempotency key, result validation, and deterministic offline `FakeGeocoder`. The marketplace caller must resolve that exact adapter and the `geocode` capability through the version-bound market matrix before invocation. This is a module-private adapter contract, not a production geocoding integration: no live provider client or credentials are included.
 
-The `Geocoder` interface exposes a stable `AdapterID` and accepts a bounded market/locale request with a stable idempotency key. Callers must resolve that exact adapter and the `geocode` capability through the version-bound market matrix before invoking it. Results are rejected when formatted address metadata or coordinate bounds are invalid. `FakeGeocoder` provides deterministic, offline contract tests; it is not a production provider.
+The implementation source is on the Issue #269 branch / PR #251, which is closed without merge. It is not present on `main`. Its SQL-backed saved-address caller depends on the shared `customer_addresses` migration, which is also not present on `main`.
 
-## External identity verification
+## External identity verification capability slice (Issue #271)
 
-`IdentityTokenVerifier` is the provider-neutral assertion boundary. `JWTIdentityVerifier` verifies configured Apple, Google, or email-provider JWTs using an injected `SigningKeyResolver`; it checks the configured issuer/audience, signature algorithm and key ID, signature, expiry, issued-at, optional not-before, nonce, and authorized party for multi-audience tokens. Email providers that do not use this JWT profile can supply a separate implementation of the same interface.
+The Issue #271 implementation branch defines the provider-neutral `IdentityTokenVerifier` contract and `JWTIdentityVerifier`. The JWT profile accepts only configured providers (Apple, Google, or email), issuer, audience, allowed signing algorithm and key ID; it verifies the signature and temporal/nonce claims, including authorized-party validation for multi-audience tokens. Signing-key discovery and rotation are injected through `SigningKeyResolver`. Email providers that do not use this JWT profile may implement the verifier contract separately.
 
-The key resolver owns provider signing-key discovery and rotation. No live JWKS client, provider credentials, or network-dependent test behavior is included. Production wiring must use trusted provider-specific issuer, audience, algorithm and signing-key configuration. The identity module consumes the verified subject only after market capability checks and one-time nonce consumption. Nonce/link persistence requires the CMD-1754-owned shared tables proposed in issue #232.
+No live JWKS client, provider credentials, or network-dependent test behavior is included. Production wiring must use trusted provider-specific issuer, audience, algorithm, and signing-key configuration. The identity module consumes the verified subject only after market capability checks and one-time nonce consumption. Nonce/link persistence requires the shared `external_identity_links` and `external_identity_link_nonces` tables.
+
+The implementation source is on the Issue #271 branch / PR #254, which is closed without merge. It is not present on `main`. The module-private SQL operations therefore do not establish an integrated provider flow.
+
+## Shared integration boundary
+
+Neither capability slice adds shared migrations, OpenAPI schemas, HTTP route registration, immutable order-address snapshots/FKs, order-creation wiring, assignment-authorized exact-address retrieval, or the required PostgreSQL end-to-end/concurrency/replay coverage. Those remain CMD-1754 integration work (issue #232). Do not interpret these adapter contracts or their branch-local tests as completion or acceptance of the shared feature.
