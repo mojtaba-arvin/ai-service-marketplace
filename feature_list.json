@@ -1344,11 +1344,13 @@
   {
     "id": "AN-003",
     "module": "M12 Data & analytics",
-    "title": "Replayable analytics projections and warehouse export",
-    "description": "Build idempotent projections and export canonical events for analytics consumers.",
+    "title": "Replayable analytics projections and privacy-aware export",
+    "description": "Build idempotent tenant-scoped projections and privacy-classified exports from canonical events without requiring a warehouse.",
     "acceptance": [
-      "Projection generations can be rebuilt without corrupting active reads.",
-      "Export is privacy-classified, tenant-scoped and replay-safe."
+      "Projection generations can be rebuilt and rolled back without corrupting active reads.",
+      "Facts retain tenant-scoped event provenance and deterministic duplicate/replay behavior.",
+      "Late-event behavior and metric finality are explicit and tested; ingestion readiness is not presented as event-time finality.",
+      "Exports are privacy-classified, tenant-authorized, bounded and replay-safe; raw outbox payloads are not exported by default."
     ],
     "depends_on": [
       "AN-001",
@@ -1361,7 +1363,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
+    "notes": "Projection runtime, summary API and guarded rebuild/rollback are merged in PRs #194/#196/#198. Privacy-aware export remains scoped in #302. passes remains false pending maintainer acceptance."
   },
   {
     "id": "PLAT-005",
@@ -2006,5 +2008,55 @@
     "passes": false,
     "verified_by": null,
     "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted; dashboards depend on canonical analytics projections."
+  },
+  {
+    "id": "AN-004",
+    "module": "M12 Data & analytics",
+    "title": "Service quality metrics",
+    "description": "Define and project auditable service-quality metrics from minimized canonical review, completion and adjudicated trust events.",
+    "acceptance": [
+      "Every quality metric defines source events, eligible population, numerator, denominator, cohort, maturity, timezone and missing-data behavior.",
+      "Pending, missing, duplicate, withdrawn or moderated evidence is handled explicitly and tenant-isolated.",
+      "Quality projections are replayable, privacy-minimized and never authorize automated punitive action."
+    ],
+    "depends_on": [
+      "AN-001",
+      "AN-002",
+      "TRUST-003",
+      "TRUST-007"
+    ],
+    "size": "M",
+    "nature": [
+      "DX",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Decomposed to Issue #299. Source-event and adjudication dependencies remain explicit; not implemented or maintainer-accepted."
+  },
+  {
+    "id": "AN-005",
+    "module": "M12 Data & analytics",
+    "title": "Ledger-backed finance metrics",
+    "description": "Project auditable, currency-separated finance metrics from immutable ledger events and explicit tenant/order/payment attribution.",
+    "acceptance": [
+      "Financial numerators and denominators map to classified ledger postings and explicit source journal/entry IDs.",
+      "Amounts use integer minor units and ISO currency; reversals are compensating facts and currencies are never summed.",
+      "Tenant, order, organization and property attribution is validated and never inferred; projections reconcile to eligible ledger sources."
+    ],
+    "depends_on": [
+      "AN-001",
+      "FIN-001",
+      "FIN-002",
+      "FIN-004"
+    ],
+    "size": "M",
+    "nature": [
+      "FIN",
+      "DX"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Decomposed to Issue #301; implementation gated by #10, #57, ADR 0006 and canonical ledger events in #87. Not implemented or maintainer-accepted."
   }
 ]
