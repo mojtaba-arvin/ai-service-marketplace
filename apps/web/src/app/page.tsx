@@ -180,6 +180,8 @@ export default function HomePage() {
   const [challengeId, setChallengeId] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [accessToken, setAccessToken] = useState("");
+  const [authLoading, setAuthLoading] = useState(true);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
   const [activeRole, setActiveRole] = useState<Role>("customer");
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -240,13 +242,15 @@ export default function HomePage() {
       .catch(() => {
         setAccessToken("");
         setMe(null);
-      });
+      })
+      .finally(() => setAuthLoading(false));
   }, []);
 
   useEffect(() => {
     if (!accessToken || !me) return;
     let active = true;
     async function load() {
+      setWorkspaceLoading(true);
       try {
         const data = await api<Catalog>("/catalog");
         if (!active) return;
@@ -289,6 +293,8 @@ export default function HomePage() {
         }
       } catch (reason) {
         if (active) setError(reason instanceof Error ? reason.message : "Could not load marketplace data.");
+      } finally {
+        if (active) setWorkspaceLoading(false);
       }
     }
     void load();
@@ -489,6 +495,18 @@ export default function HomePage() {
     } finally { setBusy(false); }
   }
 
+  if (authLoading) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card" aria-busy="true">
+          <div className="brand-mark">M</div>
+          <h1>Marketplace</h1>
+          <p className="muted" role="status" aria-live="polite">Checking your session…</p>
+        </section>
+      </main>
+    );
+  }
+
   if (!accessToken || !me) {
     return (
       <main className="auth-shell">
@@ -578,7 +596,7 @@ export default function HomePage() {
                 <button disabled={busy || formLoading || Boolean(formError) || !selectedItem}>{busy ? "Submitting…" : "Create service request"}</button>
                 <p className="footnote">The listed price is a service-price snapshot. Payment is not collected during request creation.</p>
               </form>
-            ) : <p className="muted">No services are published in this market yet. Run the initial market seed procedure.</p>}
+            ) : workspaceLoading ? <p className="muted" role="status">Loading services…</p> : <p className="muted">No services are published in this market yet. Run the initial market seed procedure.</p>}
           </section>
           <section className="panel">
             <div className="panel-heading"><div><p className="eyebrow">YOUR ACTIVITY</p><h2>Recent requests</h2></div><span className="step-number">02</span></div>
@@ -590,7 +608,7 @@ export default function HomePage() {
                   <p className="muted small-text">{[item.order.region_code,item.order.city_code,item.order.area_code].filter(Boolean).join(" · ")}</p>
                   {["requested","accepted"].includes(item.order.status) && <button className="button-secondary compact" disabled={busy} onClick={() => cancelOrder(item.order.id)}>Cancel request</button>}
                 </article>
-              )) : <div className="empty-state"><span>↗</span><strong>No requests yet</strong><p>Your bookings and status updates will appear here.</p></div>}
+              )) : workspaceLoading ? <p className="muted" role="status">Loading requests…</p> : <div className="empty-state"><span>↗</span><strong>No requests yet</strong><p>Your bookings and status updates will appear here.</p></div>}
             </div>
           </section>
         </div>
@@ -660,7 +678,7 @@ export default function HomePage() {
                     <button className="button-secondary" disabled={busy} onClick={() => respondToOffer(offer.id,"decline")}>Decline</button>
                   </div>
                 </article>
-              )) : <div className="empty-state"><span>◇</span><strong>No active offers</strong><p>New eligible requests will appear here.</p></div>}
+              )) : workspaceLoading ? <p className="muted" role="status">Loading offers…</p> : <div className="empty-state"><span>◇</span><strong>No active offers</strong><p>New eligible requests will appear here.</p></div>}
             </div>
             <div className="section-top">
               <h3>Assigned orders</h3>
@@ -671,7 +689,7 @@ export default function HomePage() {
                   {order.status === "accepted" && <button disabled={busy} onClick={() => transitionProfessionalOrder(order.id,"in_progress")}>Start service</button>}
                   {order.status === "in_progress" && <button disabled={busy} onClick={() => transitionProfessionalOrder(order.id,"completed")}>Complete service</button>}
                 </article>
-              )) : <p className="muted small-text">Accepted assignments will appear here.</p>}
+              )) : workspaceLoading ? <p className="muted small-text" role="status">Loading assigned orders…</p> : <p className="muted small-text">Accepted assignments will appear here.</p>}
             </div>
           </section>
         </div>
@@ -689,7 +707,7 @@ export default function HomePage() {
                   <p className="muted small-text">{[item.order.region_code,item.order.city_code,item.order.area_code].filter(Boolean).join(" · ")}</p>
                   {item.order.status === "requested" && <button disabled={busy} onClick={() => dispatchOrder(item.order.id)}>Dispatch to eligible professionals</button>}
                 </article>
-              )) : <div className="empty-state"><span>⌁</span><strong>Queue is clear</strong><p>New customer requests will appear here.</p></div>}
+              )) : workspaceLoading ? <p className="muted" role="status">Loading order queue…</p> : <div className="empty-state"><span>⌁</span><strong>Queue is clear</strong><p>New customer requests will appear here.</p></div>}
             </div>
           </section>
           <section className="panel">
@@ -701,7 +719,7 @@ export default function HomePage() {
                   <p className="muted small-text">Profile {provider.id.slice(0,10)} · Category {provider.category_id ?? "not set"}</p>
                   {provider.category_id && (!provider.verified_at || !provider.skill_verified_at || !provider.active) && <button disabled={busy} onClick={() => verifyProvider(provider)}>Verify and activate</button>}
                 </article>
-              )) : <div className="empty-state"><span>◎</span><strong>No professionals found</strong><p>Professional profiles appear here when they register.</p></div>}
+              )) : workspaceLoading ? <p className="muted" role="status">Loading professionals…</p> : <div className="empty-state"><span>◎</span><strong>No professionals found</strong><p>Professional profiles appear here when they register.</p></div>}
             </div>
           </section>
         </div>
