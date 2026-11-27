@@ -18,11 +18,21 @@ The canonical envelope is an internal persisted representation; it must not sile
 The additive adapter tracked by Issue #262 / PR #284 defines the intended boundary:
 
 - HTTP publisher: preserve the historical business object in `payload`; expose the complete validated envelope in optional `domain_event`.
-- Customer order history/timeline: preserve the historical business object in `events[].payload`; expose the complete validated envelope in optional `events[].domain_event`.
+- Customer order history/timeline: preserve the historical business object in `events[].payload`; expose the complete envelope in optional `events[].domain_event`.
 - Legacy outbox payloads: forward unchanged and omit `domain_event`; do not infer an envelope from a legacy `version` field.
 - Envelope-shaped but malformed or mismatched events: fail closed rather than forwarding an ambiguous representation.
 
 This adapter is a repository-level compatibility mechanism, not proof that every external consumer accepts additive JSON properties. Consumers using closed schemas or strict unknown-field rejection may reject the additional `domain_event` property even though the original `payload` value is preserved.
+
+## Repository-visible compatibility inventory
+
+| Surface | What the repository establishes | External compatibility status |
+| --- | --- | --- |
+| Outbox HTTP publisher | A generic `OUTBOX_PUBLISH_URL` HTTPS sink is supported; the additive adapter retains legacy `payload` and adds optional `domain_event`. | No deployed URL, sink identity, owner, or sink-owned contract test is recorded. |
+| Customer order history/timeline | The first-party API retains `events[].payload` and adds optional `events[].domain_event`. | No inventory of external clients/consumers, deployed schema versions, or owner confirmations is recorded. |
+| Internal analytics projector | The repository consumes canonical tenant-scoped events through its own event contract. | Internal behavior does not establish compatibility of the generic HTTP sink or any external timeline client. |
+
+This is an inventory of evidence visible in the repository, not a claim that the listed surfaces are the only deployed consumers. Deployment configuration and consumer ownership must be supplied by the relevant operators/owners before the migration gate can close.
 
 ## Rollout / merge gate
 
