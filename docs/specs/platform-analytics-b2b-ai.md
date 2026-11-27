@@ -107,7 +107,7 @@ The deterministic product-scope gate in `internal/aieval` covers all seven M14 c
 
 The evaluator reports schema validity, critical-case correctness, required-detail recall and prohibited-action violations as stable JSON. Missing or malformed predictions, any critical-case failure, and any prohibited action fail the gate regardless of aggregate score. The CI verification script emits this report using deterministic fixtures only; it does not claim model quality or invoke a provider.
 
-Service tests verify that Intake, Pro Copilot and Dispute Triage fail closed before model invocation when redaction fails, and that provenance fingerprints are derived from redacted request input. No real customer PII is stored in fixtures. All seven AI capabilities remain advisory: no model output may approve identity, determine payable amounts, resolve disputes, create orders, change prices, penalize/suspend providers or execute consequential operations. Deterministic policy and authorized human decisions remain authoritative.
+Service tests verify that Intake, Pro Copilot and Dispute Triage fail closed before model invocation when redaction fails, and that provenance fingerprints cover the complete redacted model input, including retrieved evidence. No real customer PII is stored in fixtures. All seven AI capabilities remain advisory: no model output may approve identity, determine payable amounts, resolve disputes, create orders, change prices, penalize/suspend providers or execute consequential operations. Deterministic policy and authorized human decisions remain authoritative.
 
 ## Cross-cutting verification
 
