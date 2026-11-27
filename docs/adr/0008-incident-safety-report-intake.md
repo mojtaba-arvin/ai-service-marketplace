@@ -26,7 +26,7 @@ The marketplace needs a restricted way for customers and professionals to report
 - The feature requires a dedicated incident schema and audit stream; existing support cases/events must not be repurposed.
 - Active reviewer membership/permission and evidence retrieval require explicit enforcement. The operator-role-only authorization model is not sufficient.
 - API responses and logs must redact narrative/evidence references where not required; evidence references must never be copied into ordinary logs.
-- The feature remains `passes=false` until positive/negative PostgreSQL tests, exact-head CI and independent acceptance are complete.
+- The feature remains `passes=false` until positive/negative PostgreSQL tests, exact-head CI and maintainer acceptance are complete.
 
 ## Implementation sequence
 
@@ -45,3 +45,8 @@ The marketplace needs a restricted way for customers and professionals to report
 - Severity changes are allowed only while the report is not closed and always require a reason. Assignment changes are also prohibited after closure. Severity remains advisory and does not trigger an order, payment, provider, or emergency action.
 - Each reviewer mutation writes a same-transaction append-only event with actor, reason and before/after state before updating the report. The database trigger permits a report update only when a matching event exists in the same transaction; identity, reporter narrative, order binding, occurrence time and evidence references remain immutable.
 - Reviewer responses may expose opaque evidence identifiers but must not expose a public/download URL. Evidence retrieval remains unavailable until the separate private storage adapter and access-audit boundary are delivered.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.
