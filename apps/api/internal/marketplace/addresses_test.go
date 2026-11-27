@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,6 +31,18 @@ func TestSavedAddressAuthorizationIsCustomerSelfOnly(t *testing.T) {
 		{SubjectID:"",TenantID:"tenant-1",Role:RoleCustomer},
 		{SubjectID:"identity-1",TenantID:"",Role:RoleCustomer},
 	}{if !errors.Is(validateAddressActor(actor),ErrAddressForbidden){t.Errorf("actor accepted: %#v",actor)}}
+}
+
+
+func TestManualAddressEditClearsStaleGeocodeData(t *testing.T) {
+	input:=SavedAddressInput{Label:"Home",AddressLine1:"2 New Street",Locality:"Muscat",CountryCode:"OM"}
+	formatted,latitude,longitude,provider,version:=savedAddressGeocodeFields(input,nil)
+	if formatted!=strings.Join([]string{"2 New Street","Muscat","OM"},", ") {
+		t.Fatalf("manual address format = %q",formatted)
+	}
+	if latitude!=nil || longitude!=nil || provider!="" || version!="" {
+		t.Fatalf("manual edit retained stale geocode data: lat=%v lon=%v provider=%q version=%q",latitude,longitude,provider,version)
+	}
 }
 
 func TestGeocodeResultRejectsInvalidCoordinates(t *testing.T) {
