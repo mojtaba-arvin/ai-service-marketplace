@@ -21,6 +21,30 @@ func (e *HTTPPublishError) Error()string{return fmt.Sprintf("outbox sink returne
 
 type HTTPPublisher struct { endpoint *url.URL; token string; client *http.Client }
 
+// canonicalDomainEvent recognizes the versioned envelope without reinterpreting
+// legacy business payloads. A malformed envelope-shaped object fails closed.
+func canonicalDomainEvent(event Event) (*DomainEvent, error) {
+ var fields map[string]json.RawMessage
+ if err := json.Unmarshal(event.Payload, &fields); err != nil || fields == nil {
+  return nil, nil
+ }
+ if _, versioned := fields["version"]; !versioned {
+  return nil, nil
+ }
+ if _, tenantScoped := fields["tenant_id"]; !tenantScoped {
+  if _, aggregate := fields["aggregate"]; !aggregate {
+   if _, data := fields["data"]; !data { return nil, nil }
+  }
+ }
+ var domain DomainEvent
+ if err := json.Unmarshal(event.Payload, &domain); err != nil || ValidateDomainEvent(domain) != nil ||
+  domain.ID == "" || domain.Type != event.EventType ||
+  domain.Aggregate.Type != event.AggregateType || domain.Aggregate.ID != event.AggregateID {
+  return nil, ErrPublisherConfig
+ }
+ return &domain, nil
+}
+
 func NewHTTPPublisher(endpoint,token string,client *http.Client)(*HTTPPublisher,error){
  parsed,err:=url.Parse(strings.TrimSpace(endpoint))
  if err!=nil||parsed.Scheme!="https"||parsed.Host==""||parsed.User!=nil||parsed.Fragment!=""||strings.TrimSpace(token)==""{return nil,ErrPublisherConfig}
@@ -32,13 +56,18 @@ func NewHTTPPublisher(endpoint,token string,client *http.Client)(*HTTPPublisher,
 
 func (p *HTTPPublisher) Publish(ctx context.Context,event Event,idempotencyKey string)error{
  if p==nil||p.endpoint==nil||p.client==nil||p.token==""||event.ID<=0||idempotencyKey!=strconv.FormatInt(event.ID,10)||!json.Valid(event.Payload){return ErrPublisherConfig}
+ domain,err:=canonicalDomainEvent(event)
+ if err!=nil{return err}
+ payload:=event.Payload
+ if domain!=nil { payload=domain.Data }
  body,err:=json.Marshal(struct{
   ID int64 `json:"id"`
   AggregateType string `json:"aggregate_type"`
   AggregateID string `json:"aggregate_id"`
   EventType string `json:"event_type"`
   Payload json.RawMessage `json:"payload"`
- }{event.ID,event.AggregateType,event.AggregateID,event.EventType,event.Payload})
+  DomainEvent *DomainEvent `json:"domain_event,omitempty"`
+ }{event.ID,event.AggregateType,event.AggregateID,event.EventType,payload,domain})
  if err!=nil{return err}
  req,err:=http.NewRequestWithContext(ctx,http.MethodPost,p.endpoint.String(),bytes.NewReader(body));if err!=nil{return err}
  req.Header.Set("Content-Type","application/json")

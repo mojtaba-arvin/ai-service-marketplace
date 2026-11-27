@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/serviceforms"
 )
 
@@ -180,15 +181,23 @@ func (s *Store) CreateScheduledOrderWithAnswers(ctx context.Context,actor Actor,
 
 	// Booking creation does not represent a payment authorization or funds hold.
 	// Financial postings are created only by an explicit payment workflow.
-	eventData:=map[string]any{
- "order_id":id,"status":"requested","price_version_id":version.ID,
- "scheduled_at":scheduledAt,"country_code":country,"region_code":region,"city_code":city,"area_code":area,
-}
-if formID!="" { eventData["service_form_version_id"]=formID }
-payload,_:=json.Marshal(eventData)
-	if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('order',$1,'order.created',$2::jsonb)`,id,payload); err!=nil {
-		return Order{},false,err
-	}
+	// Booking creation is not a payment authorization or funds hold.
+ // The canonical event carries minimum business facts and derives tenant scope
+ // only from the already-authorized actor in this transaction.
+ eventData:=map[string]any{
+  "order_id":id,"status":"requested","price_version_id":version.ID,"scheduled_at":scheduledAt,
+ }
+ if formID!="" { eventData["service_form_version_id"]=formID }
+ payload,err:=json.Marshal(eventData)
+ if err!=nil { return Order{},false,err }
+ eventID,err:=newID()
+ if err!=nil { return Order{},false,err }
+ if _,err=outbox.AppendDomainEvent(ctx,tx,outbox.DomainEvent{
+  ID:eventID,Type:"order.created",Version:1,OccurredAt:now,TenantID:actor.TenantID,
+  Aggregate:outbox.EventAggregate{Type:"order",ID:id},Data:payload,
+ }); err!=nil {
+  return Order{},false,err
+ }
 	if err=tx.Commit(ctx); err!=nil { return Order{},false,err }
 	return Order{ID:id,CustomerID:actor.SubjectID,AmountMinor:version.AmountMinor,Currency:version.Currency,
 		Status:"requested",PriceVersionID:&version.ID,ScheduledAt:&scheduledAt,
