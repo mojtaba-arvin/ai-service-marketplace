@@ -449,6 +449,16 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	// Lifecycle management is a separate, reasoned permission; reviewer and
 	// support roles must not inherit it.
 	lifecyclePath := "/v1/operator/incidents/" + report.ID + "/evidence/" + uploaded.EvidenceID + "/lifecycle"
+	unsafeURLReason := call(http.MethodPatch, lifecyclePath, managerToken,
+		[]byte("{\"legal_hold\":true,\"reason\":\"preserve https://storage.example/evidence?X-Amz-Signature=secret\"}"))
+	if unsafeURLReason.Code != http.StatusBadRequest {
+		t.Fatalf("signed URLs must not be persisted in lifecycle audit reasons, got %d: %s", unsafeURLReason.Code, unsafeURLReason.Body.String())
+	}
+	unsafeCredentialReason := call(http.MethodPatch, lifecyclePath, managerToken,
+		[]byte("{\"legal_hold\":true,\"reason\":\"operator approved token=do-not-log\"}"))
+	if unsafeCredentialReason.Code != http.StatusBadRequest {
+		t.Fatalf("credentials must not be persisted in lifecycle audit reasons, got %d: %s", unsafeCredentialReason.Code, unsafeCredentialReason.Body.String())
+	}
 	unauthorizedReviewerUpdate := call(http.MethodPatch, lifecyclePath, reviewerToken,
 		[]byte(`{"legal_hold":true,"reason":"reviewer must not manage evidence"}`))
 	if unauthorizedReviewerUpdate.Code != http.StatusForbidden {
@@ -571,7 +581,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 		t.Fatal("evidence access audit rows must reject deletion")
 	}
 	var leakedAuditValues int
-	if err = pool.QueryRow(ctx, "SELECT count(*) FROM incident_evidence_access_events WHERE report_id=$1 AND tenant_id=$2 AND (reason LIKE '%private incident evidence%' OR reason LIKE '%Bearer %' OR reason LIKE '%https://%')", report.ID, tenantID).Scan(&leakedAuditValues); err != nil {
+	if err = pool.QueryRow(ctx, "SELECT count(*) FROM incident_evidence_access_events WHERE report_id=$1 AND tenant_id=$2 AND (reason LIKE '%private incident evidence%' OR reason LIKE '%Bearer %' OR reason LIKE '%https://%' OR reason LIKE '%token=%' OR reason LIKE '%X-Amz-Signature%')", report.ID, tenantID).Scan(&leakedAuditValues); err != nil {
 		t.Fatal(err)
 	}
 	if leakedAuditValues != 0 {

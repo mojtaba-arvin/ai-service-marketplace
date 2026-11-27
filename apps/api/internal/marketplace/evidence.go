@@ -767,6 +767,25 @@ func (h *Handler) downloadIncidentEvidence(w http.ResponseWriter, r *http.Reques
 
 
 
+// sensitiveEvidenceAuditReason rejects values that look like credentials or
+// signed URLs before an operator-provided reason is persisted in the audit stream.
+func sensitiveEvidenceAuditReason(reason string) bool {
+	normalized := strings.ToLower(reason)
+	if strings.Contains(normalized, "://") || strings.ContainsAny(reason, "\r\n\x00") {
+		return true
+	}
+	for _, marker := range []string{
+		"bearer ", "authorization:", "password=", "passwd=", "token=",
+		"secret=", "api_key=", "api-key=", "credential=", "signature=",
+		"sig=", "x-amz-",
+	} {
+		if strings.Contains(normalized, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 // updateIncidentEvidenceLifecycle changes only adopter-controlled retention and
 // legal-hold metadata. Authorization, metadata mutation and audit snapshots share
 // one transaction; reviewer access never implies lifecycle-management authority.
@@ -809,7 +828,7 @@ func (h *Handler) updateIncidentEvidenceLifecycle(w http.ResponseWriter, r *http
 		return
 	}
 	reason = strings.TrimSpace(reason)
-	if reason == "" || len(reason) > 500 {
+	if reason == "" || len(reason) > 500 || sensitiveEvidenceAuditReason(reason) {
 		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
 			"retention_update", "invalid_input", http.StatusBadRequest)
 		return
