@@ -45,7 +45,7 @@ Repository-local configuration, environment variables, API-created commits, and 
 `scripts/check_commit_identity.py` validates every commit in a pull request:
 - Rejects bot/agent authors and bot/AI co-author trailers.
 - Allows known automation authors only when the PR has the explicit `allow-automation-commits` label.
-- For PRs containing the `maintainer-directed-ai-work` marker, requires every commit author to be exactly `Mojtaba Arvin <m.arvin@live.com>`.
+- For PRs containing the `maintainer-directed-ai-work` marker, requires at least one commit authored by `mojtaba-arvin`; every commit attributed to that account must use exactly `Mojtaba Arvin <m.arvin@live.com>`. Other human contributor identities are allowed and preserved.
 - Preserves other human authors without relabeling them.
 
 This repository's AGENTS.md prohibits implementers from modifying `.github/**`, so this PR deliberately does not install a GitHub Actions workflow. Until the repository owner authorizes that governance exception, run the validator manually before requesting review or merge:
