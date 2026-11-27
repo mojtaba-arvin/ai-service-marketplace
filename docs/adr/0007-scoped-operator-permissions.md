@@ -27,7 +27,7 @@ The initial operator membership is provisioned by the deployment-configured `BOO
 - All direct `RoleOperator` gates and all calls to `Authorize` for operator actions must be inventoried and migrated. Tests that currently assume role-only access must create explicit grants through the same provisioning/test fixture path.
 - PostgreSQL integration tests must cover absent grants, action isolation, tenant isolation, missing operator membership, revoked grants, self-grant denial, immutable audit events, bootstrap replay denial, transaction rollback, and concurrent revocation versus a protected operation.
 - Deployment documentation must describe the bootstrap command and the least-privilege initial grant set. No production secret or credential is committed.
-- `feature_list.json` remains `passes=false` until implementation, exact-head checks and independent acceptance are complete.
+- `feature_list.json` remains `passes=false` until implementation, exact-head checks and maintainer acceptance are complete.
 
 ## Implementation order
 
@@ -36,3 +36,8 @@ The initial operator membership is provisioned by the deployment-configured `BOO
 3. Migrate every operator-sensitive read/write path and remove role-only authorization.
 4. Update integration tests and security documentation; prove revoke/mutation concurrency behavior.
 5. Add deployment bootstrap instructions and operational evidence.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.
