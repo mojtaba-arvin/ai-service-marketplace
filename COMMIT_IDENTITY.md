@@ -61,3 +61,5 @@ This manual check is not a server-enforced merge gate. Do not mark the Issue com
 ## Important limitation
 
 Git commit metadata is self-asserted. This check can reject known bot/agent identities and enforce the declared maintainer identity marker, but it cannot prove that a person physically typed the code or detect every disguised agent identity. The GitHub account/email association and transparent PR disclosure remain important.
+
+Never amend, rebase, or cherry-pick a contributor's work under the maintainer identity. Preserve the contributor's original author fields and add a separate maintainer-authored commit for AI-assisted changes.
