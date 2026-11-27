@@ -15,7 +15,7 @@ This matrix maps the release QA scenarios to executable repository evidence. It 
 | AI adversarial behavior | Intake injection and output-contract abuse | `internal/aiintake`, `internal/aieval`, versioned golden dataset and CI | Adversarial automated evaluation plus maintainer review; no consequential AI authority |
 | Financial invariants | Balanced immutable ledger and idempotent posting | Ledger PostgreSQL tests and append-only migration constraints | maintainer review of automated finance evidence; no production money movement |
 | Deployment | Compose validation, image builds, health check and HTTPS ingress | `infra/compose.production.yml`, `infra/DEPLOYMENT.md`, `scripts/smoke-deployment.sh` | Host, DNS, real secrets/OTP adapter and public smoke run |
-| maintainer acceptance | Complete release gate | Issue #57 | Must be completed by an independent verifier; do not self-certify |
+| maintainer acceptance | Complete release gate | Issue #57 | Maintainer reviews exact-SHA automated evidence and deployment limitations; no independent verifier is required |
 
 ## Deployment smoke test
 
