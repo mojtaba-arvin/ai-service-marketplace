@@ -38,7 +38,7 @@ func canonicalDomainEvent(event Event) (*DomainEvent, error) {
  }
  var domain DomainEvent
  if err := json.Unmarshal(event.Payload, &domain); err != nil || ValidateDomainEvent(domain) != nil ||
-  domain.ID == "" || domain.Type != event.EventType ||
+  domain.ID == "" || domain.Version != 1 || domain.Type != event.EventType ||
   domain.Aggregate.Type != event.AggregateType || domain.Aggregate.ID != event.AggregateID {
   return nil, ErrPublisherConfig
  }
