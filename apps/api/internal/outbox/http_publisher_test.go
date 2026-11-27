@@ -52,6 +52,39 @@ func TestHTTPPublisherKeepsCanonicalEnvelopeAdditive(t *testing.T) {
  if got.ID!="evt-1"||got.TenantID!="tenant-1"||got.Aggregate.ID!="order-1" {t.Fatalf("wrong canonical envelope: %#v",got)}
 }
 
+func TestCanonicalDomainEventRejectsMalformedEnvelopes(t *testing.T) {
+ valid := DomainEvent{
+  ID:"evt-1", Type:"order.created", Version:1,
+  OccurredAt:time.Date(2026,11,22,12,0,0,0,time.UTC), TenantID:"tenant-1",
+  Aggregate:EventAggregate{Type:"order",ID:"order-1"},
+  Data:json.RawMessage(`{"order_id":"order-1","status":"requested"}`),
+ }
+ encoded,err:=json.Marshal(valid)
+ if err!=nil { t.Fatal(err) }
+ var fields map[string]json.RawMessage
+ if err=json.Unmarshal(encoded,&fields);err!=nil { t.Fatal(err) }
+ delete(fields,"version")
+ missingVersion,err:=json.Marshal(fields)
+ if err!=nil { t.Fatal(err) }
+ wrongAggregate:=valid
+ wrongAggregate.Aggregate.ID="order-2"
+ wrongAggregatePayload,err:=json.Marshal(wrongAggregate)
+ if err!=nil { t.Fatal(err) }
+ for name,payload:=range map[string]json.RawMessage{
+  "missing version":missingVersion,
+  "aggregate mismatch":wrongAggregatePayload,
+  "missing data":json.RawMessage(`{"id":"evt-1","type":"order.created","version":1,"occurred_at":"2026-11-22T12:00:00Z","tenant_id":"tenant-1","aggregate":{"type":"order","id":"order-1"}}`),
+ } {
+  t.Run(name,func(t *testing.T){
+   _,err:=canonicalDomainEvent(Event{ID:731,AggregateType:"order",AggregateID:"order-1",EventType:"order.created",Payload:payload})
+   if !errors.Is(err,ErrPublisherConfig) { t.Fatalf("malformed canonical envelope must fail closed, got %v",err) }
+  })
+ }
+ // A legacy payload with an unrelated version field remains legacy.
+ legacy,err:=canonicalDomainEvent(Event{ID:732,AggregateType:"order",AggregateID:"order-legacy",EventType:"order.created",Payload:json.RawMessage(`{"order_id":"order-legacy","version":7}`)})
+ if err!=nil || legacy!=nil { t.Fatalf("legacy version field was reinterpreted: domain=%#v err=%v",legacy,err) }
+}
+
 func TestHTTPPublisherPreservesLegacyPayload(t *testing.T) {
  var received map[string]json.RawMessage
  server:=httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
