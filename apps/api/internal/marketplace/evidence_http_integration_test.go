@@ -20,11 +20,16 @@ import (
 type integrationEvidenceStorage struct {
 	mu      sync.Mutex
 	objects map[string][]byte
+	putErr  error
+	getErr  error
 }
 
 func (s *integrationEvidenceStorage) Put(_ context.Context, id string, data []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.putErr != nil {
+		return s.putErr
+	}
 	if s.objects == nil {
 		s.objects = make(map[string][]byte)
 	}
@@ -38,6 +43,9 @@ func (s *integrationEvidenceStorage) Put(_ context.Context, id string, data []by
 func (s *integrationEvidenceStorage) Get(_ context.Context, id string, maxBytes int64) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
 	data, ok := s.objects[id]
 	if !ok {
 		return nil, os.ErrNotExist
@@ -291,6 +299,17 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 		handler.ServeHTTP(rec, req)
 		return rec
 	}
+	callWithHeader := func(method, path, token string, body []byte, header, value string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(method, path, bytes.NewReader(body))
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		req.Header.Set(header, value)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		return rec
+	}
 	otherTenantHandler := &Handler{Store: store, Evidence: service, SessionPepper: pepper, DefaultTenantID: otherTenant}
 	callOtherTenant := func(method, path, token string, body []byte) *httptest.ResponseRecorder {
 		t.Helper()
@@ -304,7 +323,26 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	}
 	pdf := []byte("%PDF-1.7\nprivate incident evidence")
 
-	upload := call(http.MethodPost, "/v1/incidents/"+report.ID+"/evidence", customerToken, pdf)
+	// Reject unsupported content, unbounded bodies, and unrelated reporters
+	// before any object or metadata can be created.
+	if invalid := call(http.MethodPost, "/v1/incidents/"+report.ID+"/evidence", customerToken, []byte("this is not a PDF")); invalid.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("malformed content must be rejected, got %d: %s", invalid.Code, invalid.Body.String())
+	}
+	oversizedBody := bytes.Repeat([]byte("A"), int(service.MaxBytes+1))
+	if oversized := call(http.MethodPost, "/v1/incidents/"+report.ID+"/evidence", customerToken, oversizedBody); oversized.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized upload must be rejected, got %d: %s", oversized.Code, oversized.Body.String())
+	}
+	if denied := call(http.MethodPost, "/v1/incidents/"+report.ID+"/evidence", outsiderToken, pdf); denied.Code != http.StatusForbidden {
+		t.Fatalf("unrelated reporter upload must be denied, got %d: %s", denied.Code, denied.Body.String())
+	}
+	storage.putErr = errors.New("private storage backend unavailable")
+	if failed := call(http.MethodPost, "/v1/incidents/"+report.ID+"/evidence", customerToken, pdf); failed.Code != http.StatusServiceUnavailable {
+		t.Fatalf("storage outage must fail closed, got %d: %s", failed.Code, failed.Body.String())
+	}
+	storage.putErr = nil
+
+	upload := callWithHeader(http.MethodPost, "/v1/incidents/"+report.ID+"/evidence", customerToken, pdf,
+		"Content-Disposition", "attachment; filename=\\"../../../../etc/passwd\\"")
 	if upload.Code != http.StatusCreated {
 		t.Fatalf("reporter upload: status=%d body=%s", upload.Code, upload.Body.String())
 	}
@@ -329,6 +367,9 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	}
 	if download.Header().Get("X-Content-Type-Options") != "nosniff" {
 		t.Fatal("download must set nosniff")
+	}
+	if got := download.Header().Get("Content-Disposition"); got != "attachment; filename=\"incident-evidence\"" {
+		t.Fatalf("client filename must never be reflected in download headers, got %q", got)
 	}
 
 	reviewerList := call(http.MethodGet, "/v1/operator/incidents/"+report.ID+"/evidence", reviewerToken, nil)
@@ -471,8 +512,29 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	`, otherReport.ID, tenantID).Scan(&crossTenantDenied); err != nil {
 		t.Fatal(err)
 	}
-	if successUploads != 1 || successDownloads != 4 || deniedUploads != 3 || deniedDownloads != 2 || deniedLists != 4 || crossTenantDenied != 1 {
+	if successUploads != 1 || successDownloads != 4 || deniedUploads != 7 || deniedDownloads != 4 || deniedLists != 4 || crossTenantDenied != 1 {
 		t.Fatalf("unexpected evidence audit totals: uploads=%d downloads=%d denied_uploads=%d denied_downloads=%d denied_lists=%d cross_tenant_denied_lists=%d",
 			successUploads, successDownloads, deniedUploads, deniedDownloads, deniedLists, crossTenantDenied)
+	}
+
+	// Storage outages and missing objects are distinct fail-closed outcomes,
+	// and both retrieval attempts must be audited without exposing bytes.
+	storage.getErr = errors.New("private storage backend unavailable")
+	if failed := call(http.MethodGet, "/v1/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, customerToken, nil); failed.Code != http.StatusServiceUnavailable {
+		t.Fatalf("storage read outage must return service unavailable, got %d: %s", failed.Code, failed.Body.String())
+	}
+	storage.getErr = nil
+	storage.mu.Lock()
+	delete(storage.objects, uploaded.EvidenceID)
+	storage.mu.Unlock()
+	if missing := call(http.MethodGet, "/v1/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, customerToken, nil); missing.Code != http.StatusNotFound {
+		t.Fatalf("missing private object must not be disclosed, got %d: %s", missing.Code, missing.Body.String())
+	}
+	var storageFailures, missingObjects int
+	if err = pool.QueryRow(ctx, "SELECT count(*) FILTER (WHERE reason_category='storage_failure'), count(*) FILTER (WHERE reason_category='not_found') FROM incident_evidence_access_events WHERE report_id=$1 AND tenant_id=$2 AND action='download' AND outcome='denied'", report.ID, tenantID).Scan(&storageFailures, &missingObjects); err != nil {
+		t.Fatal(err)
+	}
+	if storageFailures != 1 || missingObjects != 1 {
+		t.Fatalf("missing audit classifications: storage failures=%d missing objects=%d", storageFailures, missingObjects)
 	}
 }

@@ -357,7 +357,7 @@ func (s ClamAVScanner) Scan(ctx context.Context, data []byte) error {
 	if err != nil {
 		return err
 	}
-	if !strings.HasSuffix(strings.TrimSpace(response), "OK") {
+	if strings.TrimSpace(response) != "stream: OK" {
 		return fmt.Errorf("malware scanner rejected content")
 	}
 	return nil
@@ -420,7 +420,7 @@ func (h *Handler) evidenceDenied(w http.ResponseWriter, ctx context.Context, ten
 func (h *Handler) listIncidentEvidence(w http.ResponseWriter, r *http.Request, reportID string, reviewerOnly bool) {
 	principal, err := h.principal(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, "", "", "list", "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if reportID == "" || len(reportID) > 200 {
@@ -515,11 +515,11 @@ func (h *Handler) listIncidentEvidence(w http.ResponseWriter, r *http.Request, r
 func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request, reportID string) {
 	principal, err := h.principal(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, "", "", "upload", "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if h.Evidence == nil {
-		writeError(w, http.StatusServiceUnavailable, "private evidence storage is not configured")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, "", principal.IdentityID, "upload", "storage_failure", http.StatusServiceUnavailable)
 		return
 	}
 	if reportID == "" || len(reportID) > 200 {
@@ -652,11 +652,11 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 func (h *Handler) downloadIncidentEvidence(w http.ResponseWriter, r *http.Request, reportID, evidenceID string, reviewerOnly bool) {
 	principal, err := h.principal(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, "", "download", "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if h.Evidence == nil {
-		writeError(w, http.StatusServiceUnavailable, "private evidence storage is not configured")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID, "download", "storage_failure", http.StatusServiceUnavailable)
 		return
 	}
 	if len(reportID) == 0 || len(reportID) > 200 || len(evidenceID) != 32 {
@@ -729,7 +729,13 @@ func (h *Handler) downloadIncidentEvidence(w http.ResponseWriter, r *http.Reques
 	encrypted, err := h.Evidence.get(r.Context(), evidenceID)
 	if err != nil {
 		_ = tx.Rollback(r.Context())
-		h.evidenceDenied(w, r.Context(), tenantID, reportID, evidenceID, principal.IdentityID, "download", "storage_failure", http.StatusNotFound)
+		reason := "storage_failure"
+		status := http.StatusServiceUnavailable
+		if errors.Is(err, os.ErrNotExist) {
+			reason = "not_found"
+			status = http.StatusNotFound
+		}
+		h.evidenceDenied(w, r.Context(), tenantID, reportID, evidenceID, principal.IdentityID, "download", reason, status)
 		return
 	}
 	plaintext, err := h.Evidence.decrypt(evidenceID, mediaType, encrypted)
