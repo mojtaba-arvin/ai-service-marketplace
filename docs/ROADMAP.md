@@ -21,7 +21,7 @@ Reproducible local environment; deterministic verification and full integration 
 
 ### W1 — Identity, access and privacy (M1)
 OTP and replaceable delivery adapters; optional email/Apple/Google identity; customer/pro/admin/support/finance/B2B roles; profiles, addresses, devices, sessions, trusted devices and abuse controls; consent, export, deletion/anonymization and audited access.
-**Gate:** tenant isolation, session rotation/revocation, abuse tests and privacy lifecycle independently verified.
+**Gate:** tenant isolation, session rotation/revocation, abuse tests and privacy lifecycle verified by automated tests and maintainer review.
 
 ### W2 — Catalog, service design and pricing (M2)
 Admin-defined taxonomy/services; dynamic questionnaires; versioned price menus, multipliers and rules; immutable order price snapshots; packages/subscriptions; localized service×region SEO with reviewable AI drafting.
@@ -37,7 +37,7 @@ Explainable eligibility/ranking; broadcast/sequential/customer-choice; expiry/ti
 
 ### W5 — Payments, ledger and finance (M6)
 Immutable balanced ledger; idempotent posting/replay/reversals; escrow/holds; commissions/rewards/penalties/credits; PSP adapters; payouts/refunds/chargebacks; invoices/tax/reconciliation; explainable payment fraud.
-**Gate:** property-based balance tests, duplicate/timeout/replay recovery, reconciliation and independent Finance QA. Real funds remain disabled until adopter/provider/legal approvals.
+**Gate:** property-based balance tests, duplicate/timeout/replay recovery, reconciliation and maintainer review of automated finance evidence. Real funds remain disabled until adopter/provider/legal approvals.
 
 ### W6 — Trust, safety and communications (M7–M8)
 KYC/credentials/background checks; periodic review/blocklists; SOS/trip sharing/emergency; insurance/claims; disputes/evidence/AI triage/human adjudication; moderation/audit; push/SMS/email/channels/preferences/consent/chat; support tickets/knowledge/AI suggestions.
@@ -71,11 +71,15 @@ Split work into small issues/PRs by module and file ownership. Independent works
 
 - Every capability maps to a feature ID, module spec, tests/evaluation and dependencies.
 - Required checks pass on exact PR head and after rebase on current main.
-- Security, finance, identity, privacy, B2B attribution and safety require negative-path and independent review.
+- Security, finance, identity, privacy, B2B attribution and safety require negative-path and maintainer review.
 - Do not invent policy/retention periods, legal rules, fairness thresholds or regulated providers.
-- Only independent acceptance sets passes=true and verified_by.
+- The project maintainer sets `passes=true` and `verified_by` after reviewing implementation evidence, relevant automated tests, and exact-head required CI/security checks. No independent QA operator or external sign-off is required.
 - progress.md records evidence/blockers; roadmap records intended outcomes, not optimistic completion.
 
 ## Current baseline
 
 The repository has a Go/PostgreSQL modular-monolith foundation, customer/professional/operator web workflows, transactional events/outbox, ledger primitives, market configuration, B2B organization/property foundations and deployment/CI assets. These foundations do not mean the full product is complete. See [progress](progress.md), [feature inventory](../feature_list.json), [module specs](specs/README.md) and [GitHub Issues](https://github.com/mojtaba-arvin/ai-service-marketplace).
+
+## Project acceptance policy
+
+This project has no separate independent QA or acceptance role. The maintainer performs acceptance using code/implementation review, automated tests and evaluations, exact-head required CI/security checks, and recorded evidence. Do not create blockers or dependencies for an independent operator. This policy does not waive required tests, security gates, branch protection, or explicit adopter/legal/provider decisions.
