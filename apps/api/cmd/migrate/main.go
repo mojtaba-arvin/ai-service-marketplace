@@ -40,7 +40,17 @@ var migrationFiles = []string{
 	"022_identity_memberships.sql",
 	"023_order_tenant_scope.sql",
 	"024_organizations_properties.sql",
-	"025_analytics_event_projection.sql",
+	"025_auth_devices.sql",
+	"026_market_config_audit.sql",
+	"027_service_form_versions.sql",
+	"028_order_service_form_answers.sql",
+	"029_order_completion_approval.sql",
+	"030_analytics_event_projection.sql",
+	"031_operator_action_grants.sql",
+	"032_operator_permission_event_integrity.sql",
+	"033_incident_report_intake.sql",
+	"034_incident_reviewer_workflow.sql",
+	"035_private_incident_evidence.sql",
 }
 
 const advisoryLockID int64 = 824713921734

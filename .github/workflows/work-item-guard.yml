@@ -1,0 +1,82 @@
+name: Work Item Guard
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "Base branch used for protected-path comparison"
+        required: false
+        default: main
+        type: string
+      head_ref:
+        description: "Head branch being verified"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enforce issue-scoped branch naming and protected paths
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || inputs.base_ref || 'main' }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref || inputs.head_ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          # Canonical work branches must be created from an Issue and use a
+          # conventional type prefix. The Issue number is part of the name.
+          allowed_types='feature|fix|docs|refactor|test|build|ci|chore|perf|revert'
+          canonical_pattern="^(${allowed_types})/issue-[1-9][0-9]*-[a-z0-9]+(-[a-z0-9]+)*$"
+
+          if [[ "$HEAD_REF" =~ ^(${allowed_types})/ ]]; then
+            if [[ ! "$HEAD_REF" =~ $canonical_pattern ]]; then
+              echo "Invalid issue branch '$HEAD_REF'. Expected <type>/issue-<number>-<lowercase-kebab-slug>."
+              exit 1
+            fi
+          elif [[ "$HEAD_REF" == work/* || "$HEAD_REF" == agent/* ]]; then
+            # Legacy branches remain guarded during migration, but no new
+            # branches should use these prefixes.
+            echo "Legacy branch prefix detected; protected-path checks remain enabled."
+          else
+            echo "Branch '$HEAD_REF' is not a repository implementation branch; skipping implementation-path checks."
+            exit 0
+          fi
+
+          git fetch origin "$BASE_REF"
+          changed="$(git diff --name-only "origin/$BASE_REF...HEAD")"
+          printf '%s\n' "$changed"
+          # One-time, narrowly scoped bootstrap exception: Issue #246 changes
+          # this guard itself to establish the new branch contract. Keep the
+          # exception limited to this exact branch and this exact policy file.
+          if [[ "$HEAD_REF" == "feature/issue-246-conventional-branch-naming" ]]; then
+            protected_changes="$(printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)' | grep -vx '.github/workflows/work-item-guard.yml' || true)"
+            if [[ -n "$protected_changes" ]]; then
+              printf '%s\n' "$protected_changes"
+              echo "The branch-naming policy bootstrap may change only this guard under protected paths."
+              exit 1
+            fi
+          elif [[ "$HEAD_REF" == "docs/issue-279-maintainer-led-acceptance" ]]; then
+            protected_changes="$(printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)' | grep -vx '.github/workflows/work-item-guard.yml' || true)"
+            if [[ -n "$protected_changes" ]]; then
+              printf '%s\n' "$protected_changes"
+              echo "The maintainer-acceptance policy update may change only this guard under protected paths."
+              exit 1
+            fi
+          elif printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)'; then
+            echo "Implementation branches may not modify protected policy or spec-test paths."
+            exit 1
+          fi
+          if printf '%s\n' "$changed" | grep -qx 'feature_list.json' && [[ "$HEAD_REF" != "docs/issue-279-maintainer-led-acceptance" ]]; then
+            echo "feature_list.json status changes require maintainer evidence review; direct implementation-worker edits remain forbidden."
+            exit 1
+          fi

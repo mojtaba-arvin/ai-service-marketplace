@@ -4,6 +4,7 @@ import (
     "context"
     "encoding/json"
     "errors"
+    "io"
     "net/http"
     "strconv"
     "strings"
@@ -135,39 +136,50 @@ func (s *Store) ListProfessionalOffers(ctx context.Context, actor Actor) ([]Disp
 }
 
 func (s *Store) ListOperatorOrders(ctx context.Context, actor Actor, marketCode string) ([]OperatorOrder, error) {
-    if actor.Role != RoleOperator || actor.SubjectID == "" || actor.TenantID == "" {
-        return nil, ErrForbidden
-    }
-    if err := Authorize(actor, Resource{TenantID:actor.TenantID}, ActionOrderRead); err != nil {
-        return nil, err
-    }
-    rows, err := s.DB.Query(ctx, `
-        SELECT id,customer_id,amount_minor,currency,status,scheduled_at,country_code,
-            region_code,city_code,area_code,assigned_provider_id,created_at,updated_at
-        FROM orders
-        WHERE tenant_id=$1 AND country_code=$2
-        ORDER BY created_at DESC,id DESC
-        LIMIT 100
-    `, actor.TenantID, strings.ToUpper(strings.TrimSpace(marketCode)))
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
-    orders := make([]OperatorOrder, 0)
-    for rows.Next() {
-        var order OperatorOrder
-        if err = rows.Scan(&order.ID,&order.CustomerID,&order.AmountMinor,&order.Currency,&order.Status,
-            &order.ScheduledAt,&order.CountryCode,&order.RegionCode,&order.CityCode,&order.AreaCode,
-            &order.AssignedProviderID,&order.CreatedAt,&order.UpdatedAt); err != nil {
-            return nil, err
-        }
-        orders = append(orders, order)
-    }
-    if err = rows.Err(); err != nil {
-        return nil, err
-    }
-    return orders, nil
+	if actor.Role != RoleOperator || actor.SubjectID == "" || actor.TenantID == "" {
+		return nil, ErrForbidden
+	}
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: actor.TenantID}, ActionOrderRead); err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT id,customer_id,amount_minor,currency,status,scheduled_at,country_code,
+			region_code,city_code,area_code,assigned_provider_id,created_at,updated_at
+		FROM orders
+		WHERE tenant_id=$1 AND country_code=$2
+		ORDER BY created_at DESC,id DESC
+		LIMIT 100
+	`, actor.TenantID, strings.ToUpper(strings.TrimSpace(marketCode)))
+	if err != nil {
+		return nil, err
+	}
+	orders := make([]OperatorOrder, 0)
+	for rows.Next() {
+		var order OperatorOrder
+		if err = rows.Scan(&order.ID,&order.CustomerID,&order.AmountMinor,&order.Currency,&order.Status,
+			&order.ScheduledAt,&order.CountryCode,&order.RegionCode,&order.CityCode,&order.AreaCode,
+			&order.AssignedProviderID,&order.CreatedAt,&order.UpdatedAt); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+	if err = rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return orders, nil
 }
+
 
 func (s *Store) ListProfessionalOrders(ctx context.Context, actor Actor) ([]ProfessionalOrder, error) {
     if actor.Role != RoleProfessional || actor.SubjectID == "" || actor.TenantID == "" {
@@ -200,35 +212,50 @@ func (s *Store) ListProfessionalOrders(ctx context.Context, actor Actor) ([]Prof
 }
 
 func (s *Store) ListOperatorProviders(ctx context.Context, actor Actor) ([]OperatorProvider, error) {
-    if actor.Role != RoleOperator || actor.SubjectID == "" || actor.TenantID == "" {
-        return nil, ErrForbidden
-    }
-    if err := Authorize(actor,Resource{TenantID:actor.TenantID},ActionProviderVerify); err != nil {
-        return nil, err
-    }
-    rows, err := s.DB.Query(ctx, `
-        SELECT p.id,p.identity_id,p.display_name,p.active,p.verified_at,
-            ps.category_id,ps.verified_at
-        FROM provider_profiles p
-        LEFT JOIN provider_skills ps ON ps.provider_id=p.id
-        WHERE p.tenant_id=$1
-        ORDER BY p.created_at DESC,p.id,ps.category_id
-        LIMIT 200
-    `,actor.TenantID)
-    if err != nil { return nil,err }
-    defer rows.Close()
-    providers := make([]OperatorProvider,0)
-    for rows.Next() {
-        var provider OperatorProvider
-        if err=rows.Scan(&provider.ID,&provider.IdentityID,&provider.DisplayName,&provider.Active,
-            &provider.VerifiedAt,&provider.CategoryID,&provider.SkillVerifiedAt);err!=nil {
-            return nil,err
-        }
-        providers=append(providers,provider)
-    }
-    if err=rows.Err();err!=nil { return nil,err }
-    return providers,nil
+	if actor.Role != RoleOperator || actor.SubjectID == "" || actor.TenantID == "" {
+		return nil, ErrForbidden
+	}
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: actor.TenantID}, ActionProviderVerify); err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT p.id,p.identity_id,p.display_name,p.active,p.verified_at,
+			ps.category_id,ps.verified_at
+		FROM provider_profiles p
+		LEFT JOIN provider_skills ps ON ps.provider_id=p.id
+		WHERE p.tenant_id=$1
+		ORDER BY p.created_at DESC,p.id,ps.category_id
+		LIMIT 200
+	`, actor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	providers := make([]OperatorProvider, 0)
+	for rows.Next() {
+		var provider OperatorProvider
+		if err = rows.Scan(&provider.ID,&provider.IdentityID,&provider.DisplayName,&provider.Active,
+			&provider.VerifiedAt,&provider.CategoryID,&provider.SkillVerifiedAt); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		providers = append(providers, provider)
+	}
+	if err = rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return providers, nil
 }
+
 
 func (s *Store) TransitionOrderAsActor(ctx context.Context, actor Actor, orderID, target string) (Order, error) {
     tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
@@ -256,9 +283,15 @@ func (s *Store) TransitionOrderAsActor(ctx context.Context, actor Actor, orderID
 
     switch actor.Role {
     case RoleCustomer:
-        if target != "cancelled" || orderTenantID == nil || Authorize(actor, Resource{TenantID:*orderTenantID,OwnerID:current.CustomerID}, ActionOrderCancel) != nil {
+        if orderTenantID == nil || Authorize(actor, Resource{TenantID:*orderTenantID,OwnerID:current.CustomerID}, ActionOrderCancel) != nil {
             return Order{}, ErrForbidden
         }
+        // Cancellation has a separate policy/idempotency workflow. Never allow
+        // the generic state-transition endpoint to bypass its fee/refund rules.
+        if target == "cancelled" {
+            return Order{}, ErrInvalidTransition
+        }
+        return Order{}, ErrForbidden
     case RoleProfessional:
         if assignedProviderID == nil {
             return Order{}, ErrForbidden
@@ -295,8 +328,21 @@ func (s *Store) TransitionOrderAsActor(ctx context.Context, actor Actor, orderID
     if err != nil {
         return Order{}, err
     }
-    payload, _ := json.Marshal(map[string]string{"order_id":orderID,"from":current.Status,"to":target})
-    if _, err = outbox.Append(ctx, tx, "order", orderID, "order.state_changed", payload); err != nil {
+    if orderTenantID == nil || strings.TrimSpace(*orderTenantID) == "" {
+        return Order{}, ErrForbidden
+    }
+    payload, marshalErr := json.Marshal(map[string]string{"order_id":orderID,"from":current.Status,"to":target})
+    if marshalErr != nil {
+        return Order{}, marshalErr
+    }
+    eventID, err := newID()
+    if err != nil {
+        return Order{}, err
+    }
+    if _, err = outbox.AppendDomainEvent(ctx, tx, outbox.DomainEvent{
+        ID:eventID, Type:"order.state_changed", Version:1, OccurredAt:time.Now().UTC(),
+        TenantID:*orderTenantID, Aggregate:outbox.EventAggregate{Type:"order",ID:orderID}, Data:payload,
+    }); err != nil {
         return Order{}, err
     }
     current.Status = target
@@ -325,6 +371,10 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
     switch {
     case r.Method == http.MethodGet && path == "/v1/organization-invitations":
         h.organizationInvitationList(w,r); return true
+    case r.Method == http.MethodPost && path == "/v1/incidents":
+        h.createIncidentReport(w,r); return true
+    case r.Method == http.MethodGet && strings.HasPrefix(path,"/v1/incidents/"):
+        h.getIncidentReport(w,r); return true
     case r.Method == http.MethodPost && path == "/v1/organizations":
         h.organizationCreate(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/organizations":
@@ -356,12 +406,22 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         if !ok { writeError(w,http.StatusNotFound,"not found"); return true }
         if strings.HasSuffix(path,"/properties") { h.organizationProperties(w,r,organizationID) } else { h.organizationGet(w,r,organizationID) }
         return true
+    case r.Method == http.MethodPost && path == "/v1/operator/service-forms":
+        h.createServiceFormDraft(w,r); return true
+    case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/operator/service-forms/") && strings.HasSuffix(path,"/publish"):
+        h.publishServiceFormVersion(w,r); return true
+    case r.Method == http.MethodGet && path == "/v1/catalog/service-forms":
+        h.getPublishedServiceForm(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/catalog":
         h.publicCatalog(w,r); return true
     case r.Method == http.MethodPost && path == "/v1/orders":
         h.createScheduledOrder(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/orders":
         h.orderHistory(w,r); return true
+    case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/orders/") && strings.HasSuffix(path,"/reorder"):
+        h.reorderScheduledOrder(w,r); return true
+    case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/orders/") && strings.HasSuffix(path,"/completion-approval"):
+        h.approveOrderCompletion(w,r); return true
     case r.Method == http.MethodGet && strings.HasPrefix(path,"/v1/orders/"):
         h.orderTimeline(w,r); return true
     case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/orders/") && strings.HasSuffix(path,"/cancel"):
@@ -380,6 +440,18 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.respondToOffer(w,r); return true
     case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/professional/orders/") && strings.HasSuffix(path,"/transition"):
         h.professionalTransition(w,r); return true
+    case r.Method == http.MethodGet && path == "/v1/operator/incidents":
+        h.operatorIncidents(w,r); return true
+    case r.Method == http.MethodGet && strings.HasPrefix(path,"/v1/operator/incidents/"):
+        h.operatorIncidents(w,r); return true
+    case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/operator/incidents/") && strings.HasSuffix(path,"/transition"):
+        h.operatorIncidents(w,r); return true
+    case r.Method == http.MethodGet && path == "/v1/operator/permissions":
+        h.operatorPermissions(w,r); return true
+    case r.Method == http.MethodPost && path == "/v1/operator/permissions/grants":
+        h.operatorPermissions(w,r); return true
+    case r.Method == http.MethodPost && strings.HasPrefix(path,"/v1/operator/permissions/grants/") && strings.HasSuffix(path,"/revoke"):
+        h.operatorPermissions(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/operator/analytics/summary":
         h.operatorAnalyticsSummary(w,r); return true
     case r.Method == http.MethodGet && path == "/v1/operator/orders":
@@ -392,6 +464,40 @@ func (h *Handler) serveMVP(w http.ResponseWriter, r *http.Request) bool {
         h.verifyProvider(w,r); return true
     }
     return false
+}
+
+
+func (h *Handler) platformOperatorForRequest(r *http.Request)(Actor,error){
+ principal,err:=h.principal(r);if err!=nil{return Actor{},err}
+ if h.TestMode{return Actor{SubjectID:principal.IdentityID,TenantID:platformTenantID,Role:RoleOperator},nil}
+ return h.Store.ResolveActor(r.Context(),principal.IdentityID,platformTenantID,RoleOperator)
+}
+func (h *Handler) createServiceFormDraft(w http.ResponseWriter,r *http.Request){
+ actor,err:=h.platformOperatorForRequest(r);if err!=nil{writeError(w,http.StatusForbidden,"platform operator membership is required");return}
+ var in struct{MenuID string `json:"menu_id"`;MarketCode string `json:"market_code"`;Locale string `json:"locale"`;Schema json.RawMessage `json:"schema"`}
+ dec:=json.NewDecoder(r.Body);dec.DisallowUnknownFields()
+ if dec.Decode(&in)!=nil||len(in.Schema)==0{writeError(w,http.StatusBadRequest,"invalid service form payload");return}
+ if dec.Decode(new(any))!=io.EOF{writeError(w,http.StatusBadRequest,"invalid service form payload");return}
+ form,err:=h.Store.CreateServiceFormDraft(r.Context(),actor,in.MenuID,in.MarketCode,in.Locale,in.Schema)
+ if err!=nil{status:=http.StatusUnprocessableEntity;if errors.Is(err,ErrForbidden){status=http.StatusForbidden};if errors.Is(err,ErrPriceMenuNotFound){status=http.StatusNotFound};if errors.Is(err,ErrMarketUnavailable){status=http.StatusUnprocessableEntity};writeError(w,status,err.Error());return}
+ writeJSON(w,http.StatusCreated,map[string]any{"form":form})
+}
+func (h *Handler) publishServiceFormVersion(w http.ResponseWriter,r *http.Request){
+ actor,err:=h.platformOperatorForRequest(r);if err!=nil{writeError(w,http.StatusForbidden,"platform operator membership is required");return}
+ parts:=strings.Split(strings.Trim(r.URL.Path,"/"),"/")
+ if len(parts)!=5||parts[0]!="v1"||parts[1]!="operator"||parts[2]!="service-forms"||parts[3]==""||parts[4]!="publish"{writeError(w,http.StatusNotFound,"not found");return}
+ form,err:=h.Store.PublishServiceFormVersion(r.Context(),actor,parts[3])
+ if err!=nil{status:=http.StatusUnprocessableEntity;if errors.Is(err,ErrForbidden){status=http.StatusForbidden};if errors.Is(err,ErrServiceFormNotFound){status=http.StatusNotFound};writeError(w,status,err.Error());return}
+ writeJSON(w,http.StatusOK,map[string]any{"form":form})
+}
+func (h *Handler) getPublishedServiceForm(w http.ResponseWriter,r *http.Request){
+ menuID:=strings.TrimSpace(r.URL.Query().Get("menu_id"));marketCode:=strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("market")));if marketCode==""{marketCode=h.DefaultMarketCode}
+ if menuID==""{writeError(w,http.StatusBadRequest,"menu_id is required");return}
+ market,err:=h.Store.GetMarket(r.Context(),marketCode);if err!=nil{writeError(w,http.StatusNotFound,"market not found");return}
+ locale:=strings.TrimSpace(r.URL.Query().Get("locale"));if locale==""{locale=market.DefaultLocale}
+ form,err:=h.Store.GetPublishedServiceForm(r.Context(),menuID,marketCode,locale)
+ if err!=nil{if errors.Is(err,ErrServiceFormNotFound){writeError(w,http.StatusNotFound,"published service form not found")}else{writeError(w,http.StatusInternalServerError,"could not load service form")};return}
+ writeJSON(w,http.StatusOK,map[string]any{"form":publicServiceForm(form)})
 }
 
 func (h *Handler) publicCatalog(w http.ResponseWriter, r *http.Request) {
@@ -424,6 +530,7 @@ func (h *Handler) createScheduledOrder(w http.ResponseWriter, r *http.Request) {
         RegionCode string `json:"region_code"`
         CityCode string `json:"city_code"`
         AreaCode string `json:"area_code"`
+        Answers json.RawMessage `json:"answers"`
     }
     if json.NewDecoder(r.Body).Decode(&in) != nil {
         writeError(w,http.StatusBadRequest,"invalid JSON")
@@ -433,13 +540,14 @@ func (h *Handler) createScheduledOrder(w http.ResponseWriter, r *http.Request) {
         writeError(w,http.StatusUnprocessableEntity,"orders are limited to the configured launch market")
         return
     }
-    order, created, err := h.Store.CreateScheduledOrder(r.Context(),actor,r.Header.Get("Idempotency-Key"),
-        in.MenuID,in.ScheduledAt,in.CountryCode,in.RegionCode,in.CityCode,in.AreaCode)
+    order, created, err := h.Store.CreateScheduledOrderWithAnswers(r.Context(),actor,r.Header.Get("Idempotency-Key"),
+        in.MenuID,in.ScheduledAt,in.CountryCode,in.RegionCode,in.CityCode,in.AreaCode,in.Answers)
     if err != nil {
         status := http.StatusUnprocessableEntity
         if errors.Is(err,ErrForbidden) { status=http.StatusForbidden }
         if errors.Is(err,ErrOrderIdempotencyConflict) { status=http.StatusConflict }
-        if errors.Is(err,ErrPriceMenuNotFound) { status=http.StatusNotFound }
+        if errors.Is(err,ErrPriceMenuNotFound) || errors.Is(err,ErrServiceFormNotFound) { status=http.StatusNotFound }
+        if errors.Is(err,ErrServiceFormAnswersRequired) || errors.Is(err,ErrServiceFormAnswersInvalid) { status=http.StatusUnprocessableEntity }
         writeError(w,status,err.Error())
         return
     }
@@ -490,6 +598,58 @@ func (h *Handler) orderTimeline(w http.ResponseWriter, r *http.Request) {
     writeJSON(w,http.StatusOK,item)
 }
 
+func (h *Handler) reorderScheduledOrder(w http.ResponseWriter, r *http.Request) {
+    actor, err := h.actorForRole(r, RoleCustomer)
+    if err != nil { writeError(w, http.StatusForbidden, "customer membership is required"); return }
+    parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+    if len(parts) != 4 || parts[0] != "v1" || parts[1] != "orders" || parts[2] == "" || parts[3] != "reorder" {
+        writeError(w, http.StatusNotFound, "not found"); return
+    }
+    key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+    if key == "" { writeError(w, http.StatusBadRequest, "Idempotency-Key is required"); return }
+    var in struct { ScheduledAt time.Time `json:"scheduled_at"`; Answers json.RawMessage `json:"answers,omitempty"` }
+    decoder := json.NewDecoder(r.Body)
+    decoder.DisallowUnknownFields()
+    if decoder.Decode(&in) != nil || decoder.Decode(new(any)) != io.EOF {
+        writeError(w, http.StatusBadRequest, "invalid reorder payload"); return
+    }
+    order, created, err := h.Store.ReorderScheduledOrder(r.Context(), actor, parts[2], key, in.ScheduledAt, h.DefaultMarketCode, in.Answers)
+    if err != nil {
+        status := http.StatusInternalServerError
+        if errors.Is(err, ErrForbidden) { status = http.StatusForbidden }
+        if errors.Is(err, ErrOrderNotFound) || errors.Is(err, ErrPriceMenuNotFound) { status = http.StatusNotFound }
+        if errors.Is(err, ErrOrderIdempotencyConflict) || errors.Is(err, ErrProviderUnavailable) || errors.Is(err, ErrInvalidTransition) { status = http.StatusConflict }
+        if errors.Is(err, ErrInvalidOrderRequest) || errors.Is(err, ErrInvalidAvailability) || errors.Is(err, ErrMarketUnavailable) || errors.Is(err, ErrPriceUnavailable) || errors.Is(err, ErrServiceFormAnswersRequired) || errors.Is(err, ErrServiceFormAnswersInvalid) { status = http.StatusUnprocessableEntity }
+        writeError(w, status, err.Error()); return
+    }
+    status := http.StatusOK
+    if created { status = http.StatusCreated }
+    writeJSON(w, status, map[string]any{"order": order, "created": created})
+}
+func (h *Handler) approveOrderCompletion(w http.ResponseWriter, r *http.Request) {
+    actor, err := h.actorForRole(r, RoleCustomer)
+    if err != nil {
+        writeError(w, http.StatusForbidden, "customer membership is required")
+        return
+    }
+    parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+    if len(parts) != 4 || parts[0] != "v1" || parts[1] != "orders" || parts[2] == "" || parts[3] != "completion-approval" {
+        writeError(w, http.StatusNotFound, "not found")
+        return
+    }
+    approval, created, err := h.Store.ApproveOrderCompletion(r.Context(), actor, parts[2])
+    if err != nil {
+        status := http.StatusInternalServerError
+        if errors.Is(err, ErrForbidden) { status = http.StatusForbidden }
+        if errors.Is(err, ErrOrderNotFound) { status = http.StatusNotFound }
+        if errors.Is(err, ErrInvalidTransition) { status = http.StatusConflict }
+        writeError(w, status, err.Error())
+        return
+    }
+    status := http.StatusOK
+    if created { status = http.StatusCreated }
+    writeJSON(w, status, map[string]any{"approval": approval, "created": created})
+}
 func (h *Handler) cancelOrder(w http.ResponseWriter, r *http.Request) {
     actor, err := h.actorForRole(r,RoleCustomer)
     if err != nil {
@@ -677,10 +837,9 @@ func (h *Handler) operatorOrders(w http.ResponseWriter, r *http.Request) {
     writeJSON(w,http.StatusOK,map[string]any{"orders":orders})
 }
 
-
 func (h *Handler) operatorAnalyticsSummary(w http.ResponseWriter,r *http.Request) {
     actor,err:=h.actorForRole(r,RoleOperator)
-    if err!=nil || Authorize(actor,Resource{TenantID:actor.TenantID},ActionAnalyticsRead)!=nil {
+    if err!=nil {
         writeError(w,http.StatusForbidden,"operator analytics permission is required")
         return
     }
@@ -693,7 +852,17 @@ func (h *Handler) operatorAnalyticsSummary(w http.ResponseWriter,r *http.Request
         writeError(w,http.StatusBadRequest,"from and to must be RFC3339 timestamps in a range up to 90 days; market_code must be uppercase ISO-3166 alpha-2")
         return
     }
-    summary,err:=analytics.QuerySummary(r.Context(),h.Store.DB,actor.TenantID,analytics.SummaryFilter{
+    tx,err:=h.Store.DB.BeginTx(r.Context(),pgx.TxOptions{})
+    if err!=nil {
+        writeError(w,http.StatusInternalServerError,"could not load analytics summary")
+        return
+    }
+    defer tx.Rollback(r.Context())
+    if err=authorizeOperatorTx(r.Context(),tx,actor,Resource{TenantID:actor.TenantID},ActionAnalyticsRead);err!=nil {
+        writeError(w,http.StatusForbidden,"operator analytics permission is required")
+        return
+    }
+    summary,err:=analytics.QuerySummary(r.Context(),tx,actor.TenantID,analytics.SummaryFilter{
         From:from,To:to,MarketCode:marketCode,
     })
     if err!=nil {
@@ -704,9 +873,14 @@ func (h *Handler) operatorAnalyticsSummary(w http.ResponseWriter,r *http.Request
         writeError(w,http.StatusInternalServerError,"could not load analytics summary")
         return
     }
+    if err=tx.Commit(r.Context());err!=nil {
+        writeError(w,http.StatusInternalServerError,"could not load analytics summary")
+        return
+    }
     w.Header().Set("Cache-Control","private, no-store")
     writeJSON(w,http.StatusOK,summary)
 }
+
 
 func (h *Handler) operatorProviders(w http.ResponseWriter, r *http.Request) {
     actor, err := h.actorForRole(r,RoleOperator)
@@ -847,4 +1021,291 @@ func (h *Handler) organizationInvitationList(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"invitations": items})
+}
+
+
+// incidentEmergencyNotice is intentionally explicit: incident intake is not
+// monitored as an emergency service and does not dispatch help.
+const incidentEmergencyNotice = "This service is not monitored as an emergency service. If anyone is in immediate danger, contact local emergency services directly."
+
+func (h *Handler) createIncidentReport(w http.ResponseWriter, r *http.Request) {
+    principal, err := h.principal(r)
+    if err != nil {
+        writeError(w,http.StatusUnauthorized,"unauthorized")
+        return
+    }
+    var in struct {
+        OrderID string `json:"order_id"`
+        ReporterRole string `json:"reporter_role"`
+        Category string `json:"category"`
+        Narrative string `json:"narrative"`
+        OccurredAt *time.Time `json:"occurred_at"`
+        SeverityHint string `json:"severity_hint"`
+        EvidenceReferences []string `json:"evidence_references"`
+    }
+    decoder := json.NewDecoder(io.LimitReader(r.Body, 12*1024))
+    decoder.DisallowUnknownFields()
+    if err = decoder.Decode(&in); err != nil {
+        writeError(w,http.StatusBadRequest,"invalid incident report JSON")
+        return
+    }
+    if err = decoder.Decode(new(any)); err != io.EOF {
+        writeError(w,http.StatusBadRequest,"incident report body must contain one JSON object")
+        return
+    }
+    if in.ReporterRole != string(RoleCustomer) && in.ReporterRole != string(RoleProfessional) {
+        writeError(w,http.StatusBadRequest,"reporter_role must be customer or professional")
+        return
+    }
+    actor, err := h.Store.ResolveActor(r.Context(),principal.IdentityID,h.DefaultTenantID,Role(in.ReporterRole))
+    if err != nil {
+        writeError(w,http.StatusForbidden,"order participant membership is required")
+        return
+    }
+    report, err := h.Store.CreateIncidentReport(r.Context(),actor,IncidentReportInput{
+        OrderID:in.OrderID, Category:in.Category, Narrative:in.Narrative,
+        OccurredAt:in.OccurredAt, SeverityHint:in.SeverityHint,
+        EvidenceRefs:in.EvidenceReferences,
+    })
+    if err != nil {
+        switch {
+        case errors.Is(err,ErrForbidden):
+            writeError(w,http.StatusForbidden,"only the customer or assigned professional for this order may report an incident")
+        case errors.Is(err,ErrIncidentReportInput):
+            writeError(w,http.StatusBadRequest,"invalid incident report fields")
+        default:
+            writeError(w,http.StatusInternalServerError,"could not submit incident report")
+        }
+        return
+    }
+    writeJSON(w,http.StatusCreated,map[string]any{
+        "report":report,
+        "emergency_notice":incidentEmergencyNotice,
+    })
+}
+
+func (h *Handler) getIncidentReport(w http.ResponseWriter, r *http.Request) {
+    principal, err := h.principal(r)
+    if err != nil {
+        writeError(w,http.StatusUnauthorized,"unauthorized")
+        return
+    }
+    reportID := strings.TrimPrefix(r.URL.Path,"/v1/incidents/")
+    if reportID == "" || strings.Contains(reportID,"/") || len(reportID)>200 {
+        writeError(w,http.StatusNotFound,"incident report not found")
+        return
+    }
+    // A person may hold both customer and professional memberships. Try both
+    // roles, but the Store still matches exact reporter identity and tenant.
+    for _, role := range []Role{RoleCustomer,RoleProfessional} {
+        actor, resolveErr := h.Store.ResolveActor(r.Context(),principal.IdentityID,h.DefaultTenantID,role)
+        if resolveErr != nil {
+            continue
+        }
+        report, getErr := h.Store.GetIncidentReportForReporter(r.Context(),actor,reportID)
+        if getErr == nil {
+            writeJSON(w,http.StatusOK,map[string]any{
+                "report":report,
+                "emergency_notice":incidentEmergencyNotice,
+            })
+            return
+        }
+        if !errors.Is(getErr,ErrIncidentReportNotFound) {
+            writeError(w,http.StatusInternalServerError,"could not load incident report")
+            return
+        }
+    }
+    writeError(w,http.StatusNotFound,"incident report not found")
+}
+
+
+// operatorPermissions exposes tenant-scoped permission history and guarded
+// grant/revoke operations. Tenant identity always comes from the authenticated
+// operator context, never from request input.
+func (h *Handler) operatorPermissions(w http.ResponseWriter, r *http.Request) {
+	actor, err := h.actorForRole(r, RoleOperator)
+	if err != nil {
+		writeError(w, http.StatusForbidden, "operator membership is required")
+		return
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	if r.Method == http.MethodGet && path == "/v1/operator/permissions" {
+		grants, listErr := h.Store.ListOperatorActionGrants(r.Context(), actor)
+		if errors.Is(listErr, ErrForbidden) {
+			writeError(w, http.StatusForbidden, "operator permission-management grant is required")
+			return
+		}
+		if listErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not list operator permissions")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"grants": grants})
+		return
+	}
+	if r.Method == http.MethodPost && path == "/v1/operator/permissions/grants" {
+		var in struct {
+			IdentityID string `json:"identity_id"`
+			Action string `json:"action"`
+			Reason string `json:"reason"`
+		}
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8*1024))
+		decoder.DisallowUnknownFields()
+		if err = decoder.Decode(&in); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid permission grant request")
+			return
+		}
+		if decoder.Decode(&struct{}{}) != io.EOF {
+			writeError(w, http.StatusBadRequest, "request must contain one JSON object")
+			return
+		}
+		grant, grantErr := h.Store.GrantOperatorAction(r.Context(), actor, actor.TenantID, in.IdentityID, Action(in.Action), in.Reason)
+		if errors.Is(grantErr, ErrForbidden) {
+			writeError(w, http.StatusForbidden, "operator permission-management grant or target membership is required")
+			return
+		}
+		if errors.Is(grantErr, ErrOperatorGrantInput) {
+			writeError(w, http.StatusBadRequest, "invalid permission grant fields or action")
+			return
+		}
+		if errors.Is(grantErr, ErrOperatorGrantExists) {
+			writeError(w, http.StatusConflict, "an active grant for this identity and action already exists")
+			return
+		}
+		if grantErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not grant operator permission")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"grant": grant})
+		return
+	}
+	if r.Method == http.MethodPost && strings.HasPrefix(path, "/v1/operator/permissions/grants/") && strings.HasSuffix(path, "/revoke") {
+		parts := strings.Split(strings.Trim(path, "/"), "/")
+		if len(parts) != 6 || parts[4] == "" || parts[5] != "revoke" {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+		var in struct { Reason string `json:"reason"` }
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8*1024))
+		decoder.DisallowUnknownFields()
+		if err = decoder.Decode(&in); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid permission revocation request")
+			return
+		}
+		if decoder.Decode(&struct{}{}) != io.EOF {
+			writeError(w, http.StatusBadRequest, "request must contain one JSON object")
+			return
+		}
+		grant, revokeErr := h.Store.RevokeOperatorAction(r.Context(), actor, actor.TenantID, parts[4], in.Reason)
+		if errors.Is(revokeErr, ErrForbidden) {
+			writeError(w, http.StatusForbidden, "operator permission-management grant is required; self-revocation is not allowed")
+			return
+		}
+		if errors.Is(revokeErr, ErrOperatorGrantInput) {
+			writeError(w, http.StatusBadRequest, "a non-empty revocation reason is required")
+			return
+		}
+		if errors.Is(revokeErr, ErrOperatorGrantNotFound) {
+			writeError(w, http.StatusNotFound, "permission grant not found")
+			return
+		}
+		if revokeErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not revoke operator permission")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"grant": grant})
+		return
+	}
+	writeError(w, http.StatusNotFound, "not found")
+}
+
+
+// operatorIncidents is the reviewer-only surface. The Store enforces the
+// dedicated incident:review grant in the same tenant-scoped transaction.
+func (h *Handler) operatorIncidents(w http.ResponseWriter, r *http.Request) {
+	actor, err := h.actorForRole(r, RoleOperator)
+	if err != nil {
+		writeError(w, http.StatusForbidden, "operator membership is required")
+		return
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if r.Method == http.MethodGet && path == "/v1/operator/incidents" {
+		reports, listErr := h.Store.ListIncidentReportsForReviewer(r.Context(), actor, r.URL.Query().Get("status"))
+		if errors.Is(listErr, ErrForbidden) {
+			writeError(w, http.StatusForbidden, "active incident:review grant is required")
+			return
+		}
+		if errors.Is(listErr, ErrIncidentReportInput) {
+			writeError(w, http.StatusBadRequest, "invalid incident status filter")
+			return
+		}
+		if listErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not list incident reports")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"reports": reports})
+		return
+	}
+	if r.Method == http.MethodGet && len(parts) == 4 && parts[0] == "v1" && parts[1] == "operator" && parts[2] == "incidents" && parts[3] != "" {
+		report, getErr := h.Store.GetIncidentReportForReviewer(r.Context(), actor, parts[3])
+		if errors.Is(getErr, ErrForbidden) {
+			writeError(w, http.StatusForbidden, "active incident:review grant is required")
+			return
+		}
+		if errors.Is(getErr, ErrIncidentReportNotFound) {
+			writeError(w, http.StatusNotFound, "incident report not found")
+			return
+		}
+		if getErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not load incident report")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"report": report})
+		return
+	}
+	if r.Method == http.MethodPost && len(parts) == 5 && parts[0] == "v1" && parts[1] == "operator" && parts[2] == "incidents" && parts[3] != "" && parts[4] == "transition" {
+		var in struct {
+			Action string `json:"action"`
+			Status string `json:"status,omitempty"`
+			SeverityHint string `json:"severity_hint,omitempty"`
+			AssignedReviewerIdentityID string `json:"assigned_reviewer_identity_id,omitempty"`
+			Reason string `json:"reason"`
+		}
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8*1024))
+		decoder.DisallowUnknownFields()
+		if err = decoder.Decode(&in); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid incident transition request")
+			return
+		}
+		if decoder.Decode(&struct{}{}) != io.EOF {
+			writeError(w, http.StatusBadRequest, "request must contain one JSON object")
+			return
+		}
+		report, transitionErr := h.Store.TransitionIncidentReport(r.Context(), actor, parts[3], IncidentReportTransitionInput{
+			Action: in.Action,
+			Status: in.Status,
+			SeverityHint: in.SeverityHint,
+			AssignedReviewerIdentityID: in.AssignedReviewerIdentityID,
+			Reason: in.Reason,
+		})
+		if errors.Is(transitionErr, ErrForbidden) {
+			writeError(w, http.StatusForbidden, "active same-tenant incident:review grant is required")
+			return
+		}
+		if errors.Is(transitionErr, ErrIncidentReportNotFound) {
+			writeError(w, http.StatusNotFound, "incident report not found")
+			return
+		}
+		if errors.Is(transitionErr, ErrIncidentReportInput) {
+			writeError(w, http.StatusBadRequest, "invalid incident transition or missing reason")
+			return
+		}
+		if transitionErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not transition incident report")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"report": report})
+		return
+	}
+	writeError(w, http.StatusNotFound, "not found")
 }

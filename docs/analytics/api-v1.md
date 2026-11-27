@@ -14,8 +14,9 @@
 
 The response contains order volume, offer volume and acceptance, cancellation/completion cohort rates, median/p90 time to assignment, and event-readiness fields.
 
-- `data_ready` is false when no production-classified, market-attributed events exist in the requested window.
+- `data_ready` is true only when production-classified, market-attributed events exist in the requested window and the active generation has no pending canonical tenant events.
 - `eligible_events` counts facts with `traffic_class=production` and a market code.
+- `pending_events` counts canonical tenant-scoped outbox events not yet processed by the active generation; readiness remains false during catch-up.
 - `excluded_events` counts facts that are not production-classified or lack market attribution.
 - Rates are ratios in the range 0..1, not percentages.
 - All counts and joins are tenant-scoped. Order/offer identity is deduplicated by business ID.
@@ -29,3 +30,7 @@ The v1 metric contract requires explicit `metadata.market_code` and `metadata.tr
 ## Source of truth
 
 The API reads only the append-only `analytics_event_facts` projection. It does not query orders, provider profiles, payments or ledger tables. Unsupported and legacy event shapes are quarantined and do not contribute to metrics.
+
+### Readiness interpretation
+
+`data_ready` describes ingestion lag at query time only. It does not certify event-time finality: late-arriving events may change historical cohorts, and a deterministic historical rebuild/cutover workflow is not yet implemented. Do not use this flag as a financial or contractual close signal.

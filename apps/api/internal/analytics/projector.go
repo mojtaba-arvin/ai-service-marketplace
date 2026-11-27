@@ -18,9 +18,23 @@ import (
 type Projector struct {
     DB *pgxpool.Pool
     ConsumerName string
+    GenerationID string
+    TenantID string
 }
 
 var marketCodePattern = regexp.MustCompile(`^[A-Z]{2}$`)
+
+var requiredEventDataFields = map[string][]string{
+    "order.created":{"order_id","status","price_version_id","scheduled_at"},
+    "order.state_changed":{"order_id","from","to"},
+    "order.provider_assigned":{"order_id","provider_id","assignment_id","offer_id"},
+    "order.cancelled":{"order_id","from","to","cancellation_id"},
+    "provider.booking_reserved":{"booking_id","provider_id","order_id","start_at","end_at"},
+    "provider.booking_cancelled":{"order_id","cancellation_id","status"},
+    "dispatch.offer_created":{"offer_id","order_id","provider_id","expires_at"},
+    "dispatch.offer_declined":{"offer_id","order_id","provider_id"},
+    "dispatch.offer_expired":{"offer_id","order_id"},
+}
 
 var eventDataFields = map[string]map[string]struct{}{
     "order.created": set("order_id","status","price_version_id","scheduled_at"),
@@ -47,6 +61,7 @@ func (p Projector) Consumer() outbox.Consumer {
 }
 
 func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) error {
+    if strings.TrimSpace(p.GenerationID)=="" { return errors.New("analytics generation ID is required") }
     var domain outbox.DomainEvent
     if err:=json.Unmarshal(event.Payload,&domain); err!=nil {
         return p.quarantine(ctx,tx,event,"invalid_envelope_json")
@@ -73,10 +88,17 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
             return p.quarantine(ctx,tx,event,"unapproved_event_data_field")
         }
     }
+    for _,key:=range requiredEventDataFields[domain.Type] {
+        raw,ok:=fields[key]
+        var value string
+        if !ok || json.Unmarshal(raw,&value)!=nil || strings.TrimSpace(value)=="" {
+            return p.quarantine(ctx,tx,event,"missing_required_event_data")
+        }
+    }
     if domain.Type=="dispatch.offer_created" {
-        rawExpiry,ok:=fields["expires_at"]
+        rawExpiry:=fields["expires_at"]
         var expiresAt time.Time
-        if !ok || json.Unmarshal(rawExpiry,&expiresAt)!=nil || !expiresAt.After(domain.OccurredAt) {
+        if json.Unmarshal(rawExpiry,&expiresAt)!=nil || !expiresAt.After(domain.OccurredAt) {
             return p.quarantine(ctx,tx,event,"invalid_offer_expiry")
         }
     }
@@ -92,15 +114,15 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
     digest:=sha256.Sum256(event.Payload)
     digestHex:=hex.EncodeToString(digest[:])
     tag,err:=tx.Exec(ctx,`INSERT INTO analytics_event_facts
-        (tenant_id,event_id,outbox_event_id,event_type,event_version,occurred_at,aggregate_type,aggregate_id,market_code,traffic_class,data,payload_sha256)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,NULLIF($9,''),NULLIF($10,''),$11::jsonb,$12)
+        (tenant_id,generation_id,event_id,outbox_event_id,event_type,event_version,occurred_at,aggregate_type,aggregate_id,market_code,traffic_class,data,payload_sha256)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''),NULLIF($11,''),$12::jsonb,$13)
         ON CONFLICT DO NOTHING`,
-        domain.TenantID,domain.ID,event.ID,domain.Type,domain.Version,domain.OccurredAt.UTC(),
+        domain.TenantID,p.GenerationID,domain.ID,event.ID,domain.Type,domain.Version,domain.OccurredAt.UTC(),
         domain.Aggregate.Type,domain.Aggregate.ID,marketCode,trafficClass,[]byte(domain.Data),digestHex)
     if err!=nil { return err }
     if tag.RowsAffected()==0 {
         var existingHash string
-        lookupErr:=tx.QueryRow(ctx,`SELECT payload_sha256 FROM analytics_event_facts WHERE tenant_id=$1 AND event_id=$2`,domain.TenantID,domain.ID).Scan(&existingHash)
+        lookupErr:=tx.QueryRow(ctx,`SELECT payload_sha256 FROM analytics_event_facts WHERE tenant_id=$1 AND generation_id=$2 AND event_id=$3`,domain.TenantID,p.GenerationID,domain.ID).Scan(&existingHash)
         if errors.Is(lookupErr,pgx.ErrNoRows) {
             return p.quarantine(ctx,tx,event,"event_identity_conflict")
         }
@@ -115,8 +137,16 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
 func (p Projector) quarantine(ctx context.Context,tx pgx.Tx,event outbox.Event,reason string) error {
     digest:=sha256.Sum256(event.Payload)
     _,err:=tx.Exec(ctx,`INSERT INTO analytics_event_quarantine
-        (outbox_event_id,event_type,aggregate_type,aggregate_id,reason_code,payload_sha256)
-        VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(outbox_event_id) DO NOTHING`,
-        event.ID,event.EventType,event.AggregateType,event.AggregateID,strings.TrimSpace(reason),hex.EncodeToString(digest[:]))
+        (tenant_id,generation_id,outbox_event_id,event_type,aggregate_type,aggregate_id,reason_code,payload_sha256)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(tenant_id,generation_id,outbox_event_id) DO NOTHING`,
+        p.tenantID(event),p.GenerationID,event.ID,event.EventType,event.AggregateType,event.AggregateID,strings.TrimSpace(reason),hex.EncodeToString(digest[:]))
     return err
+}
+
+
+func (p Projector) tenantID(event outbox.Event) string {
+    if strings.TrimSpace(p.TenantID)!="" { return strings.TrimSpace(p.TenantID) }
+    var envelope outbox.DomainEvent
+    if json.Unmarshal(event.Payload,&envelope)==nil { return strings.TrimSpace(envelope.TenantID) }
+    return ""
 }

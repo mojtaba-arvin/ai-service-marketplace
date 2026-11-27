@@ -2,6 +2,7 @@ package marketplace
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 func TestProviderAvailabilityAndNonOverlappingBookingsPostgres(t *testing.T) {
@@ -20,7 +22,7 @@ func TestProviderAvailabilityAndNonOverlappingBookingsPostgres(t *testing.T) {
 	pool,err:=pgxpool.New(ctx,dsn)
 	if err!=nil { t.Fatal(err) }
 	defer pool.Close()
-	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","006_provider_eligibility.sql","007_market_config.sql","008_catalog_localization.sql","015_order_schedule.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","016_cancellation_policy.sql","017_provider_availability.sql"} {
+	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","006_provider_eligibility.sql","007_market_config.sql","026_market_config_audit.sql","008_catalog_localization.sql","015_order_schedule.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","026_market_config_audit.sql","027_service_form_versions.sql","028_order_service_form_answers.sql","016_cancellation_policy.sql","017_provider_availability.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
 		if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("apply %s: %v",name,err) }
@@ -36,7 +38,10 @@ func TestProviderAvailabilityAndNonOverlappingBookingsPostgres(t *testing.T) {
 	customer:=Actor{SubjectID:ids[0],TenantID:"market-dispatch",Role:RoleCustomer}
 	professional:=Actor{SubjectID:ids[1],TenantID:"market-dispatch",Role:RoleProfessional}
 	operator:=Actor{SubjectID:ids[2],TenantID:"market-dispatch",Role:RoleOperator}
-	if _,err=store.SaveMarket(ctx,operator,MarketConfig{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"dispatch-market-v1",Enabled:true,Locales:[]string{"en","ar"}}); err!=nil { t.Fatal(err) }
+	marketOperator:=Actor{SubjectID:ids[2],TenantID:platformTenantID,Role:RoleOperator}
+	if err=ensureTestOperatorGrants(ctx,pool,marketOperator,ActionMarketConfigure); err!=nil { t.Fatal(err) }
+	if err=ensureTestOperatorGrants(ctx,pool,operator,ActionPolicyManage,ActionProviderVerify,ActionOrderAssign); err!=nil { t.Fatal(err) }
+	if _,err=store.SaveMarket(ctx,marketOperator,MarketConfig{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"dispatch-market-v1",Enabled:true,Locales:[]string{"en","ar"}}); err!=nil { t.Fatal(err) }
 	policyVersion:="dispatch-cancel-"+fmt.Sprint(time.Now().UnixNano())
 	if _,err=store.SaveCancellationPolicy(ctx,operator,CancellationPolicy{MarketCode:"OM",PolicyVersion:policyVersion,ActorRole:RoleCustomer,FromStatus:"requested",CutoffMinutes:60,FeeBasisPoints:1000,EffectiveFrom:time.Now().UTC().Add(-time.Hour)}); err!=nil { t.Fatal(err) }
 	category,err:=store.CreateCategory(ctx,nil,fmt.Sprintf("availability-%d",time.Now().UnixNano()),"Availability")
@@ -76,11 +81,22 @@ func TestProviderAvailabilityAndNonOverlappingBookingsPostgres(t *testing.T) {
 		return order
 	}
 	first:=createOrder("booking-first-"+fmt.Sprint(time.Now().UnixNano()),start.Add(30*time.Minute))
+	wrongTenantOperator:=operator
+	wrongTenantOperator.TenantID="market-other"
+	if _,err=store.CreateProviderBooking(ctx,wrongTenantOperator,provider.ID,first.ID,start,start.Add(time.Hour),loc.String()); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("operator from another tenant must not reserve this provider/order: %v",err)
+	}
 	booking,err:=store.CreateProviderBooking(ctx,operator,provider.ID,first.ID,start,start.Add(time.Hour),loc.String())
 	if err!=nil || booking.Status!="booked" { t.Fatalf("create provider booking: %#v %v",booking,err) }
 	var eventCount int
-	if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE aggregate_type='provider_booking' AND aggregate_id=$1`,booking.ID).Scan(&eventCount); err!=nil || eventCount!=1 {
+	var eventPayload []byte
+	if err=pool.QueryRow(ctx,`SELECT count(*),min(payload::text)::jsonb FROM outbox_events WHERE aggregate_type='provider_booking' AND aggregate_id=$1`,booking.ID).Scan(&eventCount,&eventPayload); err!=nil || eventCount!=1 {
 		t.Fatalf("booking reservation outbox event: count=%d err=%v",eventCount,err)
+	}
+	var domainEvent outbox.DomainEvent
+	if err=json.Unmarshal(eventPayload,&domainEvent); err!=nil { t.Fatalf("decode booking event: %v",err) }
+	if err=outbox.ValidateDomainEvent(domainEvent); err!=nil || domainEvent.TenantID!=operator.TenantID || domainEvent.Aggregate.ID!=booking.ID {
+		t.Fatalf("booking event must be canonical and tenant-scoped: event=%+v err=%v",domainEvent,err)
 	}
 	second:=createOrder("booking-second-"+fmt.Sprint(time.Now().UnixNano()),start.Add(45*time.Minute))
 	if _,err=store.CreateProviderBooking(ctx,operator,provider.ID,second.ID,start.Add(30*time.Minute),start.Add(time.Hour),loc.String()); !errors.Is(err,ErrProviderBookingConflict) {

@@ -1,10 +1,10 @@
-# Single-host MVP deployment
+# Single-host self-hosted deployment
 
-This deployment profile is intentionally small: one Go API process, one Next.js web process, one dispatch-expiry worker, PostgreSQL/PostGIS, and Caddy for automatic HTTPS. An optional outbox publisher worker can be enabled when an HTTPS event sink is configured. The default profile does not introduce Kubernetes, Valkey, or NATS.
+This is one low-operations deployment topology, not a limitation on the platform's full M1–M14 product scope. It uses: one Go API process, one Next.js web process, one dispatch-expiry worker, PostgreSQL/PostGIS, and Caddy for automatic HTTPS. An optional outbox publisher worker can be enabled when an HTTPS event sink is configured. The default profile does not introduce Kubernetes, Valkey, or NATS.
 
-## Release boundary
+## Deployment and capability boundary
 
-The repository now contains the first customer/professional/operator API and browser workflow. Treat it as an MVP release candidate until the full CI suite, configured OTP delivery, host deployment, and end-to-end acceptance gate have all passed. Do not expose test OTP/session endpoints or treat ledger primitives as evidence of real payment processing.
+This Compose profile provides one deployable topology for the currently implemented capabilities. It is not an MVP definition, a restriction of product scope, or evidence that every M1–M14 capability is complete. Use the feature inventory, module specifications, exact-head CI and maintainer acceptance evidence to assess individual capabilities. Do not expose test OTP/session endpoints or treat ledger primitives as evidence of real payment processing.
 
 Database migrations run in a dedicated one-shot `migrate` Compose service before the API is allowed to start. The runner takes a PostgreSQL advisory lock, applies each migration in its own transaction, and records completed versions in `schema_migrations`. API replicas no longer execute DDL during startup; this removes the single-replica restriction caused by concurrent startup migrations. Keep the migration service serialized and do not run manual DDL concurrently with it.
 
@@ -37,11 +37,27 @@ SESSION_PEPPER=replace-with-a-different-32-random-bytes
 DEFAULT_TENANT_ID=market-om
 DEFAULT_MARKET_CODE=OM
 BOOTSTRAP_OPERATOR_PHONE=+96890000000
+EVIDENCE_ACTIVE_KEY_ID=2026-11
+EVIDENCE_ENCRYPTION_KEYS='{"2026-11":"replace-with-64-hex-characters"}'
+EVIDENCE_MAX_BYTES=10485760
+EVIDENCE_MAX_PER_REPORT=5
+EVIDENCE_ALLOWED_MEDIA_TYPES=application/pdf,image/jpeg,image/png,text/plain
+EVIDENCE_CLAMD_ADDRESS=clamav.internal:3310
+# Optional; unset means no expiry is applied. Expired evidence is not retrievable.
+EVIDENCE_RETENTION_DAYS=
 ```
 
 Use URL encoding for reserved characters in the PostgreSQL password embedded in DATABASE_URL. Generate peppers on the host, for example with openssl rand -hex 32. Never commit .env.production.
 
-## Seed the initial single-market catalog and professional
+### Private incident evidence
+
+The API requires a private persistent storage volume, an AES-256 key ring and a reachable ClamAV `clamd` service on a private network. Generate a new evidence key with `openssl rand -hex 32`; keep the value in the untracked environment file or a secret manager, never in Git or PostgreSQL. `EVIDENCE_ENCRYPTION_KEYS` is a JSON object keyed by immutable key IDs. Keep every historical key needed to decrypt existing objects when rotating: add the new key, change `EVIDENCE_ACTIVE_KEY_ID`, deploy, then retire an old key only after its objects have been securely re-encrypted and verified. Back up the key ring separately from the encrypted evidence volume and database; loss of a key makes its evidence unrecoverable.
+
+Compose creates a named `evidence_data` volume with owner UID 10001 and mode 0700. The initial adapter stores authenticated-encrypted objects outside the web root with mode 0600. The scanner address must resolve to a trusted private clamd endpoint; scanner timeout, unavailability or a non-OK response rejects uploads. The API does not fall back to unscanned or plaintext storage.
+
+`EVIDENCE_RETENTION_DAYS` is optional and has no default. When explicitly set, the API denies retrieval after that interval. It does not automatically delete bytes. The metadata schema includes a legal-hold flag, but an audited retention/deletion administration workflow and backup-expiry coordination are not yet delivered; do not claim retention deletion or legal-hold operations are operational. Until that workflow is accepted, preserve evidence and backups according to the adopter's approved policy.
+
+## Seed the initial market catalog and professional
 
 The following example uses Oman values because the repository's existing examples use +968 and OMR. Replace them if the launch market is different. The market code must be a two-letter ISO country code; DEFAULT_TENANT_ID is an internal tenant identifier and must match across the API and seed data.
 
@@ -55,11 +71,11 @@ docker compose --env-file .env.production -f infra/compose.production.yml exec -
   psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   -v market_code="$DEFAULT_MARKET_CODE" \
   -v tenant_id="$DEFAULT_TENANT_ID" \
-  -v locale=en -v currency=OMR -v timezone=Asia/Muscat -v policy_version=mvp-1 \
+  -v locale=en -v currency=OMR -v timezone=Asia/Muscat -v policy_version=sample-policy-v1 \
   -v category_id=mvp-home-cleaning -v category_slug=home-cleaning \
   -v category_name="Home cleaning" -v category_description="Standard home cleaning service" \
   -v menu_id=mvp-home-cleaning-standard -v service_code=standard-cleaning \
-  -v price_version_id=mvp-home-cleaning-standard-v1 -v price_minor=2500 \
+  -v price_version_id=sample-home-cleaning-standard-v1 -v price_minor=2500 \
   -v operator_phone="$BOOTSTRAP_OPERATOR_PHONE" \
   -v professional_phone="+96890000001" -v professional_name="Demo Professional" \
   -v region_code=Muscat -v city_code=Muscat -v area_code=Al-Khuwair \
@@ -109,11 +125,51 @@ cat marketplace.dump | docker compose --env-file .env.production -f infra/compos
 
 Test backup restoration before treating the host as production-ready. Keep encrypted backups off-host.
 
+## Analytics projection operations
+
+The optional `analytics` Compose profile is disabled by default. The live worker consumes only the configured tenant's active generation; the one-shot `/app/analytics-rebuild` command performs historical replay, validation and atomic cutover. See [the analytics worker and rebuild runbook](../apps/api/internal/analytics/worker.md) for implementation semantics.
+
+### Production rebuild change procedure
+
+Do not run a rebuild as part of ordinary deployment or without an approved change window. Before starting:
+
+1. Record the exact deployed API image/release SHA and the target tenant.
+2. Take a fresh PostgreSQL backup, copy it off-host, and verify that it restores into an isolated empty database.
+3. Choose a fresh generation ID that has never been active. Record the currently active generation as the rollback target.
+4. Confirm the database has sufficient disk/IO headroom and arrange monitoring for PostgreSQL load, worker logs, pending-event counts, fact/quarantine counts and API analytics readiness.
+5. Do not delete or reuse the old generation. A nonzero quarantine count is accounted for but those events do not become metric facts.
+
+Stop the currently configured analytics worker so an old-generation process cannot remain running after cutover:
+
+```sh
+docker compose --env-file .env.production -f infra/compose.production.yml --profile analytics stop analytics-worker
+```
+
+Set `ANALYTICS_GENERATION_ID` to the new generation and `ANALYTICS_REBUILD_CONFIRM` to the exact `tenant-id:generation-id` pair in the untracked production environment file. Then build the API image and run the one-shot rebuild:
+
+```sh
+docker compose --env-file .env.production -f infra/compose.production.yml build api
+docker compose --env-file .env.production -f infra/compose.production.yml --profile analytics run --rm --no-deps --entrypoint /app/analytics-rebuild analytics-worker
+```
+
+A successful command means the generation passed its source/processed/fact/quarantine checks and its active pointer was switched atomically. It does not prove event-time finality, finance close or independent metric acceptance. Recreate the live worker with the same new generation configuration:
+
+```sh
+docker compose --env-file .env.production -f infra/compose.production.yml --profile analytics up -d --no-deps --force-recreate analytics-worker
+docker compose --env-file .env.production -f infra/compose.production.yml logs --tail=100 analytics-worker
+```
+
+Observe that the worker starts with the new generation, pending events drain, analytics summary readiness recovers, and no unexplained quarantine or database-load regression occurs. Record before/after counts, checksum, timestamps, deployed SHA and operator in the change record. Events committed after the rebuild's cutover snapshot are expected to be consumed by this restarted worker.
+
+### Rollback
+
+If the new worker handoff or post-cutover checks fail, stop it. Set `ANALYTICS_GENERATION_ID` to the retained prior generation, set `ANALYTICS_REBUILD_MODE=rollback`, and set the confirmation to the same `tenant-id:generation-id` pair. Run the one-shot command above. It catches up and validates the retained generation before atomically restoring its pointer. Recreate the worker using that restored generation ID, then clear `ANALYTICS_REBUILD_MODE`. Preserve both generations and the backup until recovery is accepted. Never manually update generation tables or the active pointer.
+
 ## Known limitations before public use
 
-- Browser sessions use Secure, HttpOnly access/refresh cookies, a same-origin CSRF token, and Origin validation for cookie-authenticated mutations. The browser E2E in open PR #67 passed through local Caddy HTTPS, including CSRF, refresh, access expiry, and sign-out checks; the PR still requires review/merge.
-- The customer booking → operator verification/dispatch → professional acceptance → customer status browser journey passed CI in PR #67. A public deployed smoke test is still required.
-- CI backup/restore rehearsal against the disposable PostgreSQL service passed in open PR #69; production backup storage and restore must still be rehearsed on the actual host.
+- Browser sessions use Secure, HttpOnly access/refresh cookies, a same-origin CSRF token, and Origin validation for cookie-authenticated mutations. Production-mode browser/API E2E and the clean-database PostgreSQL backup/restore rehearsal are merged in PR #74; these prove repository/CI behavior, not a public deployment.
+- The customer booking → operator verification/dispatch → professional acceptance → customer status browser journey is covered by the merged production-mode E2E. A public deployed smoke test is still required.
+- CI backup/restore rehearsal against a disposable PostgreSQL service is merged in PR #74; production backup storage, off-host retention and restore must still be rehearsed on the actual host.
 - Independent release QA against a clean deployed environment remains required.
 - The OTP adapter requires a real provider endpoint and token.
 - The initial service catalog and sample professional must be seeded for the configured market before the UI can create a booking.
@@ -121,3 +177,8 @@ Test backup restoration before treating the host as production-ready. Keep encry
 - The initial profile supports multiple API replicas after the one-shot migration service completes, but does not include managed database failover.
 - Outbox events are persisted but remain unpublished unless the optional outbox profile is enabled with a real HTTPS sink and idempotency support.
 - A host, DNS name, OTP credentials, optional outbox sink credentials, and secret values must be supplied by the operator; none are stored in the repository.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

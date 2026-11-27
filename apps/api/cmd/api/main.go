@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/marketplace"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/observability"
 )
 
 func requiredSecret(name string) []byte {
@@ -57,6 +59,10 @@ func main() {
 		if deliveryErr != nil {
 			log.Fatalf("configure OTP delivery: %v", deliveryErr)
 		}
+		evidence, evidenceErr := marketplace.NewEvidenceServiceFromEnv()
+		if evidenceErr != nil {
+			log.Fatalf("configure private incident evidence: %v", evidenceErr)
+		}
 		tenantID := requiredValue("DEFAULT_TENANT_ID")
 		marketCode := strings.ToUpper(requiredValue("DEFAULT_MARKET_CODE"))
 		if len(marketCode) != 2 {
@@ -67,7 +73,7 @@ func main() {
 			log.Fatalf("BOOTSTRAP_OPERATOR_PHONE is invalid: %v", phoneErr)
 		}
 		handler = &marketplace.Handler{
-			Store: store, OTPPepper: requiredSecret("OTP_PEPPER"), SessionPepper: requiredSecret("SESSION_PEPPER"),
+			Store: store, Evidence: evidence, OTPPepper: requiredSecret("OTP_PEPPER"), SessionPepper: requiredSecret("SESSION_PEPPER"),
 			OTPDelivery: delivery, AccessTTL: 15 * time.Minute, RefreshTTL: 30 * 24 * time.Hour,
 			DefaultTenantID: tenantID, DefaultMarketCode: marketCode,
 			BootstrapOperatorPhone: operatorPhone, CookieSecure: true,
@@ -99,7 +105,7 @@ func main() {
 		addr = ":8080"
 	}
 	server := &http.Server{
-		Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second,
+		Addr: addr, Handler: observability.HTTP(handler, slog.New(slog.NewJSONHandler(os.Stdout, nil))), ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second,
 	}
 	log.Printf("marketplace API listening on %s (environment=%s)", addr, appEnv)

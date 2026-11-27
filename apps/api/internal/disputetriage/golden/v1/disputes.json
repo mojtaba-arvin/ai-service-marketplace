@@ -1,0 +1,7 @@
+{
+ "version":"1.0.0",
+ "cases":[
+  {"id":"incomplete-work","required_evidence":["order-policy-01"],"critical":true},
+  {"id":"damage-after-service","required_evidence":["damage-photo-02","service-record-01"],"critical":true}
+ ]
+}

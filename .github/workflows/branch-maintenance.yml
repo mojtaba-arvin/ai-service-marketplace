@@ -1,0 +1,232 @@
+name: Branch Maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report required rebases without pushing"
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: "41 3 * * *"
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+  actions: write
+
+concurrency:
+  group: branch-maintenance-main
+  cancel-in-progress: false
+
+jobs:
+  rebase-open-pull-requests:
+    name: Rebase open PRs onto main and verify exact heads
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          # A PAT is required: GITHUB_TOKEN pushes do not start pull_request workflows.
+          token: ${{ secrets.MARKETPLACE_AUTOMATION_TOKEN || github.token }}
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Rebase eligible pull requests and run exact-head CI
+        env:
+          GH_TOKEN: ${{ secrets.MARKETPLACE_AUTOMATION_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::Configure repository secret MARKETPLACE_AUTOMATION_TOKEN. Use a fine-grained PAT with Contents read/write, Pull requests read, Actions read/write, and Workflows read/write."
+            exit 1
+          fi
+
+          summary="$RUNNER_TEMP/branch-maintenance.md"
+          printf '# Branch maintenance report\n\n' > "$summary"
+          printf -- '- Base branch: `main`\n- Trigger: `%s`\n- Dry run: `%s`\n\n' "$GITHUB_EVENT_NAME" "$DRY_RUN" >> "$summary"
+          printf '| PR | Branch | Previous SHA | Result | New SHA / Details |\n|---:|---|---|---|---|\n' >> "$summary"
+
+          git fetch --no-tags origin main
+          base_sha="$(git rev-parse origin/main)"
+          echo "Base main SHA: $base_sha" >> "$GITHUB_STEP_SUMMARY"
+
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=open&base=main&per_page=100" | jq -s 'add' > "$RUNNER_TEMP/pulls.json"
+
+          total="$(jq 'length' "$RUNNER_TEMP/pulls.json")"
+          echo "Discovered $total open PR(s) targeting main."
+
+          failures=0
+          processed=0
+
+          while IFS= read -r pr; do
+            number="$(jq -r '.number' <<< "$pr")"
+            branch="$(jq -r '.head.ref // empty' <<< "$pr")"
+            expected_head="$(jq -r '.head.sha // empty' <<< "$pr")"
+            head_repo="$(jq -r '.head.repo.full_name // empty' <<< "$pr")"
+            title="$(jq -r '.title' <<< "$pr")"
+
+            if [[ -z "$branch" || -z "$expected_head" || "$head_repo" != "$GITHUB_REPOSITORY" ]]; then
+              printf '| #%s | — | — | SKIPPED | Fork PR or missing head metadata; never push to external repositories |\n' "$number" >> "$summary"
+              continue
+            fi
+
+            if ! git check-ref-format --branch "$branch" >/dev/null 2>&1; then
+              printf '| #%s | — | %s | SKIPPED | Invalid branch ref |\n' "$number" "$expected_head" >> "$summary"
+              continue
+            fi
+
+            printf '\nPR #%s: %s (%s)\n' "$number" "$title" "$branch"
+            remote_ref="refs/remotes/origin/maintenance-pr-$number"
+            git update-ref -d "$remote_ref" 2>/dev/null || true
+            if ! git fetch --no-tags origin "refs/heads/$branch:$remote_ref"; then
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | FETCH_FAILED | Branch disappeared or could not be fetched; skipped safely |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+              failures=$((failures + 1))
+              continue
+            fi
+            actual_head="$(git rev-parse "$remote_ref")"
+
+            if [[ "$actual_head" != "$expected_head" ]]; then
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | SKIPPED | Head changed during discovery; observed `%s` |\n' "$number" "$branch" "$number" "$branch" "$expected_head" "$actual_head" >> "$summary"
+              continue
+            fi
+
+            git switch --force-create "maintenance/pr-$number" "$expected_head" >/dev/null
+            if ! git merge-base "$expected_head" "$base_sha" >/dev/null; then
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | BLOCKED | No common ancestor with current main |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+              failures=$((failures + 1))
+              continue
+            fi
+
+            if ! git rebase "$base_sha"; then
+              git rebase --abort || true
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CONFLICT | Rebase conflict; branch left unchanged |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+              failures=$((failures + 1))
+              continue
+            fi
+
+            new_head="$(git rev-parse HEAD)"
+            already_current=false
+            if [[ "$new_head" == "$expected_head" ]]; then
+              already_current=true
+            fi
+
+            if [[ "$DRY_RUN" == "true" ]]; then
+              if [[ "$already_current" == "true" ]]; then
+                printf '| [#%s](https://github.com/%s/pull/%s) | \`%s\` | \`%s\` | CURRENT | Already based on current main; dry run does not dispatch checks |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+              else
+                printf '| [#%s](https://github.com/%s/pull/%s) | \`%s\` | \`%s\` | DRY RUN | Would update to \`%s\` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
+              fi
+              continue
+            fi
+
+            started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+            if [[ "$already_current" == "true" ]]; then
+              checks_complete=true
+              for workflow in ci.yml security.yml work-item-guard.yml; do
+                existing_run="$(gh run list --workflow "$workflow" --branch "$branch" --event pull_request --limit 20 --json headSha,status,conclusion | jq -c --arg sha "$new_head" '[.[] | select(.headSha == $sha)] | first // empty')"
+                if [[ -z "$existing_run" ]] ||
+                   [[ "$(jq -r '.status' <<< "$existing_run")" != "completed" ]] ||
+                   [[ "$(jq -r '.conclusion' <<< "$existing_run")" != "success" ]]; then
+                  checks_complete=false
+                  break
+                fi
+              done
+
+              if [[ "$checks_complete" == "true" ]]; then
+                printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CURRENT | Pull-request-triggered required workflows already passed on the exact head |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+                continue
+              fi
+
+              # Re-trigger pull_request workflows on a fresh SHA. A successful
+              # workflow_dispatch run does not satisfy the PR's required checks.
+              git commit --allow-empty -m "ci: retrigger required pull request checks"
+              new_head="$(git rev-parse HEAD)"
+              if ! git push origin "HEAD:refs/heads/$branch" "--force-with-lease=refs/heads/$branch:$expected_head"; then
+                printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | PUSH_REJECTED | Could not refresh the PR check SHA; no retry |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+                failures=$((failures + 1))
+                continue
+              fi
+              processed=$((processed + 1))
+              printf 'Refreshed checks for PR #%s with empty commit %s\n' "$number" "$new_head"
+            else
+              if ! git push origin "HEAD:refs/heads/$branch" "--force-with-lease=refs/heads/$branch:$expected_head"; then
+                printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | PUSH_REJECTED | Lease or repository protection rejected update; no retry |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+                failures=$((failures + 1))
+                continue
+              fi
+              processed=$((processed + 1))
+              printf 'Updated PR #%s: %s -> %s\n' "$number" "$expected_head" "$new_head"
+            fi
+
+            # The dedicated PAT push above triggers pull_request workflows.
+            # Only those event runs create checks that satisfy the PR merge gate.
+            ci_run=""
+            security_run=""
+            guard_run=""
+            all_done=false
+            for attempt in $(seq 1 120); do
+              ci_run="$(gh run list --workflow ci.yml --branch "$branch" --event pull_request --limit 20 --json databaseId,headSha,status,conclusion,createdAt,url | jq -c --arg sha "$new_head" --arg started "$started_at" '[.[] | select(.headSha == $sha and .createdAt >= $started)] | first // empty')"
+              security_run="$(gh run list --workflow security.yml --branch "$branch" --event pull_request --limit 20 --json databaseId,headSha,status,conclusion,createdAt,url | jq -c --arg sha "$new_head" --arg started "$started_at" '[.[] | select(.headSha == $sha and .createdAt >= $started)] | first // empty')"
+              guard_run="$(gh run list --workflow work-item-guard.yml --branch "$branch" --event pull_request --limit 20 --json databaseId,headSha,status,conclusion,createdAt,url | jq -c --arg sha "$new_head" --arg started "$started_at" '[.[] | select(.headSha == $sha and .createdAt >= $started)] | first // empty')"
+
+              if [[ -n "$ci_run" && -n "$security_run" && -n "$guard_run" ]] &&
+                 [[ "$(jq -r '.status' <<< "$ci_run")" == "completed" ]] &&
+                 [[ "$(jq -r '.status' <<< "$security_run")" == "completed" ]] &&
+                 [[ "$(jq -r '.status' <<< "$guard_run")" == "completed" ]]; then
+                all_done=true
+                break
+              fi
+
+              if [[ "$attempt" -lt 120 ]]; then sleep 15; fi
+            done
+
+            if [[ "$all_done" != "true" ]]; then
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CHECK TIMEOUT | Rebased to `%s`; pull_request CI/Security/Work Item Guard did not all complete within 30 minutes |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
+              failures=$((failures + 1))
+              continue
+            fi
+
+            ci_conclusion="$(jq -r '.conclusion // "unknown"' <<< "$ci_run")"
+            security_conclusion="$(jq -r '.conclusion // "unknown"' <<< "$security_run")"
+            guard_conclusion="$(jq -r '.conclusion // "unknown"' <<< "$guard_run")"
+            ci_url="$(jq -r '.url' <<< "$ci_run")"
+            security_url="$(jq -r '.url' <<< "$security_run")"
+            guard_url="$(jq -r '.url' <<< "$guard_run")"
+
+            if [[ "$ci_conclusion" == "success" && "$security_conclusion" == "success" && "$guard_conclusion" == "success" ]]; then
+              if [[ "$already_current" == "true" ]]; then
+                result_label="CURRENT + ALL CHECKS PASSED"
+              else
+                result_label="REBASED + ALL CHECKS PASSED"
+              fi
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | %s | [CI](%s), [Security](%s), [Work Item Guard](%s) on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$result_label" "$ci_url" "$security_url" "$guard_url" "$new_head" >> "$summary"
+            else
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CHECK FAILED | CI=%s, Security=%s, Work Item Guard=%s on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$ci_conclusion" "$security_conclusion" "$guard_conclusion" "$new_head" >> "$summary"
+              failures=$((failures + 1))
+            fi
+          done < <(jq -c '.[]' "$RUNNER_TEMP/pulls.json")
+
+          {
+            printf '\n## Totals\n\n'
+            printf -- '- Discovered PRs: %s\n- Successfully rebased and pushed: %s\n- Operational/CI failures: %s\n- Main SHA used for this run: `%s`\n' "$total" "$processed" "$failures" "$base_sha"
+          } >> "$summary"
+
+          cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+          if (( failures > 0 )); then
+            echo "$failures PR maintenance operation(s) failed; inspect the step summary."
+            exit 1
+          fi

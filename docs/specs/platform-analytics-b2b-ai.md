@@ -1,9 +1,9 @@
-# M8, M10–M14 — Platform, Messaging, Admin, Analytics, B2B and AI Specification
+# M8–M14 — Messaging, Admin, Growth, Analytics, B2B, Platform and AI Specification
 
-**Feature IDs:** MSG-001–MSG-003, ADMIN-001–ADMIN-003, GROW-001–GROW-002, AN-001–AN-002, B2B-001–B2B-003, PLAT-001–PLAT-004  
+**Feature IDs:** MSG-001–MSG-006, ADMIN-001–ADMIN-006, GROW-001–GROW-004, AN-001–AN-003, B2B-001–B2B-005, PLAT-001–PLAT-007, AI-001, AI-005–AI-010  
 **Status:** adapter, outbox, market-config and AI intake/evaluation foundations exist. Growth, analytics, B2B and several admin capabilities remain backlog.
 
-## Platform and adapters (M14)
+## Platform and adapters (M13)
 
 Market configuration is explicit and immutable after registry construction. Country/market code, locale, currency, IANA timezone and policy version are required; resolution is exact and fails closed. Implementation: `internal/marketconfig`, `internal/adapters`.
 
@@ -15,7 +15,7 @@ The transactional outbox is written in the same PostgreSQL transaction as the ag
 
 Notification preferences and provider delivery adapters remain distinct backlog work. Do not equate a persisted outbox event with successful user notification.
 
-## Admin (M10)
+## Admin (M9)
 
 The API is the authorization boundary. Operator/support roles are tenant-scoped and sensitive actions require audit evidence. The admin UI must never rely on hidden controls as authorization. Market configuration changes require explicit permission, validation, audit and fail-closed rollback.
 
@@ -27,7 +27,7 @@ The canonical event envelope is defined in `schemas/domain-event.schema.json`. T
 
 Metric definitions must specify event source, denominator, time window, timezone, deduplication and late-arrival behavior. Funnel and supply metrics are not accepted until replay, duplicate delivery and schema-version compatibility are tested.
 
-## B2B (M13)
+## B2B (M11)
 
 Tracking: [#88](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/88). Architecture decision: [ADR 0004](../adr/0004-tenant-organization-boundary.md).
 
@@ -75,7 +75,7 @@ No association columns, historical backfill, financial read model or billing ope
 
 Invitation delivery is in-app only: no email/SMS, no invitation to identities that do not yet exist in the tenant, and no invitation expiry/re-send workflow. Pending-invitation pagination beyond the bounded first 100, order/ledger aggregation and consolidated billing remain deferred. No payment capture, money movement or production billing is introduced.
 
-Merged implementation and passing CI are not independent QA. The feature inventory remains `passes: false` until independent negative-path and acceptance evidence is recorded.
+Merged implementation and passing CI are not maintainer verification. The feature inventory remains `passes: false` until independent negative-path and acceptance evidence is recorded.
 
 ## AI intake and evaluation (M14)
 
@@ -85,13 +85,43 @@ AI intake is a non-authoritative suggestion boundary. It receives redacted text,
 
 Golden datasets are versioned and deterministic. Critical-case failures fail evaluation even if aggregate scores pass. No real customer PII or secrets belong in datasets. Model calls are not required for offline CI.
 
+
+### Professional Copilot boundary
+
+The new `internal/procopilot` package defines an evidence-grounded, advisory boundary for troubleshooting summaries, safety warnings, execution steps, checklists and quote-scope drafts. Retrieval is scoped by market, locale and service code. User text and retrieved evidence are redacted before model invocation; output citations must refer to evidence returned by the retrieval adapter. Strict structured output rejects unknown fields (including payable amounts), invented citations and unbounded content.
+
+Every suggestion is marked `requires_professional_review=true`. The package has no persistence or command execution capability and cannot approve a quote, mutate an order, set a payable amount or decide safety. The versioned golden set and deterministic evaluator are in `internal/procopilot/golden/v1`; offline tests cover redaction, citation provenance, unknown money fields and critical-case regressions.
+
+This is a reusable service boundary, not yet a production API/UI integration or evidence of independent AI acceptance. Provider wiring, real knowledge-source integration, operator/professional UX and independent evaluation remain open.
+
+
+### Dispute Triage Copilot
+
+The `internal/disputetriage` package summarizes dispute cases, lists established facts and missing information, and suggests possible next steps using market/locale/type-scoped evidence retrieval. User reason and retrieved evidence are redacted before inference; citations are restricted to retrieved evidence; strict output rejects verdict, refund, settlement and other authority-bearing fields. Every result requires human adjudication. A versioned golden set covers critical evidence references.
+
+This is an advisory backend boundary only. It does not persist a dispute, adjudicate liability, issue a refund, mutate an order or implement evidence storage, API/UI, appeals or adjudicator assignment. Those remain separate TRUST-003 work. No retention policy is assumed.
+
 ## Cross-cutting verification
 
 - Outbox: `internal/outbox/*_test.go`, `outbox_integration_test.go`.
 - Adapters: `internal/adapters/runner_test.go`.
 - Market config: `internal/marketconfig/config_test.go`.
-- AI: `internal/aieval/evaluation_test.go`, `internal/aiintake/service_test.go`.
+- AI: `internal/aieval/evaluation_test.go`, `internal/aiintake/service_test.go`, `internal/procopilot/service_test.go`, `internal/procopilot/evaluation_test.go`, `internal/disputetriage/service_test.go`, `internal/disputetriage/evaluation_test.go`.
 
 ## Explicitly deferred
 
-Do not mark GROW, AN, B2B or unimplemented ADMIN/MSG/PLAT features complete based on these foundations. Each requires a focused spec, data contract, authorization model, migration plan, offline tests and independent acceptance evidence.
+Do not mark GROW, AN, B2B or unimplemented ADMIN/MSG/PLAT features complete based on these foundations. Each requires a focused spec, data contract, authorization model, migration plan, offline tests and maintainer acceptance evidence.
+
+
+## Additional full-product capabilities
+
+- **AI-001 Intake Copilot:** schema-constrained text/image extraction, bounded clarifying questions, catalog/policy provenance, PII redaction and golden evaluations. It cannot submit orders or bind prices; customer confirmation and deterministic policy remain authoritative.
+- **MSG-006 Masked voice:** order-scoped call sessions use market-configured adapters, participant authorization, number masking, bounded duration and auditable expiry.
+- **ADMIN-005 Operations console:** operators inspect order timelines and queues; manual transitions require permission, reason and configured step-up approval, then append immutable audit/domain events.
+- **ADMIN-006 Operational dashboards:** order, supply/demand and finance views consume canonical tenant/market-scoped projections. Every metric exposes source, denominator, time window, timezone, freshness and projection version; financial views reconcile to ledger references.
+- **PLAT-007 Consent/retention/secrets:** purpose-specific consent and revocation are enforced; retention is configured by the adopter's valid legal policy; secret injection/rotation is externalized and never logged.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

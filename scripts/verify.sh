@@ -21,6 +21,9 @@ while IFS= read -r -d '' file; do
   echo "    OK $file"
 done < <(find . -type f -name '*.json' -not -path './.git/*' -print0)
 
+echo "==> Checking OpenAPI contract invariants"
+python3 scripts/check_openapi.py
+
 echo "==> Checking feature-list invariants"
 python3 scripts/check_feature_list.py
 
@@ -43,5 +46,8 @@ if [[ "$FULL" -eq 1 ]]; then
   docker compose exec -T nats wget -q -O - http://127.0.0.1:8222/healthz >/dev/null
   echo "    PostgreSQL, Valkey, and NATS are healthy"
 fi
+
+echo "==> Testing deployment smoke script with a fake HTTP client"
+bash scripts/test-smoke-deployment.sh
 
 echo "==> Verification completed"

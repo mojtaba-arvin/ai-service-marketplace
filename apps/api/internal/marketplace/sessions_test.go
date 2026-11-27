@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,7 +21,7 @@ func TestSessionLifecyclePostgres(t *testing.T) {
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil { t.Fatal(err) }
 	defer pool.Close()
-	for _, name := range []string{"002_identity.sql", "003_sessions.sql"} {
+	for _, name := range []string{"002_identity.sql", "003_sessions.sql", "025_auth_devices.sql"} {
 		migration, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if readErr != nil { t.Fatal(readErr) }
 		if _, err = execMigrationScript(ctx, pool, migration); err != nil { t.Fatalf("apply %s: %v", name, err) }
@@ -65,5 +66,49 @@ func TestSessionLifecyclePostgres(t *testing.T) {
 	if err = store.RevokeSession(ctx, third.AccessToken, pepper); err != nil { t.Fatal(err) }
 	if _, err = store.AuthenticateAccessToken(ctx, third.AccessToken, pepper); !errors.Is(err, ErrSessionInvalid) {
 		t.Fatalf("revoked access token must fail: %v", err)
+	}
+
+
+	// Concurrent refreshes of the same token must serialize. One rotation may
+	// create a replacement, but the competing replay must revoke the whole family.
+	concurrent, err := store.IssueSession(ctx, verifiedIdentity, pepper, 15*time.Minute, 24*time.Hour)
+	if err != nil { t.Fatal(err) }
+	type rotationResult struct {
+		tokens SessionTokens
+		err error
+	}
+	start := make(chan struct{})
+	results := make(chan rotationResult, 2)
+	var wg sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			tokens, rotateErr := store.RotateSession(ctx, concurrent.RefreshToken, pepper, 15*time.Minute, 24*time.Hour)
+			results <- rotationResult{tokens: tokens, err: rotateErr}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	successes, replays := 0, 0
+	var rotated SessionTokens
+	for result := range results {
+		switch {
+		case result.err == nil:
+			successes++
+			rotated = result.tokens
+		case errors.Is(result.err, ErrSessionReplay):
+			replays++
+		default:
+			t.Fatalf("unexpected concurrent refresh result: %v", result.err)
+		}
+	}
+	if successes != 1 || replays != 1 {
+		t.Fatalf("concurrent refresh must yield one rotation and one replay: successes=%d replays=%d", successes, replays)
+	}
+	if _, err = store.AuthenticateAccessToken(ctx, rotated.AccessToken, pepper); !errors.Is(err, ErrSessionInvalid) {
+		t.Fatalf("competing refresh replay must revoke the replacement session family: %v", err)
 	}
 }

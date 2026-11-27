@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 var (
@@ -71,7 +72,6 @@ func dispatchProviderEligibleTx(ctx context.Context,tx pgx.Tx,tenantID,providerI
 
 func (s *Store) CreateDispatchOffers(ctx context.Context,actor Actor,orderID string,providerIDs []string,maxFanout int,expiresAt time.Time) ([]DispatchOffer,error) {
 	if actor.Role!=RoleOperator || actor.SubjectID=="" || actor.TenantID=="" { return nil,ErrForbidden }
-	if err:=Authorize(actor,Resource{TenantID:actor.TenantID},ActionOrderAssign); err!=nil { return nil,err }
 	if maxFanout<1 || maxFanout>10 || len(providerIDs)<1 || len(providerIDs)>maxFanout || len(providerIDs)>10 {
 		return nil,ErrInvalidDispatchFanout
 	}
@@ -82,6 +82,11 @@ func (s *Store) CreateDispatchOffers(ctx context.Context,actor Actor,orderID str
 	}
 	now:=time.Now().UTC()
 	if expiresAt.Before(now.Add(time.Minute)) || expiresAt.After(now.Add(30*time.Minute)) { return nil,ErrDispatchOfferExpired }
+	var requestedTenantID string
+	err:=s.DB.QueryRow(ctx,`SELECT tenant_id FROM orders WHERE id=$1`,orderID).Scan(&requestedTenantID)
+	if errors.Is(err,pgx.ErrNoRows) { return nil,ErrOrderNotFound }
+	if err!=nil { return nil,err }
+	if requestedTenantID!=actor.TenantID { return nil,ErrForbidden }
 	candidates,err:=s.FindDispatchCandidatesForOrder(ctx,actor,orderID,time.Time{},time.Time{})
 	if err!=nil { return nil,err }
 	eligibleSet:=make(map[string]bool,len(candidates))
@@ -91,16 +96,18 @@ func (s *Store) CreateDispatchOffers(ctx context.Context,actor Actor,orderID str
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{})
 	if err!=nil { return nil,err }
 	defer tx.Rollback(ctx)
-	var status,country,region,city,area string
+	if err=authorizeOperatorTx(ctx,tx,actor,Resource{TenantID:actor.TenantID},ActionOrderAssign);err!=nil{return nil,err}
+	var status,country,region,city,area,orderTenantID string
 	var scheduledAt *time.Time
 	var priceVersionID *string
 	var assignedProviderID *string
 	err=tx.QueryRow(ctx,`
-		SELECT status,scheduled_at,price_version_id,country_code,region_code,city_code,area_code,assigned_provider_id
+		SELECT status,scheduled_at,price_version_id,country_code,region_code,city_code,area_code,assigned_provider_id,tenant_id
 		FROM orders WHERE id=$1 FOR UPDATE
-	`,orderID).Scan(&status,&scheduledAt,&priceVersionID,&country,&region,&city,&area,&assignedProviderID)
+	`,orderID).Scan(&status,&scheduledAt,&priceVersionID,&country,&region,&city,&area,&assignedProviderID,&orderTenantID)
 	if errors.Is(err,pgx.ErrNoRows) { return nil,ErrOrderNotFound }
 	if err!=nil { return nil,err }
+	if orderTenantID != actor.TenantID { return nil,ErrForbidden }
 	if status!="requested" || scheduledAt==nil || priceVersionID==nil || assignedProviderID!=nil { return nil,ErrOrderAlreadyAssigned }
 	var activeRound bool
 	err=tx.QueryRow(ctx,`
@@ -147,10 +154,11 @@ func (s *Store) CreateDispatchOffers(ctx context.Context,actor Actor,orderID str
 		`,id,roundID,orderID,providerID,startAt,endAt,timezone,expiresAt).Scan(&offer.ID,&offer.RoundID,&offer.OrderID,
 			&offer.ProviderID,&offer.StartAt,&offer.EndAt,&offer.Timezone,&offer.Status,&offer.ExpiresAt,&offer.CreatedAt)
 		if err!=nil { return nil,err }
-		payload,_:=json.Marshal(map[string]any{"offer_id":offer.ID,"order_id":orderID,"provider_id":providerID,"expires_at":expiresAt})
-		if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('dispatch_offer',$1,'dispatch.offer_created',$2::jsonb)`,offer.ID,payload); err!=nil {
-			return nil,err
-		}
+		payload,marshalErr:=json.Marshal(map[string]any{"offer_id":offer.ID,"order_id":orderID,"provider_id":providerID,"expires_at":expiresAt.UTC()})
+		if marshalErr!=nil { return nil,marshalErr }
+		eventID,idErr:=newID()
+		if idErr!=nil { return nil,idErr }
+		if _,err=outbox.AppendDomainEvent(ctx,tx,outbox.DomainEvent{ID:eventID,Type:"dispatch.offer_created",Version:1,OccurredAt:time.Now().UTC(),TenantID:orderTenantID,Aggregate:outbox.EventAggregate{Type:"dispatch_offer",ID:offer.ID},Data:payload}); err!=nil { return nil,err }
 		offers=append(offers,offer)
 	}
 	if err=tx.Commit(ctx); err!=nil { return nil,err }
@@ -173,21 +181,21 @@ func (s *Store) AcceptDispatchOffer(ctx context.Context,actor Actor,offerID stri
 
 	var providerID,providerIdentity,providerTenant,offerStatus,timezone string
 	var expiresAt,startAt,endAt,scheduledAt time.Time
-	var orderStatus,country,region,city,area string
+	var orderStatus,country,region,city,area,orderTenantID string
 	var priceVersionID *string
 	var assignedProviderID *string
 	err=tx.QueryRow(ctx,`
 		SELECT off.order_id,off.provider_id,p.identity_id,p.tenant_id,off.status,off.expires_at,
 			off.start_at,off.end_at,off.timezone,o.status,o.scheduled_at,o.price_version_id,
-			o.country_code,o.region_code,o.city_code,o.area_code,o.assigned_provider_id
+			o.country_code,o.region_code,o.city_code,o.area_code,o.assigned_provider_id,o.tenant_id
 		FROM dispatch_offers off JOIN provider_profiles p ON p.id=off.provider_id
 		JOIN orders o ON o.id=off.order_id
 		WHERE off.id=$1 FOR UPDATE OF off,p
 	`,offerID).Scan(&orderID,&providerID,&providerIdentity,&providerTenant,&offerStatus,&expiresAt,
-		&startAt,&endAt,&timezone,&orderStatus,&scheduledAt,&priceVersionID,&country,&region,&city,&area,&assignedProviderID)
+		&startAt,&endAt,&timezone,&orderStatus,&scheduledAt,&priceVersionID,&country,&region,&city,&area,&assignedProviderID,&orderTenantID)
 	if errors.Is(err,pgx.ErrNoRows) { return DispatchAssignment{},ErrDispatchOfferUnavailable }
 	if err!=nil { return DispatchAssignment{},err }
-	if providerIdentity!=actor.SubjectID { return DispatchAssignment{},ErrForbidden }
+	if providerIdentity!=actor.SubjectID || providerTenant!=orderTenantID || actor.TenantID!=orderTenantID { return DispatchAssignment{},ErrForbidden }
 	if err=Authorize(actor,Resource{TenantID:providerTenant,OwnerID:providerIdentity},ActionDispatchOfferRespond); err!=nil {
 		return DispatchAssignment{},err
 	}
@@ -242,10 +250,11 @@ func (s *Store) AcceptDispatchOffer(ctx context.Context,actor Actor,offerID stri
 		UPDATE dispatch_offers SET status='superseded',decided_at=now()
 		WHERE order_id=$1 AND id<>$2 AND status='offered'
 	`,orderID,offerID); err!=nil { return DispatchAssignment{},err }
-	payload,_:=json.Marshal(map[string]any{"order_id":orderID,"provider_id":providerID,"assignment_id":assignment.ID,"offer_id":offerID})
-	if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('order',$1,'order.provider_assigned',$2::jsonb)`,orderID,payload); err!=nil {
-		return DispatchAssignment{},err
-	}
+	payload,marshalErr:=json.Marshal(map[string]any{"order_id":orderID,"provider_id":providerID,"assignment_id":assignment.ID,"offer_id":offerID})
+	if marshalErr!=nil { return DispatchAssignment{},marshalErr }
+	eventID,err:=newID()
+	if err!=nil { return DispatchAssignment{},err }
+	if _,err=outbox.AppendDomainEvent(ctx,tx,outbox.DomainEvent{ID:eventID,Type:"order.provider_assigned",Version:1,OccurredAt:time.Now().UTC(),TenantID:orderTenantID,Aggregate:outbox.EventAggregate{Type:"order",ID:orderID},Data:payload}); err!=nil { return DispatchAssignment{},err }
 	if err=tx.Commit(ctx); err!=nil { return DispatchAssignment{},err }
 	return assignment,nil
 }
@@ -255,23 +264,27 @@ func (s *Store) DeclineDispatchOffer(ctx context.Context,actor Actor,offerID str
 	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{})
 	if err!=nil { return err }
 	defer tx.Rollback(ctx)
-	var identityID,tenantID,status string
+	var identityID,tenantID,status,orderTenantID string
 	var expiresAt time.Time
 	var orderID string
 	err=tx.QueryRow(ctx,`
-		SELECT p.identity_id,p.tenant_id,off.status,off.expires_at,off.order_id
+		SELECT p.identity_id,p.tenant_id,off.status,off.expires_at,off.order_id,o.tenant_id
 		FROM dispatch_offers off JOIN provider_profiles p ON p.id=off.provider_id
-		WHERE off.id=$1 FOR UPDATE OF off
-	`,offerID).Scan(&identityID,&tenantID,&status,&expiresAt,&orderID)
+		JOIN orders o ON o.id=off.order_id
+		WHERE off.id=$1 FOR UPDATE OF off,p
+	`,offerID).Scan(&identityID,&tenantID,&status,&expiresAt,&orderID,&orderTenantID)
 	if errors.Is(err,pgx.ErrNoRows) { return ErrDispatchOfferUnavailable }
 	if err!=nil { return err }
-	if identityID!=actor.SubjectID { return ErrForbidden }
+	if identityID!=actor.SubjectID || tenantID!=orderTenantID || actor.TenantID!=orderTenantID { return ErrForbidden }
 	if err=Authorize(actor,Resource{TenantID:tenantID,OwnerID:identityID},ActionDispatchOfferRespond); err!=nil { return err }
 	if status!="offered" { return ErrDispatchOfferUnavailable }
 	if !time.Now().Before(expiresAt) { return ErrDispatchOfferExpired }
 	if _,err=tx.Exec(ctx,`UPDATE dispatch_offers SET status='declined',decided_at=now() WHERE id=$1 AND status='offered'`,offerID); err!=nil { return err }
-	payload,_:=json.Marshal(map[string]any{"offer_id":offerID,"order_id":orderID,"provider_id":actor.SubjectID})
-	if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('dispatch_offer',$1,'dispatch.offer_declined',$2::jsonb)`,offerID,payload); err!=nil { return err }
+	payload,marshalErr:=json.Marshal(map[string]any{"offer_id":offerID,"order_id":orderID,"provider_id":actor.SubjectID})
+	if marshalErr!=nil { return marshalErr }
+	eventID,err:=newID()
+	if err!=nil { return err }
+	if _,err=outbox.AppendDomainEvent(ctx,tx,outbox.DomainEvent{ID:eventID,Type:"dispatch.offer_declined",Version:1,OccurredAt:time.Now().UTC(),TenantID:orderTenantID,Aggregate:outbox.EventAggregate{Type:"dispatch_offer",ID:offerID},Data:payload}); err!=nil { return err }
 	return tx.Commit(ctx)
 }
 
@@ -283,29 +296,31 @@ func (s *Store) ExpireDispatchOffers(ctx context.Context,limit int) (int,error) 
 	defer tx.Rollback(ctx)
 	rows,err:=tx.Query(ctx,`
 		WITH expired AS (
-			SELECT id,order_id FROM dispatch_offers
-			WHERE status='offered' AND expires_at<=now()
-			ORDER BY expires_at,id FOR UPDATE SKIP LOCKED LIMIT $1
+			SELECT off.id,off.order_id,o.tenant_id FROM dispatch_offers off
+			JOIN orders o ON o.id=off.order_id
+			WHERE off.status='offered' AND off.expires_at<=now()
+			ORDER BY off.expires_at,off.id FOR UPDATE OF off SKIP LOCKED LIMIT $1
 		)
 		UPDATE dispatch_offers off SET status='expired',decided_at=now()
 		FROM expired e WHERE off.id=e.id
-		RETURNING off.id,off.order_id
+		RETURNING off.id,off.order_id,e.tenant_id
 	`,limit)
 	if err!=nil { return 0,err }
-	type expiredOffer struct { id,orderID string }
+	type expiredOffer struct { id,orderID,tenantID string }
 	expired:=make([]expiredOffer,0)
 	for rows.Next() {
 		var item expiredOffer
-		if err=rows.Scan(&item.id,&item.orderID); err!=nil { rows.Close(); return 0,err }
+		if err=rows.Scan(&item.id,&item.orderID,&item.tenantID); err!=nil { rows.Close(); return 0,err }
 		expired=append(expired,item)
 	}
 	if err=rows.Err(); err!=nil { rows.Close(); return 0,err }
 	rows.Close()
 	for _,item:=range expired {
-		payload,_:=json.Marshal(map[string]any{"offer_id":item.id,"order_id":item.orderID})
-		if _,err=tx.Exec(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES('dispatch_offer',$1,'dispatch.offer_expired',$2::jsonb)`,item.id,payload); err!=nil {
-			return 0,err
-		}
+		payload,marshalErr:=json.Marshal(map[string]any{"offer_id":item.id,"order_id":item.orderID})
+		if marshalErr!=nil { return 0,marshalErr }
+		eventID,idErr:=newID()
+		if idErr!=nil { return 0,idErr }
+		if _,err=outbox.AppendDomainEvent(ctx,tx,outbox.DomainEvent{ID:eventID,Type:"dispatch.offer_expired",Version:1,OccurredAt:time.Now().UTC(),TenantID:item.tenantID,Aggregate:outbox.EventAggregate{Type:"dispatch_offer",ID:item.id},Data:payload}); err!=nil { return 0,err }
 	}
 	if err=tx.Commit(ctx); err!=nil { return 0,err }
 	return len(expired),nil

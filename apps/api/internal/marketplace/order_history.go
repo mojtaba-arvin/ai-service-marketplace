@@ -25,6 +25,7 @@ type OrderHistoryEvent struct {
 
 type OrderHistoryItem struct {
 	Order Order `json:"order"`
+	CompletionApproval *OrderCompletionApproval `json:"completion_approval,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Events []OrderHistoryEvent `json:"events"`
@@ -106,6 +107,8 @@ func (s *Store) ListOrderHistory(ctx context.Context,actor Actor,limit int,curso
 	for i:=range page.Items {
 		page.Items[i].Events,err=loadOrderHistoryEvents(ctx,tx,page.Items[i].Order.ID)
 		if err!=nil { return OrderHistoryPage{},err }
+		page.Items[i].CompletionApproval,err=loadOrderCompletionApproval(ctx,tx,page.Items[i].Order.ID)
+		if err!=nil { return OrderHistoryPage{},err }
 	}
 	if err=tx.Commit(ctx); err!=nil { return OrderHistoryPage{},err }
 	return page,nil
@@ -123,6 +126,8 @@ func (s *Store) GetOrderTimeline(ctx context.Context,actor Actor,orderID string)
 	if errors.Is(err,pgx.ErrNoRows) { return OrderHistoryItem{},ErrOrderNotFound }
 	if err!=nil { return OrderHistoryItem{},err }
 	item.Events,err=loadOrderHistoryEvents(ctx,tx,orderID)
+	if err!=nil { return OrderHistoryItem{},err }
+	item.CompletionApproval,err=loadOrderCompletionApproval(ctx,tx,orderID)
 	if err!=nil { return OrderHistoryItem{},err }
 	if err=tx.Commit(ctx); err!=nil { return OrderHistoryItem{},err }
 	return item,nil

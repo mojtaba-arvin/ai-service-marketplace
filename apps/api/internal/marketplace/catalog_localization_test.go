@@ -20,13 +20,14 @@ func TestMarketLocalizedCatalogVisibilityPostgres(t *testing.T) {
 	pool,err:=pgxpool.New(ctx,dsn)
 	if err!=nil { t.Fatal(err) }
 	defer pool.Close()
-	for _,name:=range []string{"004_catalog.sql","007_market_config.sql","008_catalog_localization.sql"} {
+	for _,name:=range []string{"004_catalog.sql","007_market_config.sql","026_market_config_audit.sql","008_catalog_localization.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
 		if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("apply %s: %v",name,err) }
 	}
 	store:=&Store{DB:pool}
 	operator:=Actor{SubjectID:"catalog-operator",TenantID:"platform",Role:RoleOperator}
+	if err=ensureTestOperatorGrants(ctx,pool,operator,ActionMarketConfigure,ActionCatalogManage); err!=nil { t.Fatal(err) }
 	for _,config:=range []MarketConfig{
 		{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"v1",Enabled:true,Locales:[]string{"en","ar"}},
 		{Code:"DE",DefaultLocale:"de",Currency:"EUR",Timezone:"Europe/Berlin",PolicyVersion:"v1",Enabled:true,Locales:[]string{"de"}},

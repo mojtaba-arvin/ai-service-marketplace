@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 type Role = "customer" | "professional" | "operator";
 type Me = { session_id: string; identity_id: string; phone: string; roles: Role[] };
@@ -40,6 +40,47 @@ type ProfessionalOrder = Order;
 type ProfileResponse = { profile: ProviderProfile; qualification_complete: boolean };
 type ApiError = { error?: string };
 
+type FormSchema = {
+  type: "object" | "string" | "integer" | "number" | "boolean" | "array";
+  title?: string; description?: string; required?: string[]; properties?: Record<string, FormSchema>;
+  enum?: unknown[]; minLength?: number; maxLength?: number; minimum?: number; maximum?: number;
+  items?: FormSchema; minItems?: number; maxItems?: number;
+};
+type PublishedServiceForm = { id: string; service_code: string; market_code: string; locale: string; version: number; schema: FormSchema };
+type DynamicFieldProps = { name: string; path: string; schema: FormSchema; value: unknown; required?: boolean; onChange: (value: unknown) => void };
+
+function defaultFieldValue(schema: FormSchema): unknown {
+  if (schema.type === "object") return {};
+  if (schema.type === "array") return Array.from({ length: schema.minItems ?? 0 }, () => schema.items ? defaultFieldValue(schema.items) : null);
+  if (schema.type === "boolean") return false;
+  if (schema.type === "integer" || schema.type === "number") return undefined;
+  return "";
+}
+
+function DynamicField({ name, path, schema, value, required = false, onChange }: DynamicFieldProps): ReactNode {
+  const id = `service-field-${path.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const description = schema.description ? <small className="field-description">{schema.description}</small> : null;
+  if (schema.type === "object") {
+    const objectValue = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    return <fieldset className="dynamic-object"><legend>{schema.title ?? name}{required ? " *" : ""}</legend>{description}
+      {Object.entries(schema.properties ?? {}).map(([key, child]) => <DynamicField key={`${path}.${key}`} name={child.title ?? key} path={`${path}.${key}`} schema={child} value={objectValue[key]} required={schema.required?.includes(key)} onChange={(next) => onChange({ ...objectValue, [key]: next })} />)}
+    </fieldset>;
+  }
+  if (schema.type === "array" && schema.items) {
+    const values = Array.isArray(value) ? value : [];
+    return <fieldset className="dynamic-array"><legend>{schema.title ?? name}{required ? " *" : ""}</legend>{description}
+      {values.map((item, index) => <div className="dynamic-array-item" key={`${path}.${index}`}><DynamicField name={`${name} ${index + 1}`} path={`${path}.${index}`} schema={schema.items!} value={item} onChange={(next) => onChange(values.map((current, currentIndex) => currentIndex === index ? next : current))} /><button type="button" className="button-secondary compact" disabled={values.length <= (schema.minItems ?? 0)} onClick={() => onChange(values.filter((_, currentIndex) => currentIndex !== index))}>Remove</button></div>)}
+      <button type="button" className="button-secondary compact" disabled={values.length >= (schema.maxItems ?? 100)} onClick={() => onChange([...values, defaultFieldValue(schema.items!)])}>Add item</button>
+    </fieldset>;
+  }
+  if (schema.enum?.length) {
+    const selected = value === undefined ? "" : String(schema.enum.findIndex((option) => JSON.stringify(option) === JSON.stringify(value)));
+    return <div className="dynamic-field"><label htmlFor={id}>{schema.title ?? name}{required ? " *" : ""}</label>{description}<select id={id} value={selected} required={required} onChange={(event) => onChange(event.target.value === "" ? undefined : schema.enum?.[Number(event.target.value)])}><option value="">Select…</option>{schema.enum.map((option, index) => <option key={index} value={index}>{String(option)}</option>)}</select></div>;
+  }
+  if (schema.type === "boolean") return <div className="dynamic-field dynamic-checkbox"><label htmlFor={id}><input id={id} type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} /> {schema.title ?? name}{required ? " *" : ""}</label>{description}</div>;
+  const numeric = schema.type === "integer" || schema.type === "number";
+  return <div className="dynamic-field"><label htmlFor={id}>{schema.title ?? name}{required ? " *" : ""}</label>{description}<input id={id} type={numeric ? "number" : "text"} value={value === undefined || value === null ? "" : String(value)} required={required} min={numeric ? schema.minimum : undefined} max={numeric ? schema.maximum : undefined} step={schema.type === "integer" ? 1 : numeric ? "any" : undefined} minLength={!numeric ? schema.minLength : undefined} maxLength={!numeric ? schema.maxLength : undefined} onChange={(event) => onChange(numeric ? (event.target.value === "" ? undefined : Number(event.target.value)) : event.target.value)} /></div>;
+}
 function csrfToken(): string {
   if (typeof document === "undefined") return "";
   const prefix = "marketplace_csrf=";
@@ -105,21 +146,33 @@ function zonedDateTimeToISO(value: string, timeZone: string): string {
   return new Date(instant).toISOString();
 }
 
-function money(amountMinor: number, currency: string): string {
-  const formatter = new Intl.NumberFormat(undefined, { style: "currency", currency });
+function money(amountMinor: number, currency: string, locale?: string): string {
+  const formatter = new Intl.NumberFormat(locale || undefined, { style: "currency", currency });
   const digits = formatter.resolvedOptions().maximumFractionDigits ?? 2;
   return formatter.format(amountMinor / (10 ** digits));
 }
 
-function friendlyDate(value?: string): string {
+function friendlyDate(value?: string, locale?: string, timeZone?: string): string {
   if (!value) return "Not scheduled";
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString(locale || undefined, { timeZone: timeZone || undefined });
 }
 
 function preferredRole(roles: Role[]): Role {
   if (roles.includes("operator")) return "operator";
   if (roles.includes("professional")) return "professional";
   return "customer";
+}
+
+const rtlLanguages = new Set(["ar", "ckb", "dv", "fa", "he", "nqo", "ps", "sd", "syr", "ug", "ur", "yi"]);
+const rtlScripts = new Set(["adlm", "arab", "hebr", "nkoo", "rohg", "syrc", "thaa"]);
+
+function directionForLocale(locale: string): "ltr" | "rtl" {
+  const parts = locale.trim().replace(/_/g, "-").split("-");
+  const language = (parts[0] ?? "en").toLowerCase();
+  const scriptPart = parts[1];
+  const script = scriptPart && /^[A-Za-z]{4}$/.test(scriptPart) ? scriptPart.toLowerCase() : undefined;
+  if (script) return rtlScripts.has(script) ? "rtl" : "ltr";
+  return rtlLanguages.has(language) ? "rtl" : "ltr";
 }
 
 export default function HomePage() {
@@ -130,6 +183,10 @@ export default function HomePage() {
   const [me, setMe] = useState<Me | null>(null);
   const [activeRole, setActiveRole] = useState<Role>("customer");
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [serviceForm, setServiceForm] = useState<PublishedServiceForm | null>(null);
+  const [formAnswers, setFormAnswers] = useState<Record<string, unknown>>({});
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState("");
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
   const [professionalOrders, setProfessionalOrders] = useState<ProfessionalOrder[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -155,6 +212,25 @@ export default function HomePage() {
   );
 
   useEffect(() => {
+    if (!accessToken || !catalog || !selectedItem || activeRole !== "customer") {
+      setServiceForm(null); setFormAnswers({}); setFormLoading(false); setFormError("");
+      return;
+    }
+    let active = true;
+    setServiceForm(null); setFormAnswers({}); setFormError(""); setFormLoading(true);
+    const query = new URLSearchParams({ menu_id: selectedItem.menu_id, market: catalog.market, locale: catalog.locale });
+    void api<{ form: PublishedServiceForm }>(`/catalog/service-forms?${query.toString()}`, accessToken)
+      .then((result) => { if (active) setServiceForm(result.form); })
+      .catch((reason) => {
+        if (!active) return;
+        const message = reason instanceof Error ? reason.message : "Could not load the service questionnaire.";
+        if (!message.toLowerCase().includes("published service form not found") && !message.includes("(404)")) setFormError(message);
+      })
+      .finally(() => { if (active) setFormLoading(false); });
+    return () => { active = false; };
+  }, [accessToken, catalog, selectedItem?.menu_id, activeRole]);
+
+  useEffect(() => {
     void api<Me>("/auth/me")
       .then((identity) => {
         setAccessToken("cookie-session");
@@ -174,6 +250,9 @@ export default function HomePage() {
       try {
         const data = await api<Catalog>("/catalog");
         if (!active) return;
+        const locale = data.locale.trim() || "en";
+        document.documentElement.lang = locale;
+        document.documentElement.dir = directionForLocale(locale);
         setCatalog(data);
         if (data.items.length > 0 && !selectedMenu) setSelectedMenu(data.items[0].menu_id);
         if (!timezoneInitialized) {
@@ -280,6 +359,7 @@ export default function HomePage() {
           region_code: regionCode,
           city_code: cityCode,
           area_code: areaCode,
+          answers: serviceForm ? formAnswers : undefined,
         }),
       });
       setNotice("Your service request has been created.");
@@ -433,7 +513,7 @@ export default function HomePage() {
           )}
           {error && <p className="notice error">{error}</p>}
           {notice && <p className="notice success">{notice}</p>}
-          <p className="footnote">Sign-in uses the configured OTP delivery provider. This MVP does not process payments.</p>
+          <p className="footnote">Sign-in uses the configured OTP delivery provider. Payments are not enabled in this deployment.</p>
         </section>
       </main>
     );
@@ -444,7 +524,7 @@ export default function HomePage() {
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark small">M</div>
-          <div><strong>Marketplace</strong><span>{catalog?.market ?? "Single-market MVP"}</span></div>
+          <div><strong>Marketplace</strong><span>{catalog?.market ?? "Market"}</span></div>
         </div>
         <div className="account">
           <span>{me.phone}</span>
@@ -481,9 +561,9 @@ export default function HomePage() {
               <form onSubmit={createOrder} className="form-stack">
                 <label htmlFor="service">Service</label>
                 <select id="service" value={selectedItem?.menu_id ?? ""} onChange={(event) => setSelectedMenu(event.target.value)}>
-                  {catalog.items.map((item) => <option key={item.menu_id} value={item.menu_id}>{item.category_name} · {item.service_code} · {money(item.amount_minor,item.currency)}</option>)}
+                  {catalog.items.map((item) => <option key={item.menu_id} value={item.menu_id}>{item.category_name} · {item.service_code} · {money(item.amount_minor,item.currency,catalog.locale)}</option>)}
                 </select>
-                {selectedItem && <div className="price-line"><span>Current listed price</span><strong>{money(selectedItem.amount_minor,selectedItem.currency)}</strong></div>}
+                {selectedItem && <div className="price-line"><span>Current listed price</span><strong>{money(selectedItem.amount_minor,selectedItem.currency,catalog?.locale)}</strong></div>}
                 <label htmlFor="schedule">Preferred date and time ({catalog?.timezone ?? "market timezone"})</label>
                 <input id="schedule" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} required />
                 <div className="field-grid">
@@ -492,8 +572,11 @@ export default function HomePage() {
                 </div>
                 <label htmlFor="area">Area</label>
                 <input id="area" value={areaCode} onChange={(event) => setAreaCode(event.target.value)} required />
-                <button disabled={busy || !selectedItem}>{busy ? "Submitting…" : "Create service request"}</button>
-                <p className="footnote">The listed price is a service-price snapshot. No payment is collected in this MVP.</p>
+                {formLoading && <p className="muted small-text">Loading service questions…</p>}
+                {formError && <p className="notice error">{formError}</p>}
+                {serviceForm && <div className="service-form-fields"><div><h3>{serviceForm.schema.title ?? "Service details"}</h3><p className="muted small-text">Questionnaire version {serviceForm.version} · {serviceForm.locale}</p></div><DynamicField name="Service details" path="answers" schema={serviceForm.schema} value={formAnswers} onChange={(next) => setFormAnswers(next as Record<string, unknown>)} required /></div>}
+                <button disabled={busy || formLoading || Boolean(formError) || !selectedItem}>{busy ? "Submitting…" : "Create service request"}</button>
+                <p className="footnote">The listed price is a service-price snapshot. Payment is not collected during request creation.</p>
               </form>
             ) : <p className="muted">No services are published in this market yet. Run the initial market seed procedure.</p>}
           </section>
@@ -503,7 +586,7 @@ export default function HomePage() {
               {orders.length ? orders.map((item) => (
                 <article className="order-card" key={item.order.id}>
                   <div className="order-top"><strong>{item.order.id.slice(0,10)}</strong><span className={`status-pill status-${item.order.status}`}>{item.order.status.replaceAll("_"," ")}</span></div>
-                  <p>{money(item.order.amount_minor,item.order.currency)} · {friendlyDate(item.order.scheduled_at)}</p>
+                  <p>{money(item.order.amount_minor,item.order.currency,catalog?.locale)} · {friendlyDate(item.order.scheduled_at,catalog?.locale,catalog?.timezone)}</p>
                   <p className="muted small-text">{[item.order.region_code,item.order.city_code,item.order.area_code].filter(Boolean).join(" · ")}</p>
                   {["requested","accepted"].includes(item.order.status) && <button className="button-secondary compact" disabled={busy} onClick={() => cancelOrder(item.order.id)}>Cancel request</button>}
                 </article>
@@ -570,8 +653,8 @@ export default function HomePage() {
               {offers.length ? offers.map((offer) => (
                 <article className="order-card" key={offer.id}>
                   <div className="order-top"><strong>Order {offer.order_id.slice(0,10)}</strong><span className="status-pill status-requested">Offer</span></div>
-                  <p>{friendlyDate(offer.start_at)} – {friendlyDate(offer.end_at)}</p>
-                  <p className="muted small-text">Expires {friendlyDate(offer.expires_at)}</p>
+                  <p>{friendlyDate(offer.start_at,catalog?.locale,catalog?.timezone)} – {friendlyDate(offer.end_at,catalog?.locale,catalog?.timezone)}</p>
+                  <p className="muted small-text">Expires {friendlyDate(offer.expires_at,catalog?.locale,catalog?.timezone)}</p>
                   <div className="button-row">
                     <button disabled={busy} onClick={() => respondToOffer(offer.id,"accept")}>Accept</button>
                     <button className="button-secondary" disabled={busy} onClick={() => respondToOffer(offer.id,"decline")}>Decline</button>
@@ -584,7 +667,7 @@ export default function HomePage() {
               {professionalOrders.length ? professionalOrders.map((order) => (
                 <article className="order-card" key={order.id}>
                   <div className="order-top"><strong>{order.id.slice(0,10)}</strong><span className={`status-pill status-${order.status}`}>{order.status.replaceAll("_"," ")}</span></div>
-                  <p>{friendlyDate(order.scheduled_at)} · {money(order.amount_minor,order.currency)}</p>
+                  <p>{friendlyDate(order.scheduled_at,catalog?.locale,catalog?.timezone)} · {money(order.amount_minor,order.currency,catalog?.locale)}</p>
                   {order.status === "accepted" && <button disabled={busy} onClick={() => transitionProfessionalOrder(order.id,"in_progress")}>Start service</button>}
                   {order.status === "in_progress" && <button disabled={busy} onClick={() => transitionProfessionalOrder(order.id,"completed")}>Complete service</button>}
                 </article>
@@ -602,7 +685,7 @@ export default function HomePage() {
               {orders.length ? orders.map((item) => (
                 <article className="order-card" key={item.order.id}>
                   <div className="order-top"><strong>{item.order.id.slice(0,10)}</strong><span className={`status-pill status-${item.order.status}`}>{item.order.status.replaceAll("_"," ")}</span></div>
-                  <p>{money(item.order.amount_minor,item.order.currency)} · {friendlyDate(item.order.scheduled_at)}</p>
+                  <p>{money(item.order.amount_minor,item.order.currency,catalog?.locale)} · {friendlyDate(item.order.scheduled_at,catalog?.locale,catalog?.timezone)}</p>
                   <p className="muted small-text">{[item.order.region_code,item.order.city_code,item.order.area_code].filter(Boolean).join(" · ")}</p>
                   {item.order.status === "requested" && <button disabled={busy} onClick={() => dispatchOrder(item.order.id)}>Dispatch to eligible professionals</button>}
                 </article>
@@ -625,7 +708,7 @@ export default function HomePage() {
       )}
 
       <footer className="app-footer">
-        <span>Marketplace MVP · {catalog?.market ?? "Single market"}</span>
+        <span>Marketplace · {catalog?.market ?? "Single market"}</span>
         <span>Payments are not enabled. Cancellation policy outcomes do not move funds.</span>
       </footer>
     </main>

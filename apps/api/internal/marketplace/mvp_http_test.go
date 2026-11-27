@@ -46,7 +46,7 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
         "012_settlement_reconciliation.sql","013_inspection_quotes.sql","014_quote_variations.sql",
         "015_order_schedule.sql","016_cancellation_policy.sql","017_provider_availability.sql",
         "018_dispatch_offers.sql","019_outbox_delivery.sql","020_professional_verification.sql",
-        "021_support_cases.sql","022_identity_memberships.sql","023_order_tenant_scope.sql",
+        "021_support_cases.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","026_market_config_audit.sql","027_service_form_versions.sql","028_order_service_form_answers.sql","025_auth_devices.sql","029_order_completion_approval.sql","030_analytics_event_projection.sql",
     }
     for _, name := range migrations {
         raw, readErr := os.ReadFile(filepath.Join("..","..","migrations",name))
@@ -121,6 +121,9 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
         if err = store.EnsureIdentityMembership(ctx,actor.SubjectID,tenantID,actor.Role); err != nil {
             t.Fatal(err)
         }
+    }
+    if err = ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify,ActionOrderAssign,ActionOrderRead,ActionAnalyticsRead,ActionOperatorPermissionsManage,ActionIncidentReview); err != nil {
+        t.Fatal(err)
     }
 
     category, err := store.CreateCategory(ctx,nil,"mvp-test-"+suffix,"MVP Test Service")
@@ -211,6 +214,27 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
         t.Fatalf("operator OTP verification: status=%d body=%s",otpVerify.Code,otpVerify.Body.String())
     }
     tokens["operator"] = otpVerifyBody["access_token"].(string)
+
+    grantTargetID := newTestIdentity(t,ctx,pool)
+    if err = store.EnsureIdentityMembership(ctx,grantTargetID,tenantID,RoleOperator); err != nil { t.Fatal(err) }
+    permissionList, _ := call(http.MethodGet,"/v1/operator/permissions",tokens["operator"],"",nil)
+    if permissionList.Code != http.StatusOK { t.Fatalf("operator permission list: status=%d body=%s",permissionList.Code,permissionList.Body.String()) }
+    grantResponse, grantBody := call(http.MethodPost,"/v1/operator/permissions/grants",tokens["operator"],"",map[string]string{
+        "identity_id":grantTargetID,"action":string(ActionOrderRead),"reason":"MVP HTTP permission grant test",
+    })
+    if grantResponse.Code != http.StatusCreated { t.Fatalf("operator permission grant: status=%d body=%s",grantResponse.Code,grantResponse.Body.String()) }
+    grantObject, ok := grantBody["grant"].(map[string]any)
+    if !ok || grantObject["id"] == nil { t.Fatalf("grant response missing grant ID: %#v",grantBody) }
+    grantID := grantObject["id"].(string)
+    revokeResponse, _ := call(http.MethodPost,"/v1/operator/permissions/grants/"+grantID+"/revoke",tokens["operator"],"",map[string]string{
+        "reason":"MVP HTTP permission revocation test",
+    })
+    if revokeResponse.Code != http.StatusOK { t.Fatalf("operator permission revoke: status=%d body=%s",revokeResponse.Code,revokeResponse.Body.String()) }
+    selfGrantResponse, _ := call(http.MethodPost,"/v1/operator/permissions/grants",tokens["operator"],"",map[string]string{
+        "identity_id":operator.SubjectID,"action":string(ActionOrderRead),"reason":"self-grant must be denied",
+    })
+    if selfGrantResponse.Code != http.StatusForbidden { t.Fatalf("self-grant must be denied: status=%d body=%s",selfGrantResponse.Code,selfGrantResponse.Body.String()) }
+
     meResponse,meBody := call(http.MethodGet,"/v1/auth/me",tokens["operator"],"",nil)
     if meResponse.Code != http.StatusOK {
         t.Fatalf("operator identity endpoint: status=%d body=%s",meResponse.Code,meResponse.Body.String())
@@ -259,6 +283,25 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     }
     order := orderBody["order"].(map[string]any)
     orderID := order["id"].(string)
+    incident, incidentErr := store.CreateIncidentReport(ctx, customer, IncidentReportInput{
+        OrderID:orderID,Category:"safety_concern",Narrative:"The service visit left a safety hazard.",
+    })
+    if incidentErr != nil { t.Fatalf("create incident for reviewer HTTP test: %v",incidentErr) }
+    reviewerQueue, _ := call(http.MethodGet,"/v1/operator/incidents",tokens["operator"],"",nil)
+    if reviewerQueue.Code != http.StatusOK { t.Fatalf("reviewer incident queue: status=%d body=%s",reviewerQueue.Code,reviewerQueue.Body.String()) }
+    reviewerDetail, _ := call(http.MethodGet,"/v1/operator/incidents/"+incident.ID,tokens["operator"],"",nil)
+    if reviewerDetail.Code != http.StatusOK { t.Fatalf("reviewer incident detail: status=%d body=%s",reviewerDetail.Code,reviewerDetail.Body.String()) }
+    transitionResponse, _ := call(http.MethodPost,"/v1/operator/incidents/"+incident.ID+"/transition",tokens["operator"],"",map[string]string{
+        "action":"status","status":"triaged","reason":"HTTP reviewer triage test",
+    })
+    if transitionResponse.Code != http.StatusOK { t.Fatalf("reviewer incident transition: status=%d body=%s",transitionResponse.Code,transitionResponse.Body.String()) }
+    reviewerTargetID := newTestIdentity(t,ctx,pool)
+    if err = store.EnsureIdentityMembership(ctx,reviewerTargetID,tenantID,RoleOperator); err != nil { t.Fatal(err) }
+    if _, err = store.GrantOperatorAction(ctx,operator,tenantID,reviewerTargetID,ActionIncidentReview,"HTTP reviewer assignment target"); err != nil { t.Fatal(err) }
+    assignmentResponse, _ := call(http.MethodPost,"/v1/operator/incidents/"+incident.ID+"/transition",tokens["operator"],"",map[string]string{
+        "action":"assign","assigned_reviewer_identity_id":reviewerTargetID,"reason":"HTTP reviewer assignment test",
+    })
+    if assignmentResponse.Code != http.StatusOK { t.Fatalf("reviewer incident assignment: status=%d body=%s",assignmentResponse.Code,assignmentResponse.Body.String()) }
 
     replayResponse,replayBody := call(http.MethodPost,"/v1/orders",tokens["customer"],"mvp-order-1-"+suffix,orderInput)
     if replayResponse.Code != http.StatusOK || replayBody["created"] != false ||
@@ -302,14 +345,43 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     if startResponse.Code != http.StatusOK {
         t.Fatalf("start order: status=%d body=%s",startResponse.Code,startResponse.Body.String())
     }
+    prematureApproval,_ := call(http.MethodPost,"/v1/orders/"+orderID+"/completion-approval",tokens["customer"],"",nil)
+    if prematureApproval.Code != http.StatusConflict {
+        t.Fatalf("customer approval before professional completion must conflict: status=%d body=%s",prematureApproval.Code,prematureApproval.Body.String())
+    }
     completeResponse,_ := call(http.MethodPost,"/v1/professional/orders/"+orderID+"/transition",tokens["professional"],"",map[string]string{"to":"completed"})
     if completeResponse.Code != http.StatusOK {
         t.Fatalf("complete order: status=%d body=%s",completeResponse.Code,completeResponse.Body.String())
     }
 
+    otherApproval,_ := call(http.MethodPost,"/v1/orders/"+orderID+"/completion-approval",tokens["other"],"",nil)
+    if otherApproval.Code != http.StatusForbidden {
+        t.Fatalf("another customer must not approve this order: status=%d body=%s",otherApproval.Code,otherApproval.Body.String())
+    }
+    approvalResponse,approvalBody := call(http.MethodPost,"/v1/orders/"+orderID+"/completion-approval",tokens["customer"],"",nil)
+    if approvalResponse.Code != http.StatusCreated || approvalBody["created"] != true {
+        t.Fatalf("customer completion approval: status=%d body=%s",approvalResponse.Code,approvalResponse.Body.String())
+    }
+    approval := approvalBody["approval"].(map[string]any)
+    approvalReplay,approvalReplayBody := call(http.MethodPost,"/v1/orders/"+orderID+"/completion-approval",tokens["customer"],"",nil)
+    if approvalReplay.Code != http.StatusOK || approvalReplayBody["created"] != false ||
+        approvalReplayBody["approval"].(map[string]any)["approved_at"] != approval["approved_at"] {
+        t.Fatalf("completion approval replay must return the original approval: status=%d body=%s",approvalReplay.Code,approvalReplay.Body.String())
+    }
+    var approvalCount int
+    if err = pool.QueryRow(ctx,`SELECT count(*) FROM order_completion_approvals WHERE order_id=$1`,orderID).Scan(&approvalCount); err != nil || approvalCount != 1 {
+        t.Fatalf("expected exactly one completion approval, count=%d err=%v",approvalCount,err)
+    }
+    if _,err = pool.Exec(ctx,`UPDATE order_completion_approvals SET approved_at=now() WHERE order_id=$1`,orderID); err == nil {
+        t.Fatal("completion approval history must be immutable")
+    }
+
     timelineResponse,timeline := call(http.MethodGet,"/v1/orders/"+orderID,tokens["customer"],"",nil)
     if timelineResponse.Code != http.StatusOK || timeline["order"].(map[string]any)["status"]!="completed" {
         t.Fatalf("customer timeline: status=%d body=%s",timelineResponse.Code,timelineResponse.Body.String())
+    }
+    if timeline["completion_approval"] == nil {
+        t.Fatalf("customer timeline must expose the immutable completion approval: %s",timelineResponse.Body.String())
     }
     crossTenantResponse,_ := call(http.MethodGet,"/v1/orders/"+orderID,tokens["other"],"",nil)
     if crossTenantResponse.Code != http.StatusNotFound {
@@ -321,6 +393,19 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
         t.Fatalf("operator order queue: status=%d body=%s",operatorOrdersResponse.Code,operatorOrdersResponse.Body.String())
     }
 
+    analyticsPath:="/v1/operator/analytics/summary?from="+time.Now().UTC().Add(-time.Hour).Format(time.RFC3339)+"&to="+time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
+    analyticsResponse,analyticsBody:=call(http.MethodGet,analyticsPath,tokens["operator"],"",nil)
+    if analyticsResponse.Code!=http.StatusOK || analyticsResponse.Header().Get("Cache-Control")!="private, no-store" {
+        t.Fatalf("operator analytics summary: status=%d headers=%v body=%s",analyticsResponse.Code,analyticsResponse.Header(),analyticsResponse.Body.String())
+    }
+    if ready,ok:=analyticsBody["data_ready"].(bool);!ok||ready {
+        t.Fatalf("analytics must not claim readiness without an active populated projection: %#v",analyticsBody)
+    }
+    forbiddenAnalytics,_:=call(http.MethodGet,analyticsPath,tokens["customer"],"",nil)
+    if forbiddenAnalytics.Code!=http.StatusForbidden { t.Fatalf("customer must not read operator analytics: status=%d",forbiddenAnalytics.Code) }
+    invalidAnalytics,_:=call(http.MethodGet,"/v1/operator/analytics/summary?from=invalid&to=invalid",tokens["operator"],"",nil)
+    if invalidAnalytics.Code!=http.StatusBadRequest { t.Fatalf("invalid analytics window must be rejected: status=%d",invalidAnalytics.Code) }
+
     // An operator must not see another tenant's orders, even when both tenants
     // use the same market/country configuration.
     otherTenant := "mvp-other-" + suffix
@@ -330,6 +415,7 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     otherOperatorActor := Actor{SubjectID:otherOperatorID,TenantID:otherTenant,Role:RoleOperator}
     if err = store.EnsureIdentityMembership(ctx,otherCustomerID,otherTenant,RoleCustomer); err != nil { t.Fatal(err) }
     if err = store.EnsureIdentityMembership(ctx,otherOperatorID,otherTenant,RoleOperator); err != nil { t.Fatal(err) }
+    if err = ensureTestOperatorGrants(ctx,pool,otherOperatorActor,ActionOrderRead); err != nil { t.Fatal(err) }
     otherTenantOrder,createdOther,createOtherErr := store.CreateScheduledOrder(ctx,otherCustomerActor,
         "other-tenant-order-"+suffix,menu.ID,time.Now().UTC().Add(6*time.Hour),marketCode,
         "Test Region","Test City","Test Area")
@@ -342,6 +428,34 @@ func TestMVPHTTPVerticalSlicePostgres(t *testing.T) {
     if listErr != nil || len(otherTenantOrders)!=1 || otherTenantOrders[0].ID!=otherTenantOrder.ID {
         t.Fatalf("other tenant operator queue: orders=%#v err=%v",otherTenantOrders,listErr)
     }
+
+    newPrice,err := store.CreatePriceVersion(ctx,menu.ID,5100,"USD")
+    if err != nil { t.Fatalf("publish updated price before reorder: %v",err) }
+    reorderAt := time.Now().UTC().Add(8*time.Hour).Truncate(time.Microsecond)
+    reorderPayload := map[string]any{"scheduled_at":reorderAt.Format(time.RFC3339Nano)}
+    reorderResponse,reorderBody := call(http.MethodPost,"/v1/orders/"+orderID+"/reorder",tokens["customer"],"mvp-reorder-1-"+suffix,reorderPayload)
+    if reorderResponse.Code != http.StatusCreated {
+        t.Fatalf("reorder completed order: status=%d body=%s",reorderResponse.Code,reorderResponse.Body.String())
+    }
+    reordered := reorderBody["order"].(map[string]any)
+    if reordered["id"] == orderID || reordered["amount_minor"] != float64(newPrice.AmountMinor) {
+        t.Fatalf("reorder must create a distinct order using the current price: %#v",reordered)
+    }
+    reorderReplay,reorderReplayBody := call(http.MethodPost,"/v1/orders/"+orderID+"/reorder",tokens["customer"],"mvp-reorder-1-"+suffix,reorderPayload)
+    if reorderReplay.Code != http.StatusOK || reorderReplayBody["created"] != false ||
+        reorderReplayBody["order"].(map[string]any)["id"] != reordered["id"] {
+        t.Fatalf("reorder idempotency replay failed: status=%d body=%s",reorderReplay.Code,reorderReplay.Body.String())
+    }
+    unavailablePayload := map[string]any{"scheduled_at":time.Now().UTC().Add(24*time.Hour).Format(time.RFC3339Nano)}
+    unavailableResponse,_ := call(http.MethodPost,"/v1/orders/"+orderID+"/reorder",tokens["customer"],"mvp-reorder-unavailable-"+suffix,unavailablePayload)
+    if unavailableResponse.Code != http.StatusConflict {
+        t.Fatalf("reorder must reject a slot without eligible professional availability: status=%d body=%s",unavailableResponse.Code,unavailableResponse.Body.String())
+    }
+    otherReorder,_ := call(http.MethodPost,"/v1/orders/"+orderID+"/reorder",tokens["other"],"mvp-reorder-other-"+suffix,reorderPayload)
+    if otherReorder.Code != http.StatusNotFound {
+        t.Fatalf("another customer must not reorder a customer order: status=%d body=%s",otherReorder.Code,otherReorder.Body.String())
+    }
+
 
     scheduleTwo := time.Now().UTC().Add(4*time.Hour).Truncate(time.Microsecond)
     orderInput["scheduled_at"] = scheduleTwo.Format(time.RFC3339Nano)

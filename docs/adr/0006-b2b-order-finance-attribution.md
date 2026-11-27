@@ -80,3 +80,8 @@ Rollback is application-first: disable B2B order attribution and statement reads
 - Add mutable organization balance fields: rejected; they duplicate and can diverge from immutable ledger postings.
 - Join billing directly by free-form journal description or provider reference: rejected; neither is a stable relational contract.
 - Enable property delegation managers to create orders implicitly: rejected; visibility and command permissions are separate capabilities.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.
