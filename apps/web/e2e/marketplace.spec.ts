@@ -229,3 +229,40 @@ test("market locale controls document language and RTL/LTR direction", async ({ 
   await expect(page.locator(".price-line strong")).toHaveText(englishMoney);
   await expect(page.locator(".order-card p").first()).toContainText(englishDate);
 });
+
+
+test("session and workspace loading, API failure, and mobile layout are usable", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route("**/v1/auth/me", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "unauthorized" }),
+    });
+  });
+
+  await page.goto("/");
+  await expect(page.getByRole("status")).toHaveText("Checking your session…");
+  await expect(page.getByLabel("Phone number")).toBeVisible();
+  await expect(page.getByLabel("Phone number")).toHaveAttribute("required", "");
+  await page.unroute("**/v1/auth/me");
+
+  await page.route("**/v1/catalog", (route) => route.fulfill({
+    status: 503,
+    contentType: "application/json",
+    body: JSON.stringify({ error: "Catalog temporarily unavailable" }),
+  }));
+
+  await signIn(page, request, "+15550000001");
+  await expect(page.locator(".notice.error")).toContainText("Catalog temporarily unavailable");
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    content: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.content, "mobile workspace must not overflow horizontally").toBeLessThanOrEqual(dimensions.viewport);
+  await expect(page.getByText("Payments are not enabled. Cancellation policy outcomes do not move funds.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /pay|checkout|payment/i })).toHaveCount(0);
+});
