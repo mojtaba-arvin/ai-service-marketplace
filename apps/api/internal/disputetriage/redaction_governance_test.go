@@ -17,7 +17,9 @@ func TestRedactionFailureNeverInvokesModelAndProvenanceHashesRedactedInput(t *te
 	got, err := svc.Triage(context.Background(), req)
 	if err != nil { t.Fatal(err) }
 	redacted := strings.ReplaceAll(req.Reason, "+96890000000", "[PHONE]")
-	fingerprint := sha256.Sum256([]byte(req.Market+"\n"+req.Locale+"\n"+req.DisputeType+"\n"+redacted))
+	fingerprintInput, err := json.Marshal(ModelInput{Market:req.Market, Locale:req.Locale, DisputeType:req.DisputeType, Reason:redacted, Evidence:[]Evidence{{ID:"order-policy-01", Source:"policy", Text:"safe policy"}}})
+	if err != nil { t.Fatal(err) }
+	fingerprint := sha256.Sum256(fingerprintInput)
 	if got.Provenance.InputSHA256 != hex.EncodeToString(fingerprint[:]) { t.Fatalf("provenance hash does not match redacted input: %s", got.Provenance.InputSHA256) }
 	if strings.Contains(model.input.Reason, "+96890000000") { t.Fatal("unredacted input reached model") }
 
