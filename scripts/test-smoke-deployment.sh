@@ -22,9 +22,6 @@ done
 
 if [[ "$url" == http://* ]]; then
   printf '%s %s' "${FAKE_REDIRECT_STATUS:-308}" "${FAKE_REDIRECT_URL:-https://example.test/healthz}"
-elif [[ "$url" == */readyz ]]; then
-  printf '{"status":"%s"}\\n' "${FAKE_READY_BODY:-ready}" >"$output"
-  printf '%s' "${FAKE_READY_STATUS:-200}"
 elif [[ "$url" == */healthz ]]; then
   printf '{"status":"%s"}\n' "${FAKE_HEALTH_BODY:-ok}" >"$output"
   printf 'HTTP/1.1 %s Fake\r\n' "${FAKE_HEALTH_STATUS:-200}" >"$headers"
@@ -34,6 +31,9 @@ elif [[ "$url" == */healthz ]]; then
     missing) ;;
   esac
   printf '%s' "${FAKE_HEALTH_STATUS:-200}"
+elif [[ "$url" == */readyz ]]; then
+  printf '{"status":"%s"}\n' "${FAKE_READY_BODY:-ready}" >"$output"
+  printf '%s' "${FAKE_READY_STATUS:-200}"
 elif [[ "$url" == https://*/ ]]; then
   if [[ "${FAKE_WEB_STATUS:-200}" -ge 400 ]]; then exit 22; fi
 else
@@ -57,9 +57,9 @@ expect_failure() {
 
 run_success
 expect_failure FAKE_HEALTH_STATUS=503
+expect_failure FAKE_HEALTH_BODY=unhealthy
 expect_failure FAKE_READY_STATUS=503
 expect_failure FAKE_READY_BODY=unready
-expect_failure FAKE_HEALTH_BODY=unhealthy
 expect_failure FAKE_REQUEST_ID=malformed
 expect_failure FAKE_WEB_STATUS=503
 expect_failure FAKE_REDIRECT_STATUS=302
