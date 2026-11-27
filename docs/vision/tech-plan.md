@@ -35,7 +35,7 @@ Outbox writes commit in the same transaction as domain changes. Consumers are id
 
 Order transitions have actor permissions, reasons, append-only history, emitted events and idempotency. Variations require customer approval before scope/price changes. Cancellation/rescheduling is policy-versioned.
 
-Finance is non-negotiable: balanced double-entry postings; integer minor units; idempotency/replay; immutable entries and compensating reversals; explicit escrow/hold lifecycle; PSP callback/timeout reconciliation; daily provider-to-ledger reconciliation; and no real money movement through fake adapters. Finance acceptance requires property-based invariants, concurrency/failure recovery and independent QA. B2B billing stays gated until order/property attribution and ledger ownership are verified.
+Finance is non-negotiable: balanced double-entry postings; integer minor units; idempotency/replay; immutable entries and compensating reversals; explicit escrow/hold lifecycle; PSP callback/timeout reconciliation; daily provider-to-ledger reconciliation; and no real money movement through fake adapters. Finance acceptance requires property-based invariants, concurrency/failure recovery and maintainer verification. B2B billing stays gated until order/property attribution and ledger ownership are verified.
 
 ## Adapters
 
@@ -61,8 +61,13 @@ Least-privilege RBAC and tenant/organization/property scoping; short-lived crede
 - make verify-full: local PostgreSQL and other required infrastructure, integration and E2E smoke checks.
 - CI uses fakes rather than live third-party credentials.
 - High-risk modules add property-based, race/concurrency, authorization-negative, replay and fault-injection tests.
-- A feature passes only after required checks and independent acceptance evidence. PR creation or implementation merge alone is not acceptance.
+- A feature passes only after required checks and maintainer acceptance evidence. PR creation or implementation merge alone is not acceptance.
 
 ## Deployment and evolution
 
 Start with documented Docker-based self-hosting and a low-operations topology. Keep secrets external, migrations serialized and recovery procedures explicit. Kubernetes is optional and evidence-driven. Real PSP/KYC/tax/background-check activation requires market-specific review and explicit operator action.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

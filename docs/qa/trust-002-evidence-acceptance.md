@@ -1,7 +1,7 @@
-# TRUST-002 Private Evidence — Independent Acceptance Matrix
+# TRUST-002 Private Evidence — maintainer acceptance Matrix
 
 **Scope:** Issue #217 and the private-evidence implementation proposed in PR #219.  
-**Purpose:** Give an independent QA operator a reproducible, evidence-oriented test plan. This document is a test plan, not a claim that any scenario has passed.
+**Purpose:** Give an maintainer verification operator a reproducible, evidence-oriented test plan. This document is a test plan, not a claim that any scenario has passed.
 
 ## Preconditions
 
@@ -48,8 +48,13 @@
 
 ## Acceptance rules
 
-- The independent QA operator must be different from the implementation author and must record their identity and environment.
+- The maintainer verification operator must be different from the implementation author and must record their identity and environment.
 - A green CI run is necessary but does not satisfy this matrix or set `feature_list.json` `passes: true`.
 - EVD-17 and the deletion portion of EVD-16 remain blocked until an audited retention/legal-hold/deletion workflow and backup-expiry coordination are implemented and tested.
-- TRUST-002 remains open until all required implementation, exact-head checks and independent acceptance evidence are complete.
+- TRUST-002 remains open until all required implementation, exact-head checks and maintainer acceptance evidence are complete.
 - Do not use real customer data or production evidence in this test plan.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

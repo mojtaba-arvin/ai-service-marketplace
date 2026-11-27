@@ -57,7 +57,7 @@ Required independent negatives: invalid/expired/replayed OTP, exhausted attempts
 
 ## Open gaps
 
-- Device inventory and session-bound revocation are implemented in the current change; required CI and independent acceptance are pending. Device registration does not claim hardware attestation or trusted-device status.
+- Device inventory and session-bound revocation are implemented in the current change; required CI and maintainer acceptance are pending. Device registration does not claim hardware attestation or trusted-device status.
 - Define an explicit trusted-device attestation and step-up policy before treating any device as trusted; do not infer trust from a client-provided label.
 
 - Multi-address profiles resolve through a market-specific geocoding adapter; exact coordinates remain order- and role-scoped.
@@ -65,3 +65,8 @@ Required independent negatives: invalid/expired/replayed OTP, exhausted attempts
 - Define explicit membership administration and revocation lifecycle.
 - Add abuse/rate-limit observability and retention/deletion controls for identity records.
 - Keep production OTP provider behavior behind a contract-tested adapter; test OTP capture remains test-only.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

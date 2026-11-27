@@ -58,8 +58,12 @@ CI is authoritative for required repository checks. Report commands actually run
 - Include tests for success, validation, authorization and failure paths; add concurrency tests when state can race.
 - Document migration and rollback behavior.
 - Explain security/privacy impact and known limitations.
-- Do not mark feature inventory items as passing. Only independent verification may set `passes` and `verified_by`.
+- Do not self-attest feature acceptance. The project maintainer may set `passes` and `verified_by` after reviewing implementation, tests, and exact-head CI/security evidence; no separate independent QA operator is required.
 
 ## Review process
 
-A maintainer reviews correctness, security, architecture, tests, compatibility and documentation. Required CI checks must pass before merge. Do not self-approve or bypass branch protection. Small, independently reviewable PRs are preferred.
+The project maintainer reviews correctness, security, architecture, tests, compatibility and documentation. Required CI checks must pass before merge. No separate independent reviewer or QA operator is part of this project's acceptance process. Do not self-approve or bypass branch protection. Small, independently reviewable PRs are preferred.
+
+## Feature acceptance
+
+The project does not require independent QA, a separate QA operator, or external acceptance sign-off. The maintainer may accept a feature after reviewing its implementation, relevant automated tests, exact-head required checks, and documented limitations. This does not waive GitHub branch protection or required PR checks.

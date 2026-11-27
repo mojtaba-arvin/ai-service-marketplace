@@ -25,3 +25,8 @@ These specifications define module ownership, public boundaries, data ownership,
 A behavior change must update the owning specification, API/event contract, migration and tests in the same change where applicable. A specification-only PR must label implementation as planned or existing-but-unverified; it must not claim the feature is complete.
 
 Every acceptance criterion should map to at least one test or explicitly state why it cannot be automated. Security, financial and tenant-boundary criteria require negative-path tests. Only an independent verifier may change `passes` or `verified_by` in the feature inventory.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.
