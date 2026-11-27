@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate feature backlog shape, IDs, dependencies, cycles, and QA status rules."""
+"""Validate feature backlog shape, IDs, dependencies, cycles, and maintainer acceptance status rules."""
 import json
 import re
 import sys
@@ -43,7 +43,7 @@ for i, item in enumerate(items):
     if not isinstance(item["passes"],bool):
         errors.append(f"{where}: passes must be boolean")
     if item["passes"] and not item["verified_by"]:
-        errors.append(f"{where}: passing feature requires QA evidence identity")
+        errors.append(f"{where}: passing feature requires maintainer evidence identity")
     if item["verified_by"] and not item["passes"]:
         errors.append(f"{where}: verified_by requires passes=true")
 for fid,item in by_id.items():

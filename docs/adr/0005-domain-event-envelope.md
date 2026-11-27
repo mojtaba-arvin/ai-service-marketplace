@@ -36,3 +36,8 @@ Legacy outbox producers are not automatically considered migrated. Adoption is t
 - Keep module-specific unversioned JSON payloads: rejected as the long-term public contract because consumers cannot safely evolve independently.
 - Publish entire database rows: rejected due to coupling and privacy exposure.
 - Add tenant ID later: rejected because tenant attribution cannot be reliably reconstructed for every historical event.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

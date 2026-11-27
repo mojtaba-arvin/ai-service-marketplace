@@ -1,7 +1,7 @@
 # M7 and M9 — Trust, Safety and Support Specification
 
 **Feature IDs:** TRUST-001–TRUST-004, SUP-001–SUP-002  
-**Status:** support case lifecycle and append-only support action audit are implemented. TRUST-002 incident intake/reviewer workflow and the first private evidence upload/retrieval slice are implemented; complete retention/legal-hold administration, operational recovery and independent acceptance remain incomplete. Dispute workflow and privacy-contact capabilities remain incomplete.
+**Status:** support case lifecycle and append-only support action audit are implemented. TRUST-002 incident intake/reviewer workflow and the first private evidence upload/retrieval slice are implemented; complete retention/legal-hold administration, operational recovery and maintainer acceptance remain incomplete. Dispute workflow and privacy-contact capabilities remain incomplete.
 
 ## Ownership
 
@@ -54,3 +54,8 @@ Every result sets `requires_human_adjudication=true`. AI cannot determine liabil
 - Define dispute states, roles, evidence access, appeal and resolution authority before implementing TRUST-003.
 - Define contact relay, disclosure controls, abuse reporting and retention before implementing TRUST-004.
 - Complete audited retention/legal-hold administration, deletion and backup-expiry coordination; prove encryption-key rotation/restore and scanner/storage failure recovery. Do not infer that expiry deleted bytes or that legal hold is operational.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

@@ -25,7 +25,7 @@ The product is organized into fourteen first-class domains:
 | M13 Platform & compliance | Country/language/currency/tax/RTL configuration, i18n, adapters, observability, secret management, backup/DR, consent and privacy |
 | M14 AI capabilities | Intake Copilot, Pro Copilot, Dispute Triage, Support Copilot, explainable leakage/fraud, quality coaching, demand/ETA/price forecasting |
 
-See [Product Scope](docs/product-scope.md) for the complete capability catalogue and [Engineering Roadmap](docs/ROADMAP.md) for dependency-aware delivery. Implementation status belongs to [feature_list.json](feature_list.json), module specifications, issues and [Development Progress](docs/progress.md). A planned capability is not implemented merely because it is documented; a merged PR is not independent acceptance.
+See [Product Scope](docs/product-scope.md) for the complete capability catalogue and [Engineering Roadmap](docs/ROADMAP.md) for dependency-aware delivery. Implementation status belongs to [feature_list.json](feature_list.json), module specifications, issues and [Development Progress](docs/progress.md). A planned capability is not implemented merely because it is documented; a merged PR alone is not sufficient acceptance; the maintainer also checks relevant automated tests and exact-head required workflows.
 
 ## Current repository status
 
@@ -63,7 +63,7 @@ These commands verify the current repository state; they do not certify every pl
 4. Cross-module interaction uses documented public APIs and versioned events.
 5. AI affecting money, identity, safety, access or reputation remains advisory until deterministic policy and/or authorized human approval.
 6. PII is minimized and redacted before external calls; consent, retention and deletion are explicit.
-7. Features are accepted only with required automated and independent evidence.
+7. Features are accepted by the project maintainer when required automated tests, exact-head CI/security checks, and implementation evidence satisfy the acceptance criteria. No separate independent QA role is required.
 
 ## Contributing
 
