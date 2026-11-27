@@ -56,10 +56,10 @@ def validate(values):
         elif parsed.hostname.endswith((".example", ".test", ".invalid", ".localhost")):
             errors.append("OTP_DELIVERY_URL must identify a real provider endpoint")
 
-    for key in ("POSTGRES_PASSWORD", "OTP_DELIVERY_TOKEN"):
+    for key, minimum in (("POSTGRES_PASSWORD", 24), ("OTP_DELIVERY_TOKEN", 16)):
         value = values.get(key, "")
-        if value and len(value) < 24:
-            errors.append(f"{key} must contain at least 24 characters")
+        if value and len(value) < minimum:
+            errors.append(f"{key} must contain at least {minimum} characters")
     for key in ("OTP_PEPPER", "SESSION_PEPPER"):
         value = values.get(key, "")
         if value and len(value.encode("utf-8")) < 32:
