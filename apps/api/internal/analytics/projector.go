@@ -37,7 +37,7 @@ var requiredEventDataFields = map[string][]string{
 }
 
 var eventDataFields = map[string]map[string]struct{}{
-    "order.created": set("order_id","status","price_version_id","scheduled_at"),
+    "order.created": set("order_id","status","price_version_id","scheduled_at","service_form_version_id"),
     "order.state_changed": set("order_id","from","to"),
     "order.provider_assigned": set("order_id","provider_id","assignment_id","offer_id"),
     "order.cancelled": set("order_id","from","to","cancellation_id"),
@@ -93,6 +93,12 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
         var value string
         if !ok || json.Unmarshal(raw,&value)!=nil || strings.TrimSpace(value)=="" {
             return p.quarantine(ctx,tx,event,"missing_required_event_data")
+        }
+    }
+    if raw,ok:=fields["service_form_version_id"]; ok && domain.Type=="order.created" {
+        var formVersionID string
+        if json.Unmarshal(raw,&formVersionID)!=nil || strings.TrimSpace(formVersionID)=="" {
+            return p.quarantine(ctx,tx,event,"invalid_service_form_version_id")
         }
     }
     if domain.Type=="dispatch.offer_created" {
