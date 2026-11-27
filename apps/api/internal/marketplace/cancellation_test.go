@@ -28,7 +28,7 @@ func TestVersionedCancellationPolicyAndIdempotencyPostgres(t *testing.T) {
 		if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("apply %s: %v",name,err) }
 	}
 	store:=&Store{DB:pool}
-	ids:=make([]string,3)
+	ids:=make([]string,4)
 	for i:=range ids {
 		ids[i],err=newID()
 		if err!=nil { t.Fatal(err) }
@@ -62,6 +62,41 @@ func TestVersionedCancellationPolicyAndIdempotencyPostgres(t *testing.T) {
 		order,created,createErr:=store.CreateScheduledOrder(ctx,customer,key,menu.ID,scheduled,"OM","Muscat","Muscat","Al-Khuwair")
 		if createErr!=nil || !created { t.Fatalf("create order: %#v created=%v err=%v",order,created,createErr) }
 		return order
+	}
+
+	professional:=Actor{SubjectID:ids[3],TenantID:customer.TenantID,Role:RoleProfessional}
+	provider,err:=store.CreateProviderProfile(ctx,professional,"Cancellation test provider")
+	if err!=nil { t.Fatalf("create provider profile: %v",err) }
+	bookingOrder:=createOrder("cancel-booking-"+fmt.Sprint(time.Now().UnixNano()),time.Now().UTC().Add(4*time.Hour))
+	bookingID,err:=newID()
+	if err!=nil { t.Fatal(err) }
+	bookingStart:=bookingOrder.ScheduledAt
+	if bookingStart==nil { t.Fatal("booking order must have a scheduled time") }
+	if _,err=pool.Exec(ctx,`INSERT INTO provider_bookings(id,provider_id,order_id,start_at,end_at,timezone,created_by_identity_id)
+		VALUES($1,$2,$3,$4,$5,'Asia/Muscat',$6)`,bookingID,provider.ID,bookingOrder.ID,*bookingStart,bookingStart.Add(time.Hour),professional.SubjectID);err!=nil {
+		t.Fatalf("create provider booking: %v",err)
+	}
+	if _,err=store.CancelOrder(ctx,customer,bookingOrder.ID,"cancel-booking-key","Provider booking cancellation");err!=nil {
+		t.Fatalf("cancel order with provider booking: %v",err)
+	}
+	var bookingStatus string
+	if err=pool.QueryRow(ctx,`SELECT status FROM provider_bookings WHERE id=$1`,bookingID).Scan(&bookingStatus);err!=nil || bookingStatus!="cancelled" {
+		t.Fatalf("provider booking must be released atomically: status=%q err=%v",bookingStatus,err)
+	}
+	var bookingEventRaw []byte
+	if err=pool.QueryRow(ctx,`SELECT payload FROM outbox_events WHERE aggregate_type='order' AND aggregate_id=$1 AND event_type='provider.booking_cancelled'`,bookingOrder.ID).Scan(&bookingEventRaw);err!=nil {
+		t.Fatalf("provider booking cancellation event missing: %v",err)
+	}
+	var bookingEvent outbox.DomainEvent
+	if err=json.Unmarshal(bookingEventRaw,&bookingEvent);err!=nil { t.Fatalf("decode provider booking event: %v",err) }
+	if err=outbox.ValidateDomainEvent(bookingEvent);err!=nil || bookingEvent.Type!="provider.booking_cancelled" ||
+		bookingEvent.TenantID!=customer.TenantID || bookingEvent.Aggregate.ID!=bookingOrder.ID {
+		t.Fatalf("provider booking event must be canonical and tenant-scoped: event=%+v err=%v",bookingEvent,err)
+	}
+	var bookingData map[string]any
+	if err=json.Unmarshal(bookingEvent.Data,&bookingData);err!=nil { t.Fatalf("decode provider booking business data: %v",err) }
+	if bookingData["order_id"]!=bookingOrder.ID || bookingData["cancellation_id"]=="" || bookingData["status"]!="cancelled" {
+		t.Fatalf("provider booking event must retain legacy business fields: %#v",bookingData)
 	}
 	earlyOrder:=createOrder("cancel-early-"+fmt.Sprint(time.Now().UnixNano()),time.Now().UTC().Add(2*time.Hour))
 	cancelled,err:=store.CancelOrder(ctx,customer,earlyOrder.ID,"cancel-key-early","Customer changed plans")
