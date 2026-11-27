@@ -1,6 +1,6 @@
 # Analytics metric contracts v1
 
-**Status: contract-only.** This file defines the metric semantics; it does not claim that analytics projections, canonical event adoption, or dashboards are implemented.
+**Status: metric contract with partial runtime implementation.** PRs #194/#196/#198 provide the tenant/generation-scoped projection, summary API and guarded rebuild/rollback. This document does not claim full producer adoption, all metric families, event-time finality, dashboards or maintainer acceptance.
 
 Machine-readable source: [metrics-v1.json](metrics-v1.json)
 
@@ -10,7 +10,7 @@ Machine-readable source: [metrics-v1.json](metrics-v1.json)
 - Use canonical event `id` for delivery deduplication and `occurred_at` for event time.
 - Only events with `metadata.traffic_class = production` enter production metrics. Missing, demo, and test classifications are excluded rather than guessed.
 - Resolve daily buckets using the IANA timezone of the event's market configuration, not the worker or database session timezone.
-- Apply events up to 72 hours late to their original event-time bucket. Older arrivals mark the affected period for deterministic replay.
+- The 72-hour watermark is a proposed v1 policy, not implemented runtime behavior. Until #314 is complete, do not claim event-time finality or silently discard late events; affected historical metrics remain potentially revisable.
 - Replay in stable `occurred_at, event.id` order. Duplicate deliveries must not change totals.
 - Unknown schema versions and events with prohibited personal-data fields are quarantined or rejected.
 - Keep currency-separated dimensions; never sum monetary amounts across currencies.
@@ -40,3 +40,4 @@ Machine-readable source: [metrics-v1.json](metrics-v1.json)
 2. Add the event consumer with transactional deduplication, quarantine, and deterministic replay.
 3. Implement tenant-partitioned read models from these contracts.
 4. Reconcile every projection against source events and adversarial replay fixtures before exposing an API.
+5. Implement and verify the event-time completeness/late-arrival contract in [#314](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/314).
