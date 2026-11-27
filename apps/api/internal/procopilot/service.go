@@ -67,7 +67,8 @@ func (s Service) Suggest(ctx context.Context,req Request)(Suggestion,error){
  if err=validateUniqueText(*candidate.SafetyWarnings,240);err!=nil{return Suggestion{},err};if err=validateUniqueText(*candidate.Steps,400);err!=nil{return Suggestion{},err};if err=validateUniqueText(*candidate.Checklist,240);err!=nil{return Suggestion{},err}
  seen:=map[string]struct{}{};citations:=make([]EvidenceReference,0,len(*candidate.Citations))
  for _,citation:=range *candidate.Citations{if _,ok:=allowed[citation.ID];!ok{return Suggestion{},ErrInvalidSuggestion};if _,ok:=seen[citation.ID];ok{return Suggestion{},ErrInvalidSuggestion};seen[citation.ID]=struct{}{};citations=append(citations,citation)}
- fingerprint:=sha256.Sum256([]byte(req.Market+"\n"+req.Locale+"\n"+req.ServiceCode+"\n"+description+"\n"+equipment));evidenceIDs:=make([]string,0,len(citations));for _,c:=range citations{evidenceIDs=append(evidenceIDs,c.ID)}
+ fingerprintInput,err:=json.Marshal(modelInput);if err!=nil{return Suggestion{},fmt.Errorf("fingerprint redacted professional input: %w",err)}
+ fingerprint:=sha256.Sum256(fingerprintInput);evidenceIDs:=make([]string,0,len(citations));for _,c:=range citations{evidenceIDs=append(evidenceIDs,c.ID)}
  now:=time.Now;if s.Now!=nil{now=s.Now}
  return Suggestion{DiagnosisSummary:strings.TrimSpace(*candidate.DiagnosisSummary),SafetyWarnings:*candidate.SafetyWarnings,Steps:*candidate.Steps,Checklist:*candidate.Checklist,QuoteScopeDraft:strings.TrimSpace(*candidate.QuoteScopeDraft),Confidence:*candidate.Confidence,Citations:citations,RequiresProfessionalReview:true,Provenance:Provenance{Model:output.Name,ModelVersion:output.Version,InputSHA256:hex.EncodeToString(fingerprint[:]),EvidenceIDs:evidenceIDs,GeneratedAt:now().UTC()}},nil
 }
