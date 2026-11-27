@@ -115,6 +115,7 @@ func TestNormalizeOrderHistoryEventCompatibility(t *testing.T) {
 	for _, raw := range []string{
 		`{"from":"requested","to":"accepted"}`,
 		`{"version":2,"status":"legacy"}`,
+		`{"version":2,"data":{"legacy_marker":true}}`,
 	} {
 		legacy := OrderHistoryEvent{Type:"order.state_changed",Payload:json.RawMessage(raw)}
 		original := string(legacy.Payload)
