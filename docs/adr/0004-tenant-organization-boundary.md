@@ -25,7 +25,7 @@ The platform needs strict data isolation for customers, professionals, operators
 - Membership and lifecycle mutations serialize on the organization row; final-owner protection, property-delegation revocation, append-only audit and transactional outbox behavior are enforced in service/database transactions.
 - Organization and property archival are soft, non-destructive operations. Organization archive is owner-only and terminal in the API; it archives child properties and revokes all memberships/delegations. Property archive is available to owner/admin/manager and revokes that property's delegations. Historical organization/property rows and downstream order/ledger records are retained.
 - Property delegation targets must be active member/viewer organization memberships. Owners/admins may grant manager/viewer and change either delegation role; organization managers may grant/revoke viewer only. Delegation roles currently control property visibility, not property-write or organization-management authority. When an organization role crosses into or out of the member/viewer eligibility set, active property delegations are revoked atomically; member<->viewer changes preserve grants, and demotion never reactivates a revoked grant.
-- The order and financial attribution design is specified in [ADR 0006](0006-b2b-order-finance-attribution.md). It is deliberately not implemented until order tenant ownership, finance invariants and canonical event adoption are independently verified.
+- The order and financial attribution design is specified in [ADR 0006](0006-b2b-order-finance-attribution.md). It is deliberately not implemented until order tenant ownership, finance invariants and canonical event adoption are verified through automated tests and maintainer review.
 - Automated CI and agent-led review are not independent third-party feature QA; acceptance remains tracked in #88.
 
 ## Alternatives considered
@@ -33,3 +33,8 @@ The platform needs strict data isolation for customers, professionals, operators
 - Organization equals tenant: rejected because business grouping and security isolation are different concerns.
 - Global organization membership across tenants: rejected because it creates implicit cross-tenant access.
 - Store organization IDs on every record before B2B scope is defined: rejected; use the staged, tenant-preserving attribution contract in ADR 0006.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.
