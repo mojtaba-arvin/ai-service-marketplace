@@ -50,11 +50,19 @@ func authorizeOrderHistory(actor Actor) error {
 func normalizeOrderHistoryEvent(event *OrderHistoryEvent, orderID string) error {
  var fields map[string]json.RawMessage
  if err:=json.Unmarshal(event.Payload,&fields); err!=nil || fields==nil { return nil }
- if _,versioned:=fields["version"]; !versioned { return nil }
- if _,tenantScoped:=fields["tenant_id"]; !tenantScoped {
-  if _,aggregate:=fields["aggregate"]; !aggregate {
-   if _,data:=fields["data"]; !data { return nil }
-  }
+ versioned := fields["version"] != nil
+ _, tenantScoped := fields["tenant_id"]
+ _, aggregate := fields["aggregate"]
+ _, occurredAt := fields["occurred_at"]
+ _, metadata := fields["metadata"]
+ _, correlation := fields["correlation_id"]
+ _, causation := fields["causation_id"]
+ // A legacy business object may contain an unrelated "version" field. Treat
+ // it as an envelope only when another canonical discriminator is present.
+ // Strong envelope fields also catch malformed envelopes that omit "version".
+ if !tenantScoped && !aggregate && !occurredAt && !metadata &&
+  !correlation && !causation && !(versioned && fields["data"] != nil) {
+  return nil
  }
  var domain outbox.DomainEvent
  if err:=json.Unmarshal(event.Payload,&domain); err!=nil || outbox.ValidateDomainEvent(domain)!=nil ||
