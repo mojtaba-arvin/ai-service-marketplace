@@ -248,13 +248,17 @@ test("session and workspace loading, API failure, and mobile layout are usable",
   await expect(page.getByLabel("Phone number")).toHaveAttribute("required", "");
   await page.unroute("**/v1/auth/me");
 
-  await page.route("**/v1/catalog", (route) => route.fulfill({
-    status: 503,
-    contentType: "application/json",
-    body: JSON.stringify({ error: "Catalog temporarily unavailable" }),
-  }));
+  await page.route("**/v1/catalog", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Catalog temporarily unavailable" }),
+    });
+  });
 
   await signIn(page, request, "+15550000001");
+  await expect(page.getByText("Loading services…")).toBeVisible();
   await expect(page.locator(".notice.error")).toContainText("Catalog temporarily unavailable");
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 
