@@ -121,7 +121,7 @@ func HTTP(next http.Handler, logger *slog.Logger) http.Handler {
 
 func routeClass(path string) string {
 	switch {
-	case path == "/healthz":
+	case path == "/healthz" || path == "/readyz":
 		return "health"
 	case strings.HasPrefix(path, "/v1/"):
 		return "api"
