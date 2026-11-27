@@ -117,8 +117,8 @@ BASE_URL="https://$(grep '^SITE_ADDRESS=' .env.production | cut -d= -f2-)" \\
 ```
 
 - `/healthz` is process liveness: HTTP 200 means the API process can answer requests. It does not assert PostgreSQL availability.
-- `/readyz` is dependency readiness: HTTP 200 with `{"status":"ready"}` means PostgreSQL is reachable; HTTP 503 means the instance must not receive traffic.
-- Docker's API healthcheck and the deployment smoke test use `/readyz`. Caddy exposes both endpoints on the public origin; do not use liveness alone as a deployment-success signal.
+- `/readyz` is dependency readiness: HTTP 200 with `{"status":"ready"}` means PostgreSQL is reachable; HTTP 503 means the instance must not receive application traffic.
+- Docker's API healthcheck and the deployment smoke test use `/readyz`. Caddy actively probes `/readyz` and removes an unready API upstream from `/v1/*` routing; the liveness and readiness endpoints themselves remain directly observable. Do not use liveness alone as a deployment-success signal.
 
 ## Application rollback
 
