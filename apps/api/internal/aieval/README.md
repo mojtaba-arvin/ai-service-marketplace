@@ -12,7 +12,7 @@ The dataset is pinned by `prompts/intake/v1/manifest.json` (prompt `marketplace.
 
 `golden/product-scope/v1/cases.json` adds deterministic adversarial coverage for all seven product capabilities. It evaluates schema validity, critical-case correctness, required-detail recall and prohibited consequential actions. Every case is critical in the initial baseline; prohibited actions fail independently of aggregate scores. The matching `prompts/product-scope/v1/manifest.json` pins every capability's prompt ID/version and dataset version. A prompt change without a matching reviewed dataset update fails the contract test.
 
-The cross-product evaluator emits a stable machine-readable JSON report and performs no model calls. Service-level tests for Intake, Pro Copilot and Dispute Triage verify redaction failure prevents model invocation and provenance fingerprints the redacted request input.
+The cross-product evaluator emits a stable machine-readable JSON report and performs no model calls. Service-level tests for Intake, Pro Copilot and Dispute Triage verify redaction failure prevents model invocation and provenance fingerprints the complete redacted model input, including retrieved evidence.
 
 ## Prompt lifecycle
 
