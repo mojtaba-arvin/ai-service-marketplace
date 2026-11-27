@@ -75,3 +75,7 @@ Use the applicable guides in `docs/playbooks/`: endpoint, migration, adapter, sp
 ## Project acceptance policy
 
 There is no separate or independent QA role in this project. Acceptance is performed by the project maintainer using implementation review, automated tests, exact-head required CI/security checks, and recorded evidence. Do not leave completed work blocked waiting for an independent operator, independent QA run, or external sign-off. Do not claim acceptance when required evidence is missing or failing. `feature_list.json` status fields may be updated by the authorized maintainer after this evidence review.
+
+## Commit identity and attribution
+
+Read `COMMIT_IDENTITY.md` before creating, amending, or reviewing commits. Maintainer-directed AI-assisted work must use the verified maintainer author identity; preserve real human contributor identities; do not use AI/bot authors or bot co-author trailers. Follow the documented, narrowly approved genuine-automation exception. Do not rewrite historical commits. Repository-specific Git, workflow, review, and merge restrictions in this file remain authoritative.
