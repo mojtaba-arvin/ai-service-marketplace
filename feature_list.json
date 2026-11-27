@@ -722,7 +722,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
+    "notes": "Canonical v1 schema, validation and transactional AppendDomainEvent writer are implemented (PR #95/#97); analytics fact projection/consumer validation is integrated (PR #194/#196/#198). Full producer adoption and external compatibility remain open under #87/#284/#266/#276. passes remains false pending maintainer acceptance."
   },
   {
     "id": "AN-002",
@@ -743,7 +743,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
+    "notes": "Partial funnel summary metrics are implemented in PR #196 from the generation-scoped projection. Producer metadata/adoption gaps remain; verified-provider supply is blocked on canonical provider lifecycle events (#297). Late-event finality is not implemented (#314). passes remains false."
   },
   {
     "id": "B2B-001",
@@ -2058,5 +2058,29 @@
     "passes": false,
     "verified_by": null,
     "notes": "Decomposed to Issue #301; implementation gated by #10, #57, ADR 0006 and canonical ledger events in #87. Not implemented or maintainer-accepted."
+  },
+  {
+    "id": "AN-006",
+    "module": "M12 Data & analytics",
+    "title": "Event-time completeness and late-arrival handling",
+    "description": "Track tenant/market/metric-period completeness and enforce an explicit, replayable late-event policy distinct from ingestion readiness.",
+    "acceptance": [
+      "Late events revise their original event-time cohorts within the configured policy or invalidate affected periods for deterministic replay.",
+      "Ingestion backlog, source coverage, quarantine and event-time completeness are exposed as distinct states.",
+      "Tenant-scoped provenance and replay tests prove duplicates, reordering and late commits cannot skip or double-count events."
+    ],
+    "depends_on": [
+      "AN-001",
+      "AN-002",
+      "AN-003"
+    ],
+    "size": "M",
+    "nature": [
+      "WF",
+      "SEC"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Decomposed to Issue #314. Current 72-hour metric-contract watermark is proposed but not enforced by the projector; passes remains false."
   }
 ]
