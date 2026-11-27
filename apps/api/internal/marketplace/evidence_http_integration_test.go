@@ -352,6 +352,16 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	if err = json.Unmarshal(upload.Body.Bytes(), &uploaded); err != nil || len(uploaded.EvidenceID) != 32 {
 		t.Fatalf("invalid upload response: %+v err=%v body=%s", uploaded, err, upload.Body.String())
 	}
+	if bytes.Contains(upload.Body.Bytes(), []byte("url")) {
+		t.Fatalf("upload response must not expose storage or download URLs: %s", upload.Body.String())
+	}
+	var defaultExpiry *time.Time
+	if err = pool.QueryRow(ctx, "SELECT retention_expires_at FROM incident_evidence WHERE id=$1 AND tenant_id=$2", uploaded.EvidenceID, tenantID).Scan(&defaultExpiry); err != nil {
+		t.Fatal(err)
+	}
+	if defaultExpiry != nil {
+		t.Fatalf("evidence without an adopter retention policy must have no default expiry: %v", defaultExpiry)
+	}
 
 	list := call(http.MethodGet, "/v1/incidents/"+report.ID+"/evidence", customerToken, nil)
 	if list.Code != http.StatusOK || !bytes.Contains(list.Body.Bytes(), []byte(uploaded.EvidenceID)) {
@@ -444,6 +454,9 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	if unauthorizedReviewerUpdate.Code != http.StatusForbidden {
 		t.Fatalf("incident reviewer must not manage evidence lifecycle, got %d: %s", unauthorizedReviewerUpdate.Code, unauthorizedReviewerUpdate.Body.String())
 	}
+	if denied := call(http.MethodGet, "/v1/operator/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, managerToken, nil); denied.Code != http.StatusForbidden {
+		t.Fatalf("evidence manager without incident:review must not download evidence, got %d: %s", denied.Code, denied.Body.String())
+	}
 	unauthorizedSupportUpdate := call(http.MethodPatch, lifecyclePath, supportToken,
 		[]byte(`{"legal_hold":true,"reason":"support must not manage evidence"}`))
 	if unauthorizedSupportUpdate.Code != http.StatusForbidden {
@@ -521,7 +534,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	`, otherReport.ID, tenantID).Scan(&crossTenantDenied); err != nil {
 		t.Fatal(err)
 	}
-	if successUploads != 1 || successDownloads != 4 || deniedUploads != 7 || deniedDownloads != 4 || deniedLists != 4 || crossTenantDenied != 1 {
+	if successUploads != 1 || successDownloads != 4 || deniedUploads != 7 || deniedDownloads != 5 || deniedLists != 4 || crossTenantDenied != 1 {
 		t.Fatalf("unexpected evidence audit totals: uploads=%d downloads=%d denied_uploads=%d denied_downloads=%d denied_lists=%d cross_tenant_denied_lists=%d",
 			successUploads, successDownloads, deniedUploads, deniedDownloads, deniedLists, crossTenantDenied)
 	}
