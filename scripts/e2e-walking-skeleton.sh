@@ -23,7 +23,7 @@ trap cleanup EXIT
 base="http://127.0.0.1:$PORT"
 ready=0
 for _ in $(seq 1 60); do
-  if curl -fsS "$base/healthz" >/dev/null; then ready=1; break; fi
+  if curl -fsS "$base/readyz" >/dev/null; then ready=1; break; fi
   sleep 1
 done
 if [[ "$ready" != 1 ]]; then
