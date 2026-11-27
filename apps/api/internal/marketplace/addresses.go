@@ -83,6 +83,18 @@ func validateGeocodeResult(result *adapters.GeocodeResult) error {
 	return nil
 }
 
+func savedAddressGeocodeFields(input SavedAddressInput, geocoded *adapters.GeocodeResult) (string, any, any, string, string) {
+	formatted := strings.Join([]string{input.AddressLine1,input.Locality,input.Region,input.PostalCode,input.CountryCode}, ", ")
+	var latitude, longitude any
+	var provider, version string
+	if geocoded != nil {
+		formatted = geocoded.FormattedAddress
+		latitude, longitude = geocoded.Latitude, geocoded.Longitude
+		provider, version = geocoded.Provider, geocoded.ProviderVersion
+	}
+	return formatted, latitude, longitude, provider, version
+}
+
 func GeocodeSavedAddress(ctx context.Context, matrix *marketconfig.Matrix, marketID, locale string, runner adapters.Runner, geocoder adapters.Geocoder, address, idempotencyKey string) (adapters.GeocodeResult,error) {
 	if matrix==nil{return adapters.GeocodeResult{},marketconfig.ErrUnknownMarket}
 	if geocoder==nil || strings.TrimSpace(geocoder.AdapterID())=="" {return adapters.GeocodeResult{},adapters.ErrGeocoderUnavailable}
@@ -96,10 +108,7 @@ func (s *Store) CreateSavedAddress(ctx context.Context, actor Actor, registry *m
 	if err:=validateSavedAddress(input);err!=nil{return SavedAddress{},err}
 	if err:=validateGeocodeResult(geocoded);err!=nil{return SavedAddress{},err}
 	id,err:=newID();if err!=nil{return SavedAddress{},err}
-	formatted:=strings.Join([]string{input.AddressLine1,input.Locality,input.Region,input.PostalCode,input.CountryCode},", ")
-	var latitude,longitude any
-	var provider,version string
-	if geocoded!=nil {formatted=geocoded.FormattedAddress;latitude,longitude=geocoded.Latitude,geocoded.Longitude;provider,version=geocoded.Provider,geocoded.ProviderVersion}
+	formatted, latitude, longitude, provider, version := savedAddressGeocodeFields(input, geocoded)
 	var out SavedAddress
 	err=s.DB.QueryRow(ctx,`
 		INSERT INTO customer_addresses(id,identity_id,tenant_id,market_code,locale,label,address_line1,address_line2,locality,region,postal_code,country_code,formatted_address,latitude,longitude,geocoder,geocoder_version)
@@ -134,9 +143,7 @@ func (s *Store) UpdateSavedAddress(ctx context.Context, actor Actor, registry *m
 	if err:=validateAddressScope(registry,marketID,locale);err!=nil{return SavedAddress{},err}
 	if err:=validateSavedAddress(input);err!=nil{return SavedAddress{},err}
 	if err:=validateGeocodeResult(geocoded);err!=nil{return SavedAddress{},err}
-	formatted:=strings.Join([]string{input.AddressLine1,input.Locality,input.Region,input.PostalCode,input.CountryCode},", ")
-	var latitude,longitude,provider,version any
-	if geocoded!=nil {formatted=geocoded.FormattedAddress;latitude=geocoded.Latitude;longitude=geocoded.Longitude;provider=geocoded.Provider;version=geocoded.ProviderVersion}
+	formatted, latitude, longitude, provider, version := savedAddressGeocodeFields(input, geocoded)
 	var out SavedAddress
 	err:=s.DB.QueryRow(ctx,`
 		UPDATE customer_addresses SET label=$6,address_line1=$7,address_line2=$8,locality=$9,region=$10,postal_code=$11,country_code=$12,
