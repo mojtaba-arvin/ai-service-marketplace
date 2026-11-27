@@ -65,6 +65,13 @@ jobs:
               echo "The branch-naming policy bootstrap may change only this guard under protected paths."
               exit 1
             fi
+          elif [[ "$HEAD_REF" == "docs/issue-279-maintainer-led-acceptance" ]]; then
+            protected_changes="$(printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)' | grep -vx '.github/workflows/work-item-guard.yml' || true)"
+            if [[ -n "$protected_changes" ]]; then
+              printf '%s\n' "$protected_changes"
+              echo "The maintainer-acceptance policy update may change only this guard under protected paths."
+              exit 1
+            fi
           elif printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)'; then
             echo "Implementation branches may not modify protected policy or spec-test paths."
             exit 1
