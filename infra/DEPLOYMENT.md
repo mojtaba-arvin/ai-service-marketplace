@@ -63,7 +63,7 @@ Example explicit policy update (use an adopter-approved timestamp; no platform d
 PATCH /v1/operator/incidents/{report_id}/evidence/{evidence_id}/lifecycle
 Content-Type: application/json
 
-{"retention_expires_at":"2030-01-01T00:00:00Z","legal_hold":true,"reason":"Adopter-approved preservation instruction"}
+{"retention_expires_at":"<adopter-approved RFC3339 timestamp>","legal_hold":true,"reason":"Adopter-approved preservation instruction"}
 ```
 
 Send `retention_expires_at: null` to explicitly clear an expiry. No retention default is inferred. The current implementation does not automatically delete bytes, does not purge backups, and does not provide a retryable deletion worker; expired evidence is denied retrieval unless held, while the encrypted object remains stored. Until an adopter-approved deletion and backup policy is implemented and operationally verified, preserve evidence and backups according to the adopter's approved policy.
