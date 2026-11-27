@@ -49,7 +49,11 @@ func Geocode(ctx context.Context, runner Runner, provider Geocoder, request Geoc
 	return Do(runner, ctx, request.IdempotencyKey, func(ctx context.Context, key string) (GeocodeResult, error) {
 		request.IdempotencyKey = key
 		result, err := provider.Geocode(ctx, request)
-		if err != nil { return GeocodeResult{}, err }
+		if err != nil {
+			// Provider errors may contain the submitted address or other private
+			// request data. Return only a stable, provider-neutral failure.
+			return GeocodeResult{}, ErrGeocoderUnavailable
+		}
 		if strings.TrimSpace(result.FormattedAddress) == "" || result.Latitude < -90 || result.Latitude > 90 ||
 			result.Longitude < -180 || result.Longitude > 180 || math.IsNaN(result.Latitude) || math.IsNaN(result.Longitude) ||
 			math.IsInf(result.Latitude, 0) || math.IsInf(result.Longitude, 0) || result.Provider == "" || result.ProviderVersion == "" {
