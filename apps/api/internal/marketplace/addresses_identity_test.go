@@ -100,7 +100,7 @@ func TestResolveExternalIdentityConsumesLoginNonceOnlyAfterFindingLink(t *testin
 	}
 	matrix, err := marketconfig.NewMatrix(registry, []marketconfig.AdapterConfig{{
 		MarketID: "OM", Locale: "en-US", PolicyVersion: "identity-test-v1",
-		Adapter: "identity.google", Capabilities: []string{"login"},
+		Adapter: "identity.google", Capabilities: []string{"login", "link"},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -155,5 +155,43 @@ func TestResolveExternalIdentityConsumesLoginNonceOnlyAfterFindingLink(t *testin
 	}
 	if !consumed {
 		t.Fatal("login nonce was not consumed after resolving the existing provider link")
+	}
+
+	// Linking requires the already-authenticated identity and the same provider
+	// subject can never be claimed by a second phone identity.
+	linkAssertion := adapters.VerifiedExternalIdentity{
+		Provider: adapters.ProviderGoogle, Subject: "unique-provider-subject",
+		Nonce: "identity-one-link-nonce", IssuedAt: now.Add(-time.Minute), ExpiresAt: now.Add(time.Minute),
+	}
+	linkDigest := sha256.Sum256([]byte(linkAssertion.Nonce))
+	if _, err = pool.Exec(ctx, `INSERT INTO external_identity_link_nonces(identity_id,provider,nonce_hash,expires_at) VALUES('identity-1','google',$1,$2)`, linkDigest[:], linkAssertion.ExpiresAt); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.LinkExternalIdentity(ctx, Actor{}, matrix, "OM", "en-US", staticExternalIdentityVerifier{identity: linkAssertion}, PostgresIdentityNonceStore{}, "opaque-assertion"); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("linking without an authenticated actor was not denied: %v", err)
+	}
+	actorOne := Actor{SubjectID: "identity-1", TenantID: "tenant-1", Role: RoleCustomer}
+	if err = store.LinkExternalIdentity(ctx, actorOne, matrix, "OM", "en-US", staticExternalIdentityVerifier{identity: linkAssertion}, PostgresIdentityNonceStore{}, "opaque-assertion"); err != nil {
+		t.Fatalf("authenticated identity could not link provider subject: %v", err)
+	}
+
+	if _, err = pool.Exec(ctx, `INSERT INTO phone_identities(id,phone_e164) VALUES('identity-2','+96891111111')`); err != nil {
+		t.Fatal(err)
+	}
+	secondLink := linkAssertion
+	secondLink.Nonce = "identity-two-link-nonce"
+	secondDigest := sha256.Sum256([]byte(secondLink.Nonce))
+	if _, err = pool.Exec(ctx, `INSERT INTO external_identity_link_nonces(identity_id,provider,nonce_hash,expires_at) VALUES('identity-2','google',$1,$2)`, secondDigest[:], secondLink.ExpiresAt); err != nil {
+		t.Fatal(err)
+	}
+	actorTwo := Actor{SubjectID: "identity-2", TenantID: "tenant-2", Role: RoleCustomer}
+	if err = store.LinkExternalIdentity(ctx, actorTwo, matrix, "OM", "en-US", staticExternalIdentityVerifier{identity: secondLink}, PostgresIdentityNonceStore{}, "opaque-assertion"); !errors.Is(err, ErrExternalIdentityLinkedElsewhere) {
+		t.Fatalf("provider subject was linked to a second identity: %v", err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT consumed_at IS NOT NULL FROM external_identity_link_nonces WHERE nonce_hash=$1`, secondDigest[:]).Scan(&consumed); err != nil {
+		t.Fatal(err)
+	}
+	if !consumed {
+		t.Fatal("rejected provider-subject takeover did not consume its one-time link nonce")
 	}
 }
