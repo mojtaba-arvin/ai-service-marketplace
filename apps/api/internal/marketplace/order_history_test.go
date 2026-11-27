@@ -114,6 +114,10 @@ func TestNormalizeOrderHistoryEventCompatibility(t *testing.T) {
  original:=string(legacy.Payload)
  if err:=normalizeOrderHistoryEvent(&legacy,"order-1","tenant-1");err!=nil { t.Fatal(err) }
  if string(legacy.Payload)!=original || len(legacy.DomainEvent)!=0 { t.Fatalf("legacy payload changed: %#v",legacy) }
+legacyVersioned:=OrderHistoryEvent{Type:"order.state_changed",Payload:json.RawMessage(`{"version":7,"data":{"legacy_marker":true}}`)}
+	legacyVersionedOriginal:=string(legacyVersioned.Payload)
+	if err:=normalizeOrderHistoryEvent(&legacyVersioned,"order-1","tenant-1");err!=nil { t.Fatalf("legacy versioned data was rejected: %v",err) }
+	if string(legacyVersioned.Payload)!=legacyVersionedOriginal || len(legacyVersioned.DomainEvent)!=0 { t.Fatalf("legacy versioned payload was reinterpreted: %#v",legacyVersioned) }
  domain:=outbox.DomainEvent{ID:"evt-1",Type:"order.created",Version:1,OccurredAt:time.Date(2026,11,22,12,0,0,0,time.UTC),TenantID:"tenant-1",Aggregate:outbox.EventAggregate{Type:"order",ID:"order-1"},Data:json.RawMessage(`{"order_id":"order-1","status":"requested"}`)}
  encoded,err:=json.Marshal(domain);if err!=nil { t.Fatal(err) }
  canonical:=OrderHistoryEvent{Type:"order.created",Payload:encoded}
@@ -127,4 +131,18 @@ func TestNormalizeOrderHistoryEventCompatibility(t *testing.T) {
  if err=normalizeOrderHistoryEvent(&wrongAggregate,"order-1","tenant-1");!errors.Is(err,outbox.ErrInvalidPolicy) { t.Fatalf("timeline envelope for another aggregate must fail closed: %v",err) }
  wrongTenant:=OrderHistoryEvent{Type:"order.created",Payload:json.RawMessage(`{"id":"evt-4","type":"order.created","version":1,"occurred_at":"2026-11-22T12:00:00Z","tenant_id":"another-tenant","aggregate":{"type":"order","id":"order-1"},"data":{"order_id":"order-1"}}`)}
  if err=normalizeOrderHistoryEvent(&wrongTenant,"order-1","tenant-1");!errors.Is(err,outbox.ErrInvalidPolicy) { t.Fatalf("timeline envelope for another tenant must fail closed: %v",err) }
+	unsupportedVersion:=domain
+	unsupportedVersion.Version=2
+	unsupportedPayload,err:=json.Marshal(unsupportedVersion)
+	if err!=nil { t.Fatal(err) }
+	if err=normalizeOrderHistoryEvent(&OrderHistoryEvent{Type:"order.created",Payload:unsupportedPayload},"order-1","tenant-1");!errors.Is(err,outbox.ErrInvalidPolicy) {
+		t.Fatalf("unsupported canonical version must fail closed: %v",err)
+	}
+	wrongAggregateType:=domain
+	wrongAggregateType.Aggregate.Type="booking"
+	wrongTypePayload,err:=json.Marshal(wrongAggregateType)
+	if err!=nil { t.Fatal(err) }
+	if err=normalizeOrderHistoryEvent(&OrderHistoryEvent{Type:"order.created",Payload:wrongTypePayload},"order-1","tenant-1");!errors.Is(err,outbox.ErrInvalidPolicy) {
+		t.Fatalf("wrong aggregate type must fail closed: %v",err)
+	}
 }
