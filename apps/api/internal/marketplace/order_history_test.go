@@ -121,4 +121,8 @@ func TestNormalizeOrderHistoryEventCompatibility(t *testing.T) {
  if string(canonical.Payload)!=string(domain.Data)||string(canonical.DomainEvent)!=string(encoded) { t.Fatalf("canonical event not normalized compatibly: %#v",canonical) }
  malformed:=OrderHistoryEvent{Type:"order.created",Payload:json.RawMessage(`{"version":1,"tenant_id":"tenant-1","data":{}}`)}
  if err=normalizeOrderHistoryEvent(&malformed,"order-1");!errors.Is(err,outbox.ErrInvalidPolicy) { t.Fatalf("malformed canonical envelope must fail closed: %v",err) }
+ missingVersion:=OrderHistoryEvent{Type:"order.created",Payload:json.RawMessage(`{"id":"evt-2","type":"order.created","occurred_at":"2026-11-22T12:00:00Z","tenant_id":"tenant-1","aggregate":{"type":"order","id":"order-1"},"data":{"order_id":"order-1"}}`)}
+ if err=normalizeOrderHistoryEvent(&missingVersion,"order-1");!errors.Is(err,outbox.ErrInvalidPolicy) { t.Fatalf("canonical envelope missing version must fail closed: %v",err) }
+ wrongAggregate:=OrderHistoryEvent{Type:"order.created",Payload:json.RawMessage(`{"id":"evt-3","type":"order.created","version":1,"occurred_at":"2026-11-22T12:00:00Z","tenant_id":"tenant-1","aggregate":{"type":"order","id":"another-order"},"data":{"order_id":"another-order"}}`)}
+ if err=normalizeOrderHistoryEvent(&wrongAggregate,"order-1");!errors.Is(err,outbox.ErrInvalidPolicy) { t.Fatalf("timeline envelope for another aggregate must fail closed: %v",err) }
 }
