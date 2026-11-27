@@ -16,14 +16,14 @@ MAINTAINER_MARKER = "<!-- maintainer-directed-ai-work -->"
 APPROVED_AUTOMATION_LOGINS = {"github-actions[bot]", "dependabot[bot]"}
 BOT_MARKERS = (
     "[bot]", "ai agent", "ai-agent", "agent bot", "agent assistant",
-    "copilot", "claude", "cursor", "windsurf", "codex", "chatgpt", "gemini",
+    "copilot", "claude", "cursor", "windsurf", "codex", "chatgpt", "gemini", "openai", "gpt", "ai assistant", "assistant bot",
 )
 
 
 def is_bot_identity(name: str, email: str, login: str | None, account_type: str | None) -> bool:
     if account_type and account_type.lower() == "bot":
         return True
-    if login and (login.lower().endswith("[bot]") ):
+    if login and login.lower().endswith("[bot]"):
         return True
     identity = (name + " " + email + " " + (login or "")).lower()
     return any(marker in identity for marker in BOT_MARKERS)
