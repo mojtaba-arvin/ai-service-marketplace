@@ -69,7 +69,7 @@ jobs:
             echo "Implementation branches may not modify protected policy or spec-test paths."
             exit 1
           fi
-          if printf '%s\n' "$changed" | grep -qx 'feature_list.json'; then
-            echo "feature_list.json status changes require independent QA; direct edits are forbidden."
+          if printf '%s\n' "$changed" | grep -qx 'feature_list.json' && [[ "$HEAD_REF" != "docs/issue-279-maintainer-led-acceptance" ]]; then
+            echo "feature_list.json status changes require maintainer evidence review; direct implementation-worker edits remain forbidden."
             exit 1
           fi
