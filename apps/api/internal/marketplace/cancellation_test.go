@@ -76,7 +76,8 @@ func TestVersionedCancellationPolicyAndIdempotencyPostgres(t *testing.T) {
 		VALUES($1,$2,$3,$4,$5,'Asia/Muscat',$6)`,bookingID,provider.ID,bookingOrder.ID,*bookingStart,bookingStart.Add(time.Hour),professional.SubjectID);err!=nil {
 		t.Fatalf("create provider booking: %v",err)
 	}
-	if _,err=store.CancelOrder(ctx,customer,bookingOrder.ID,"cancel-booking-key","Provider booking cancellation");err!=nil {
+	bookingCancellation,err:=store.CancelOrder(ctx,customer,bookingOrder.ID,"cancel-booking-key","Provider booking cancellation")
+	if err!=nil {
 		t.Fatalf("cancel order with provider booking: %v",err)
 	}
 	var bookingStatus string
@@ -97,6 +98,17 @@ func TestVersionedCancellationPolicyAndIdempotencyPostgres(t *testing.T) {
 	if err=json.Unmarshal(bookingEvent.Data,&bookingData);err!=nil { t.Fatalf("decode provider booking business data: %v",err) }
 	if bookingData["order_id"]!=bookingOrder.ID || bookingData["cancellation_id"]=="" || bookingData["status"]!="cancelled" {
 		t.Fatalf("provider booking event must retain legacy business fields: %#v",bookingData)
+	}
+	bookingReplay,err:=store.CancelOrder(ctx,customer,bookingOrder.ID,"cancel-booking-key","Provider booking cancellation")
+	if err!=nil || bookingReplay.ID!=bookingCancellation.ID {
+		t.Fatalf("provider-booking cancellation replay must return the original outcome: %#v %v",bookingReplay,err)
+	}
+	var bookingEventCount int
+	if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE aggregate_type='order' AND aggregate_id=$1 AND event_type='provider.booking_cancelled'`,bookingOrder.ID).Scan(&bookingEventCount);err!=nil {
+		t.Fatal(err)
+	}
+	if bookingEventCount!=1 {
+		t.Fatalf("idempotent provider-booking cancellation must append exactly one event, got %d",bookingEventCount)
 	}
 	earlyOrder:=createOrder("cancel-early-"+fmt.Sprint(time.Now().UnixNano()),time.Now().UTC().Add(2*time.Hour))
 	cancelled,err:=store.CancelOrder(ctx,customer,earlyOrder.ID,"cancel-key-early","Customer changed plans")
