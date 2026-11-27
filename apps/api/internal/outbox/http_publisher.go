@@ -28,13 +28,19 @@ func canonicalDomainEvent(event Event) (*DomainEvent, error) {
  if err := json.Unmarshal(event.Payload, &fields); err != nil || fields == nil {
   return nil, nil
  }
- if _, versioned := fields["version"]; !versioned {
+ versioned := fields["version"] != nil
+ _, tenantScoped := fields["tenant_id"]
+ _, aggregate := fields["aggregate"]
+ _, occurredAt := fields["occurred_at"]
+ _, metadata := fields["metadata"]
+ _, correlation := fields["correlation_id"]
+ _, causation := fields["causation_id"]
+ // A legacy business object may contain an unrelated "version" field. Treat
+ // it as an envelope only when another canonical discriminator is present.
+ // Strong envelope fields also catch malformed envelopes that omit "version".
+ if !tenantScoped && !aggregate && !occurredAt && !metadata &&
+  !correlation && !causation && !(versioned && fields["data"] != nil) {
   return nil, nil
- }
- if _, tenantScoped := fields["tenant_id"]; !tenantScoped {
-  if _, aggregate := fields["aggregate"]; !aggregate {
-   if _, data := fields["data"]; !data { return nil, nil }
-  }
  }
  var domain DomainEvent
  if err := json.Unmarshal(event.Payload, &domain); err != nil || ValidateDomainEvent(domain) != nil ||
