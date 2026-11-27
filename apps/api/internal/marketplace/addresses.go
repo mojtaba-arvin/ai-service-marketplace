@@ -84,7 +84,14 @@ func validateGeocodeResult(result *adapters.GeocodeResult) error {
 }
 
 func savedAddressGeocodeFields(input SavedAddressInput, geocoded *adapters.GeocodeResult) (string, any, any, string, string) {
-	formatted := strings.Join([]string{input.AddressLine1,input.Locality,input.Region,input.PostalCode,input.CountryCode}, ", ")
+	parts := []string{input.AddressLine1, input.Locality, input.Region, input.PostalCode, input.CountryCode}
+	formattedParts := parts[:0]
+	for _, part := range parts {
+		if part != "" {
+			formattedParts = append(formattedParts, part)
+		}
+	}
+	formatted := strings.Join(formattedParts, ", ")
 	var latitude, longitude any
 	var provider, version string
 	if geocoded != nil {
