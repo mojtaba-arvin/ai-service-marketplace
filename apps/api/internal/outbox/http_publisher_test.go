@@ -3,11 +3,11 @@ package outbox
 import (
  "context"
  "encoding/json"
- "time"
  "errors"
  "net/http"
  "net/http/httptest"
  "testing"
+ "time"
 )
 
 func TestHTTPPublisherRequiresHTTPS(t *testing.T){
