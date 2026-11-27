@@ -5550,7 +5550,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 1
+            "const": 1
           },
           "occurred_at": {
             "type": "string",
