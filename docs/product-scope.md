@@ -118,4 +118,9 @@ AI outputs are untrusted proposals. Structured output is schema-validated, versi
 Every external integration has a documented interface, capability declaration, timeout/retry/idempotency semantics, deterministic local fake and contract tests. CI does not require external credentials. Market configuration selects adapters; it does not create country-specific code forks.
 
 ## Completion rule
-A capability is not complete because it appears here, has a PR or passes a unit test. Completion requires implementation, module contract, relevant migrations, positive/negative tests, risk-appropriate security/privacy review, exact-head CI and independent acceptance evidence in the feature inventory.
+A capability is not complete because it appears here, has a PR or passes a unit test. Completion requires implementation, module contract, relevant migrations, positive/negative tests, risk-appropriate security/privacy review, exact-head CI and maintainer acceptance evidence in the feature inventory.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

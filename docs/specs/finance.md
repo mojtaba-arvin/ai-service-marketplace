@@ -33,7 +33,7 @@ All real providers implement the provider-neutral contract through an adapter. P
 
 ## Commission, incentive and credit rules
 
-FIN-008 adds versioned market-scoped commission, reward, penalty, coupon and customer-credit rules. Each applied adjustment must be traceable to its rule version and represented by balanced immutable ledger postings or an explicit non-cash entitlement. Historical postings are reversed through compensating entries, never edited. The feature remains planned until implementation and independent Finance QA.
+FIN-008 adds versioned market-scoped commission, reward, penalty, coupon and customer-credit rules. Each applied adjustment must be traceable to its rule version and represented by balanced immutable ledger postings or an explicit non-cash entitlement. Historical postings are reversed through compensating entries, never edited. The feature remains planned until implementation and maintainer review of automated finance evidence.
 
 ## Release gates and open gaps
 
@@ -41,3 +41,8 @@ FIN-008 adds versioned market-scoped commission, reward, penalty, coupon and cus
 - Add independent tests for concurrent same-key operation creation, duplicate/out-of-order webhooks, unknown-outcome recovery and concurrent journal reversal.
 - Define accounting policy, charge/refund lifecycle and reconciliation ownership before any real-money workflow.
 - Production enablement requires explicit provider/security/legal review and human approval; a market configuration entry is not authorization.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

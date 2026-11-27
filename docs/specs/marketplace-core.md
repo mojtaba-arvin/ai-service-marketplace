@@ -1,7 +1,7 @@
 # M2–M5 — Catalog/Pricing, Customer Experience, Professional Workspace and Matching Specification
 
 **Feature IDs:** CAT-001–CAT-006, PRICE-001–PRICE-004, ORDER-001–ORDER-007, DISP-001–DISP-006, PRO-001–PRO-003, CLIENT-001–CLIENT-002  
-**Status:** repository contains foundational slices; full module scope and independent acceptance remain pending.
+**Status:** repository contains foundational slices; full module scope and maintainer acceptance remain pending.
 
 ## Ownership and boundaries
 
@@ -32,7 +32,7 @@ A submitted report is created with an append-only `submitted` audit event in the
 
 The reviewer surface exposes `GET /v1/operator/incidents`, `GET /v1/operator/incidents/{report_id}` and `POST /v1/operator/incidents/{report_id}/transition`. Access requires an active same-tenant operator membership and an explicit `incident:review` grant. Operator membership or the support role alone is insufficient. Assignment targets must be active same-tenant operators with the same explicit grant. Each assignment, severity change or status transition requires a reason and an append-only audit event inserted in the same transaction before the report update; the database trigger rejects unmatched updates. Status transitions are forward-only: `submitted → triaged → investigating → resolved → closed`. Closed reports cannot be changed or reopened. Severity remains a human triage hint and causes no automatic order, payment, provider or emergency action.
 
-Evidence bytes and public URLs are not accepted or stored. Opaque evidence references are visible only to authorized reporters/reviewers and are not download URLs. Private evidence storage/retrieval, access auditing, retention/legal-hold controls and independent acceptance remain separate gates. Every intake response includes the explicit notice that this service is not monitored as an emergency service and that immediate danger requires contacting local emergency services directly. The API contract is in `packages/contracts/openapi.v1.json`.
+Evidence bytes and public URLs are not accepted or stored. Opaque evidence references are visible only to authorized reporters/reviewers and are not download URLs. Private evidence storage/retrieval, access auditing, retention/legal-hold controls and maintainer acceptance remain separate gates. Every intake response includes the explicit notice that this service is not monitored as an emergency service and that immediate danger requires contacting local emergency services directly. The API contract is in `packages/contracts/openapi.v1.json`.
 
 
 ## Dynamic service questionnaires
@@ -41,7 +41,7 @@ The new `internal/serviceforms` package validates versioned, admin-defined quest
 
 Resource limits are explicit: 32 KiB schema definitions, 16 KiB answer payloads, nesting depth 8, 64 properties per object, 128 total fields, 100 array items and 32 enum values. Answers are type-checked and unknown object properties are rejected. Definition identity includes service code, version and locale.
 
-The validation boundary is implemented; migration 027 and draft/publish/read APIs provide the market/locale version lifecycle. Migration 028 and scheduled-order creation now validate customer answers against the active published schema and persist the exact form version plus canonical answer JSON in an immutable order snapshot. Customer web questionnaire rendering and structured submission are in PR #183; order-history presentation and independent acceptance remain open and must not be marked complete.
+The validation boundary is implemented; migration 027 and draft/publish/read APIs provide the market/locale version lifecycle. Migration 028 and scheduled-order creation now validate customer answers against the active published schema and persist the exact form version plus canonical answer JSON in an immutable order snapshot. Customer web questionnaire rendering and structured submission are in PR #183; order-history presentation and maintainer acceptance remain open and must not be marked complete.
 
 
 ### Service form version lifecycle and publication
@@ -50,7 +50,7 @@ Migration 027 adds market/locale-specific form versions keyed by menu, market, l
 
 The new authenticated operator endpoints create drafts and publish versions; the public catalog endpoint resolves the published form for a menu/market/locale without exposing operator actor identifiers. The validator from `internal/serviceforms` is used before persistence.
 
-The order API accepts an optional `answers` object. If a published form exists for the service, market and default locale, answers are mandatory and schema-validated before the order is inserted. The exact form version and canonical answers are written in the same transaction as the order; answer snapshots reject UPDATE, DELETE and TRUNCATE. Idempotent replay compares semantic JSON content and returns the original order without switching to a newer published form. Raw answers are deliberately excluded from outbox events. The backend implementation merged in PR #181 and customer web rendering/structured submission merged in PR #183. Order-history presentation and independent acceptance remain open.
+The order API accepts an optional `answers` object. If a published form exists for the service, market and default locale, answers are mandatory and schema-validated before the order is inserted. The exact form version and canonical answers are written in the same transaction as the order; answer snapshots reject UPDATE, DELETE and TRUNCATE. Idempotent replay compares semantic JSON content and returns the original order without switching to a newer published form. Raw answers are deliberately excluded from outbox events. The backend implementation merged in PR #181 and customer web rendering/structured submission merged in PR #183. Order-history presentation and maintainer acceptance remain open.
 
 ## Customer completion approval
 
@@ -94,4 +94,9 @@ Required negatives include cross-customer reads, cross-tenant operator reads, di
 
 ## Tenant ownership note
 
-Scheduled orders are being bound to `tenant_id` by migration `023_order_tenant_scope.sql` in the associated hardening PR. Legacy rows without an unambiguous membership remain unassigned and must not be guessed into a tenant. Do not describe tenant isolation as fully accepted until the migration and cross-tenant regression test pass in CI and independent QA.
+Scheduled orders are being bound to `tenant_id` by migration `023_order_tenant_scope.sql` in the associated hardening PR. Legacy rows without an unambiguous membership remain unassigned and must not be guessed into a tenant. Do not describe tenant isolation as fully accepted until the migration and cross-tenant regression test pass in CI and maintainer verification.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

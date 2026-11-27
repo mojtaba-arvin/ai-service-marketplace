@@ -144,3 +144,16 @@ Independent acceptance remains `0/93`. No feature pass flag is changed by these 
 - PR #223 implements the separate `incident:evidence:manage` grant and reasoned lifecycle API; pending exact-head CI and security review. It does not enable byte deletion.
 - TRUST-002 remains incomplete. ADMIN-001, Deployment/Core QA, Analytics/Support and Event Compatibility retain their existing operational/independent-acceptance gates. #110/#137 remain blocked on external consumer confirmation.
 - Independent acceptance remains `0/93`; no `passes: true` flags changed.
+
+
+## Latest delivery — 2026-11-28 (TRUST-002 evidence lifecycle)
+
+- PR #249 extends the merged private evidence boundary with a separately grantable, tenant-scoped `incident:evidence:manage` action and a reason-required lifecycle endpoint for explicit retention expiry and legal-hold changes.
+- Metadata changes and before/after lifecycle snapshots are committed with append-only audit events. Reviewer and Support grants do not confer lifecycle-management authority.
+- No retention duration is inferred. A null expiry is an explicit clear; no automatic deletion worker or backup purge is enabled by this change. Encrypted objects remain until a separately configured and verified adopter retention/deletion policy is implemented.
+- PostgreSQL integration coverage exercises manager authorization, reviewer/Support denial, cross-tenant denial, legal-hold override of retrieval expiry, explicit expiry clearing and audit snapshots.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

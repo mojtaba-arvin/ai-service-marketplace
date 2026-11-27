@@ -75,7 +75,7 @@ No association columns, historical backfill, financial read model or billing ope
 
 Invitation delivery is in-app only: no email/SMS, no invitation to identities that do not yet exist in the tenant, and no invitation expiry/re-send workflow. Pending-invitation pagination beyond the bounded first 100, order/ledger aggregation and consolidated billing remain deferred. No payment capture, money movement or production billing is introduced.
 
-Merged implementation and passing CI are not independent QA. The feature inventory remains `passes: false` until independent negative-path and acceptance evidence is recorded.
+Merged implementation and passing CI are not maintainer verification. The feature inventory remains `passes: false` until independent negative-path and acceptance evidence is recorded.
 
 ## AI intake and evaluation (M14)
 
@@ -110,7 +110,7 @@ This is an advisory backend boundary only. It does not persist a dispute, adjudi
 
 ## Explicitly deferred
 
-Do not mark GROW, AN, B2B or unimplemented ADMIN/MSG/PLAT features complete based on these foundations. Each requires a focused spec, data contract, authorization model, migration plan, offline tests and independent acceptance evidence.
+Do not mark GROW, AN, B2B or unimplemented ADMIN/MSG/PLAT features complete based on these foundations. Each requires a focused spec, data contract, authorization model, migration plan, offline tests and maintainer acceptance evidence.
 
 
 ## Additional full-product capabilities
@@ -120,3 +120,8 @@ Do not mark GROW, AN, B2B or unimplemented ADMIN/MSG/PLAT features complete base
 - **ADMIN-005 Operations console:** operators inspect order timelines and queues; manual transitions require permission, reason and configured step-up approval, then append immutable audit/domain events.
 - **ADMIN-006 Operational dashboards:** order, supply/demand and finance views consume canonical tenant/market-scoped projections. Every metric exposes source, denominator, time window, timezone, freshness and projection version; financial views reconcile to ledger references.
 - **PLAT-007 Consent/retention/secrets:** purpose-specific consent and revocation are enforced; retention is configured by the adopter's valid legal policy; secret injection/rotation is externalized and never logged.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

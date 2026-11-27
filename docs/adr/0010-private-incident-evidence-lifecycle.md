@@ -112,3 +112,8 @@ A separately deployable retention worker uses the existing private evidence adap
 - Deletion of adopter backups by the application.
 - Public or signed download URLs.
 - AI decisions about evidence retention, deletion or legal hold.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

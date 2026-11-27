@@ -56,10 +56,15 @@ Market configuration represents country, currency, tax, language/direction, loca
 
 ## Definition of product completeness
 
-Each capability requires a module specification and acceptance criteria; migrations/public contracts/authorization where applicable; success, failure, concurrency, retry and negative-path tests; fake adapters and contract tests; accessible/localized user workflows; observability, runbooks, privacy/security controls and deployment docs; and independent acceptance evidence before feature status is marked passing.
+Each capability requires a module specification and acceptance criteria; migrations/public contracts/authorization where applicable; success, failure, concurrency, retry and negative-path tests; fake adapters and contract tests; accessible/localized user workflows; observability, runbooks, privacy/security controls and deployment docs; and maintainer acceptance evidence before feature status is marked passing.
 
 Current implementation and gaps are tracked in [feature_list.json](../../feature_list.json), [module specifications](../specs/README.md), [GitHub Issues](https://github.com/mojtaba-arvin/ai-service-marketplace/issues) and [Development Progress](../progress.md). A roadmap stage or PR is not proof of completion.
 
 ## Non-goals
 
 The repository does not choose an adopter's commercial model, commission rates, launch country/date, legal position or vendor contract. These remain adopter decisions and market-specific configuration, not hard-coded assumptions.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.
