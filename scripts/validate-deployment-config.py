@@ -45,6 +45,8 @@ def validate(values):
     site = values.get("SITE_ADDRESS", "").strip()
     if site and ("://" in site or "/" in site or not re.fullmatch(r"(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}", site)):
         errors.append("SITE_ADDRESS must be a DNS hostname without a scheme or path")
+    if site.lower().endswith((".test", ".invalid", ".localhost")) or ".example." in site.lower():
+        errors.append("SITE_ADDRESS must not use a reserved example or test domain")
 
     otp = values.get("OTP_DELIVERY_URL", "").strip()
     if otp:
@@ -54,6 +56,10 @@ def validate(values):
         elif parsed.hostname.endswith((".example", ".test", ".invalid", ".localhost")):
             errors.append("OTP_DELIVERY_URL must identify a real provider endpoint")
 
+    for key in ("POSTGRES_PASSWORD", "OTP_DELIVERY_TOKEN"):
+        value = values.get(key, "")
+        if value and len(value) < 24:
+            errors.append(f"{key} must contain at least 24 characters")
     for key in ("OTP_PEPPER", "SESSION_PEPPER"):
         value = values.get(key, "")
         if value and len(value.encode("utf-8")) < 32:
@@ -100,11 +106,13 @@ def validate(values):
     clamd = values.get("EVIDENCE_CLAMD_ADDRESS", "")
     if clamd and (not re.fullmatch(r"[A-Za-z0-9.-]+:[0-9]{1,5}", clamd) or clamd.startswith(("localhost:", "127.0.0.1:", "0.0.0.0:"))):
         errors.append("EVIDENCE_CLAMD_ADDRESS must identify a private clamd host:port")
+    if clamd and clamd.rsplit(":", 1)[-1].isdigit() and not 1 <= int(clamd.rsplit(":", 1)[-1]) <= 65535:
+        errors.append("EVIDENCE_CLAMD_ADDRESS port must be between 1 and 65535")
     return errors
 
 def self_test():
     sample = {
-        "SITE_ADDRESS": "market.example.org", "POSTGRES_DB": "marketplace",
+        "SITE_ADDRESS": "market.demo.org", "POSTGRES_DB": "marketplace",
         "POSTGRES_USER": "marketplace", "POSTGRES_PASSWORD": "a-strong-password-with-sufficient-length",
         "DATABASE_URL": "postgres://marketplace:a-strong-password-with-sufficient-length@postgres:5432/marketplace?sslmode=disable",
         "OTP_DELIVERY_URL": "https://sms.vendor.org/v1/messages",
@@ -121,6 +129,8 @@ def self_test():
     assert any("DATABASE_URL" in e for e in validate({**sample, "DATABASE_URL": "postgres://user:pass@public.example.org/db"}))
     assert any("EVIDENCE_ACTIVE_KEY_ID" in e for e in validate({**sample, "EVIDENCE_ACTIVE_KEY_ID": "missing"}))
     assert any("placeholder" in e for e in validate({**sample, "OTP_DELIVERY_TOKEN": "replace-with-token"}))
+    assert any("SITE_ADDRESS" in e for e in validate({**sample, "SITE_ADDRESS": "market.example.org"}))
+    assert any("POSTGRES_PASSWORD" in e for e in validate({**sample, "POSTGRES_PASSWORD": "short"}))
     print("Production deployment configuration validator self-tests passed")
 
 def main():
