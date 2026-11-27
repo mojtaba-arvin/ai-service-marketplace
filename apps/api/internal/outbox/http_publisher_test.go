@@ -70,9 +70,19 @@ func TestCanonicalDomainEventRejectsMalformedEnvelopes(t *testing.T) {
  wrongAggregate.Aggregate.ID="order-2"
  wrongAggregatePayload,err:=json.Marshal(wrongAggregate)
  if err!=nil { t.Fatal(err) }
+unsupportedVersion:=valid
+ unsupportedVersion.Version=2
+ unsupportedPayload,err:=json.Marshal(unsupportedVersion)
+ if err!=nil { t.Fatal(err) }
+ wrongAggregateType:=valid
+ wrongAggregateType.Aggregate.Type="booking"
+ wrongAggregateTypePayload,err:=json.Marshal(wrongAggregateType)
+ if err!=nil { t.Fatal(err) }
  for name,payload:=range map[string]json.RawMessage{
   "missing version":missingVersion,
   "aggregate mismatch":wrongAggregatePayload,
+  "aggregate type mismatch":wrongAggregateTypePayload,
+  "unsupported schema version":unsupportedPayload,
   "missing data":json.RawMessage(`{"id":"evt-1","type":"order.created","version":1,"occurred_at":"2026-11-22T12:00:00Z","tenant_id":"tenant-1","aggregate":{"type":"order","id":"order-1"}}`),
  } {
   t.Run(name,func(t *testing.T){
@@ -81,7 +91,7 @@ func TestCanonicalDomainEventRejectsMalformedEnvelopes(t *testing.T) {
   })
  }
  // A legacy payload with an unrelated version field remains legacy.
- legacy,err:=canonicalDomainEvent(Event{ID:732,AggregateType:"order",AggregateID:"order-legacy",EventType:"order.created",Payload:json.RawMessage(`{"order_id":"order-legacy","version":7}`)})
+ legacy,err:=canonicalDomainEvent(Event{ID:732,AggregateType:"order",AggregateID:"order-legacy",EventType:"order.created",Payload:json.RawMessage(`{"order_id":"order-legacy","version":7,"data":{"legacy_marker":true}}`)})
  if err!=nil || legacy!=nil { t.Fatalf("legacy version field was reinterpreted: domain=%#v err=%v",legacy,err) }
 }
 
