@@ -48,7 +48,15 @@ Repository-local configuration, environment variables, API-created commits, and 
 - For PRs containing the `maintainer-directed-ai-work` marker, requires every commit author to be exactly `Mojtaba Arvin <m.arvin@live.com>`.
 - Preserves other human authors without relabeling them.
 
-The `Commit identity` workflow runs this check using read-only GitHub permissions. A failed check blocks merging only when repository rules require this check; configure branch protection/rulesets to require it where repository governance permits. Never bypass existing required checks or reviews.
+This repository's AGENTS.md prohibits implementers from modifying `.github/**`, so this PR deliberately does not install a GitHub Actions workflow. Until the repository owner authorizes that governance exception, run the validator manually before requesting review or merge:
+
+```sh
+GITHUB_TOKEN="$GITHUB_TOKEN" python3 scripts/check_commit_identity.py \\
+  --repository mojtaba-arvin/ai-service-marketplace \\
+  --pr-number <PR_NUMBER>
+```
+
+This manual check is not a server-enforced merge gate. Do not mark the Issue complete or merge until the check has been run and its result recorded. Never bypass existing required checks or reviews.
 
 ## Important limitation
 
