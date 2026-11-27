@@ -523,7 +523,7 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	if reportID == "" || len(reportID) > 200 {
-		writeError(w, http.StatusNotFound, "incident report not found")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, "", principal.IdentityID, "upload", "not_found", http.StatusNotFound)
 		return
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, h.Evidence.MaxBytes+1))

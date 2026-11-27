@@ -371,6 +371,15 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	if got := download.Header().Get("Content-Disposition"); got != "attachment; filename=\"incident-evidence\"" {
 		t.Fatalf("client filename must never be reflected in download headers, got %q", got)
 	}
+	if denied := call(http.MethodGet, "/v1/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, outsiderToken, nil); denied.Code != http.StatusForbidden {
+		t.Fatalf("unrelated reporter download must be denied, got %d: %s", denied.Code, denied.Body.String())
+	}
+	if denied := call(http.MethodGet, "/v1/operator/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, supportToken, nil); denied.Code != http.StatusForbidden {
+		t.Fatalf("support role download must be denied, got %d: %s", denied.Code, denied.Body.String())
+	}
+	if hidden := call(http.MethodGet, "/v1/operator/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, otherReviewerToken, nil); hidden.Code != http.StatusNotFound {
+		t.Fatalf("cross-tenant reviewer download must not disclose evidence, got %d: %s", hidden.Code, hidden.Body.String())
+	}
 
 	reviewerList := call(http.MethodGet, "/v1/operator/incidents/"+report.ID+"/evidence", reviewerToken, nil)
 	if reviewerList.Code != http.StatusOK {
@@ -512,7 +521,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	`, otherReport.ID, tenantID).Scan(&crossTenantDenied); err != nil {
 		t.Fatal(err)
 	}
-	if successUploads != 1 || successDownloads != 4 || deniedUploads != 7 || deniedDownloads != 4 || deniedLists != 4 || crossTenantDenied != 1 {
+	if successUploads != 1 || successDownloads != 4 || deniedUploads != 7 || deniedDownloads != 6 || deniedLists != 4 || crossTenantDenied != 1 {
 		t.Fatalf("unexpected evidence audit totals: uploads=%d downloads=%d denied_uploads=%d denied_downloads=%d denied_lists=%d cross_tenant_denied_lists=%d",
 			successUploads, successDownloads, deniedUploads, deniedDownloads, deniedLists, crossTenantDenied)
 	}
@@ -536,5 +545,23 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	}
 	if storageFailures != 1 || missingObjects != 1 {
 		t.Fatalf("missing audit classifications: storage failures=%d missing objects=%d", storageFailures, missingObjects)
+	}
+
+	var immutableAuditID int64
+	if err = pool.QueryRow(ctx, "SELECT id FROM incident_evidence_access_events WHERE report_id=$1 AND tenant_id=$2 AND action='legal_hold_set' AND outcome='success' ORDER BY id DESC LIMIT 1", report.ID, tenantID).Scan(&immutableAuditID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, "UPDATE incident_evidence_access_events SET reason='rewritten' WHERE id=$1", immutableAuditID); err == nil {
+		t.Fatal("evidence access audit rows must reject updates")
+	}
+	if _, err = pool.Exec(ctx, "DELETE FROM incident_evidence_access_events WHERE id=$1", immutableAuditID); err == nil {
+		t.Fatal("evidence access audit rows must reject deletion")
+	}
+	var leakedAuditValues int
+	if err = pool.QueryRow(ctx, "SELECT count(*) FROM incident_evidence_access_events WHERE report_id=$1 AND tenant_id=$2 AND (reason LIKE '%private incident evidence%' OR reason LIKE '%Bearer %' OR reason LIKE '%https://%')", report.ID, tenantID).Scan(&leakedAuditValues); err != nil {
+		t.Fatal(err)
+	}
+	if leakedAuditValues != 0 {
+		t.Fatalf("audit rows must not contain evidence bytes, credentials or URLs; found %d", leakedAuditValues)
 	}
 }
