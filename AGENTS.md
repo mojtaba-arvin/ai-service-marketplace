@@ -47,6 +47,10 @@ Build a production-grade, open-source, multi-market home-services marketplace. R
 - Canonical branch format: `<type>/issue-<number>-<slug>`.
 - Allowed type prefixes: `feature`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, `chore`, `perf`, `revert`.
 - The slug must be lowercase kebab-case, non-empty, and describe the Issue; do not include a contributor, agent, or automation identity.
+- Before implementation starts, the Issue body must reserve the exact values `Branch: <type>/issue-<number>-<slug>` and `Base: main`. The Branch value must match the Issue number and the worker branch exactly.
+- The supervisor or Issue creator owns branch naming. Workers must use the exact Branch value in the Issue; they must not invent, rename, or substitute a branch.
+- Every implementation Issue owns exactly one worker branch, and every worker branch belongs to exactly one implementation Issue. Parent/epic Issues are tracking-only and must delegate implementation to child task Issues, each with its own Branch/Base pair.
+- If Branch or Base is missing, the branch already exists for another Issue, or the branch does not match the Issue contract, stop before writing and request supervisor reconciliation.
 - Examples: `feature/issue-123-new-login`, `fix/issue-124-token-refresh`, `docs/issue-125-api-authentication`.
 - Do not create new `work/*` or `agent/*` branches. Those prefixes are legacy-only and may remain on pre-existing branches/PRs during transition; do not rename them as part of unrelated work.
 - Use Conventional Commits and link each PR to its exact Issue with `Closes #<number>` or `Refs #<number>`.

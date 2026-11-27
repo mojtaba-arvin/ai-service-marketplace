@@ -6,8 +6,16 @@ Thank you for helping improve this open-source marketplace platform. Contributio
 
 1. Read [AGENTS.md](AGENTS.md), the relevant [module specification](docs/specs/README.md), applicable [ADRs](docs/adr/), and the linked issue.
 2. For non-trivial work, open or select a focused issue with acceptance criteria before implementation.
-3. Work on a short-lived issue-based branch using `work/<issue>-<slug>`, where the number is the linked GitHub Issue and the slug describes the change.
+3. Before implementation, ensure the Issue body reserves exact `Branch` and `Base` fields. The branch must be `<type>/issue-<number>-<slug>` and the Base must be `main`; use the exact branch value from the Issue rather than choosing a name.
 4. Keep changes focused. Avoid unrelated formatting, dependency churn and premature service/infrastructure extraction.
+
+## Issue and branch contract
+
+- Use one implementation Issue per worker branch; never share a branch between Issues or assign multiple worker branches to one task Issue.
+- Allowed branch prefixes are `feature`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, `chore`, `perf`, and `revert`.
+- The Issue body must contain `Branch: <type>/issue-<number>-<slug>` and `Base: main` before a worker starts.
+- Parent/epic Issues are tracking-only. Create child task Issues with their own exact Branch/Base pair for implementation.
+- If the branch contract is missing, conflicts with an existing branch reservation, or does not match the Issue number, stop and ask the supervisor to reconcile it. Do not create a substitute branch.
 
 ## Development and verification
 
