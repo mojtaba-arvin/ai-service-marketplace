@@ -47,7 +47,7 @@ func authorizeOrderHistory(actor Actor) error {
 // normalizeOrderHistoryEvent preserves the historical business-data payload
 // while exposing the canonical envelope separately. Legacy payloads remain
 // unchanged; malformed envelope-shaped payloads fail closed.
-func normalizeOrderHistoryEvent(event *OrderHistoryEvent, orderID string) error {
+func normalizeOrderHistoryEvent(event *OrderHistoryEvent, orderID, tenantID string) error {
  var fields map[string]json.RawMessage
  if err:=json.Unmarshal(event.Payload,&fields); err!=nil || fields==nil { return nil }
  versioned := fields["version"] != nil
@@ -66,7 +66,7 @@ func normalizeOrderHistoryEvent(event *OrderHistoryEvent, orderID string) error 
  }
  var domain outbox.DomainEvent
  if err:=json.Unmarshal(event.Payload,&domain); err!=nil || outbox.ValidateDomainEvent(domain)!=nil ||
-  domain.Type!=event.Type || domain.Aggregate.Type!="order" || domain.Aggregate.ID!=orderID {
+  domain.Type!=event.Type || domain.Aggregate.Type!="order" || domain.Aggregate.ID!=orderID || domain.TenantID!=tenantID {
   return outbox.ErrInvalidPolicy
  }
  event.DomainEvent=append(json.RawMessage(nil),event.Payload...)
@@ -74,7 +74,7 @@ func normalizeOrderHistoryEvent(event *OrderHistoryEvent, orderID string) error 
  return nil
 }
 
-func loadOrderHistoryEvents(ctx context.Context,tx pgx.Tx,orderID string) ([]OrderHistoryEvent,error) {
+func loadOrderHistoryEvents(ctx context.Context,tx pgx.Tx,orderID,tenantID string) ([]OrderHistoryEvent,error) {
 	rows,err:=tx.Query(ctx,`
 		SELECT id,event_type,payload,created_at FROM outbox_events
 		WHERE aggregate_type='order' AND aggregate_id=$1 ORDER BY id
@@ -85,7 +85,7 @@ func loadOrderHistoryEvents(ctx context.Context,tx pgx.Tx,orderID string) ([]Ord
 	for rows.Next() {
 		var event OrderHistoryEvent
 		if err=rows.Scan(&event.ID,&event.Type,&event.Payload,&event.CreatedAt); err!=nil { return nil,err }
-		if err=normalizeOrderHistoryEvent(&event,orderID); err!=nil { return nil,err }
+		if err=normalizeOrderHistoryEvent(&event,orderID,tenantID); err!=nil { return nil,err }
 		events=append(events,event)
 	}
 	if err=rows.Err(); err!=nil { return nil,err }
@@ -138,7 +138,7 @@ func (s *Store) ListOrderHistory(ctx context.Context,actor Actor,limit int,curso
 		page.NextCursor=&OrderHistoryCursor{CreatedAt:last.CreatedAt,OrderID:last.Order.ID}
 	}
 	for i:=range page.Items {
-		page.Items[i].Events,err=loadOrderHistoryEvents(ctx,tx,page.Items[i].Order.ID)
+		page.Items[i].Events,err=loadOrderHistoryEvents(ctx,tx,page.Items[i].Order.ID,actor.TenantID)
 		if err!=nil { return OrderHistoryPage{},err }
 		page.Items[i].CompletionApproval,err=loadOrderCompletionApproval(ctx,tx,page.Items[i].Order.ID)
 		if err!=nil { return OrderHistoryPage{},err }
@@ -158,7 +158,7 @@ func (s *Store) GetOrderTimeline(ctx context.Context,actor Actor,orderID string)
 	`,orderID,actor.SubjectID,actor.TenantID))
 	if errors.Is(err,pgx.ErrNoRows) { return OrderHistoryItem{},ErrOrderNotFound }
 	if err!=nil { return OrderHistoryItem{},err }
-	item.Events,err=loadOrderHistoryEvents(ctx,tx,orderID)
+	item.Events,err=loadOrderHistoryEvents(ctx,tx,orderID,actor.TenantID)
 	if err!=nil { return OrderHistoryItem{},err }
 	item.CompletionApproval,err=loadOrderCompletionApproval(ctx,tx,orderID)
 	if err!=nil { return OrderHistoryItem{},err }
