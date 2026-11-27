@@ -342,7 +342,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	storage.putErr = nil
 
 	upload := callWithHeader(http.MethodPost, "/v1/incidents/"+report.ID+"/evidence", customerToken, pdf,
-		"Content-Disposition", "attachment; filename=\\"../../../../etc/passwd\\"")
+		"Content-Disposition", "attachment; filename=\"../../../../etc/passwd\"")
 	if upload.Code != http.StatusCreated {
 		t.Fatalf("reporter upload: status=%d body=%s", upload.Code, upload.Body.String())
 	}
