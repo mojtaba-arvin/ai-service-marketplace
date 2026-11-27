@@ -387,7 +387,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	if denied := call(http.MethodGet, "/v1/operator/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, supportToken, nil); denied.Code != http.StatusForbidden {
 		t.Fatalf("support role download must be denied, got %d: %s", denied.Code, denied.Body.String())
 	}
-	if hidden := call(http.MethodGet, "/v1/operator/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, otherReviewerToken, nil); hidden.Code != http.StatusNotFound {
+	if hidden := call(http.MethodGet, "/v1/operator/incidents/"+report.ID+"/evidence/"+uploaded.EvidenceID, otherReviewerToken, nil); hidden.Code != http.StatusForbidden {
 		t.Fatalf("cross-tenant reviewer download must not disclose evidence, got %d: %s", hidden.Code, hidden.Body.String())
 	}
 
@@ -534,7 +534,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 	`, otherReport.ID, tenantID).Scan(&crossTenantDenied); err != nil {
 		t.Fatal(err)
 	}
-	if successUploads != 1 || successDownloads != 4 || deniedUploads != 7 || deniedDownloads != 5 || deniedLists != 4 || crossTenantDenied != 1 {
+	if successUploads != 1 || successDownloads != 4 || deniedUploads != 7 || deniedDownloads != 6 || deniedLists != 4 || crossTenantDenied != 1 {
 		t.Fatalf("unexpected evidence audit totals: uploads=%d downloads=%d denied_uploads=%d denied_downloads=%d denied_lists=%d cross_tenant_denied_lists=%d",
 			successUploads, successDownloads, deniedUploads, deniedDownloads, deniedLists, crossTenantDenied)
 	}
