@@ -51,7 +51,7 @@ Repository-local configuration, environment variables, API-created commits, and 
 This repository's AGENTS.md prohibits implementers from modifying `.github/**`, so this PR deliberately does not install a GitHub Actions workflow. Until the repository owner authorizes that governance exception, run the validator manually before requesting review or merge:
 
 ```sh
-GITHUB_TOKEN="$GITHUB_TOKEN" python3 scripts/check_commit_identity.py \\
+python3 scripts/check_commit_identity.py \
   --repository mojtaba-arvin/ai-service-marketplace \\
   --pr-number <PR_NUMBER>
 ```
