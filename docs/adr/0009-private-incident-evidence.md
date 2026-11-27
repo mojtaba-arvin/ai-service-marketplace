@@ -25,9 +25,14 @@ Incident intake (#211) and the dedicated same-tenant reviewer workflow (#215) pe
 
 - The first implementation is intentionally API-mediated and provider-neutral, suitable for the current single-host deployment without introducing a broker, cache or cloud SDK.
 - Deployment configuration must expose only the storage root, encryption key reference, upload limits, allowed media types, scanner endpoint/credential and explicit adopter retention policy. Secrets must remain outside version control.
-- Independent acceptance must exercise cross-tenant denial, unauthorized reviewer denial, scanner/storage/key failures, encrypted-at-rest inspection, access audit immutability, legal hold and restore.
-- TRUST-002 remains incomplete until implementation, exact-head checks and independent acceptance are recorded. This ADR is not evidence that storage exists.
+- maintainer acceptance must exercise cross-tenant denial, unauthorized reviewer denial, scanner/storage/key failures, encrypted-at-rest inspection, access audit immutability, legal hold and restore.
+- TRUST-002 remains incomplete until implementation, exact-head checks and maintainer acceptance are recorded. This ADR is not evidence that storage exists.
 
 ## Out of scope
 
 Emergency response, AI adjudication, automatic severity decisions, a universal retention duration, a default cloud vendor, public/presigned downloads and automatic deletion without adopter policy.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.
