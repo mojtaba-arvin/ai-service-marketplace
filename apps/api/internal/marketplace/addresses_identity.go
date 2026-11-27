@@ -132,12 +132,3 @@ func (s *Store) CreateIdentityNonce(ctx context.Context, identityID string, prov
 	if err!=nil{return "",fmt.Errorf("persist identity nonce: %w",err)}
 	return nonce,nil
 }
-
-// IssueSessionForExternalIdentity issues a normal opaque session only for an
-// already linked phone identity; it never creates or merges identities.
-func (s *Store) IssueSessionForExternalIdentity(ctx context.Context, identityID string, pepper []byte, accessTTL, refreshTTL time.Duration) (SessionTokens,error) {
-	if strings.TrimSpace(identityID)=="" {return SessionTokens{},ErrSessionInvalid}
-	var phone string
-	if err:=s.DB.QueryRow(ctx,`SELECT phone_e164 FROM phone_identities WHERE id=$1`,identityID).Scan(&phone);err!=nil{return SessionTokens{},ErrSessionInvalid}
-	return s.IssueSession(ctx,VerifiedIdentity{phone:phone},pepper,accessTTL,refreshTTL)
-}
