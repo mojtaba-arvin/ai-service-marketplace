@@ -90,6 +90,15 @@ func TestVersionedCancellationPolicyAndIdempotencyPostgres(t *testing.T) {
 	if err=outbox.ValidateDomainEvent(cancellationEvent); err!=nil || cancellationEvent.TenantID!=customer.TenantID || cancellationEvent.Aggregate.ID!=earlyOrder.ID {
 		t.Fatalf("cancellation event must be canonical and tenant-scoped: event=%+v err=%v",cancellationEvent,err)
 	}
+	var businessData map[string]any
+	if err=json.Unmarshal(cancellationEvent.Data,&businessData); err!=nil { t.Fatalf("decode cancellation business data: %v",err) }
+	if businessData["order_id"]!=earlyOrder.ID || businessData["from"]!="requested" ||
+		businessData["to"]!="cancelled" || businessData["cancellation_id"]!=cancelled.ID {
+		t.Fatalf("canonical envelope must retain the legacy cancellation business fields: %#v",businessData)
+	}
+	var cancellationEventCount int
+	if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE aggregate_type='order' AND aggregate_id=$1 AND event_type='order.cancelled'`,earlyOrder.ID).Scan(&cancellationEventCount); err!=nil { t.Fatal(err) }
+	if cancellationEventCount!=1 { t.Fatalf("idempotent cancellation must append exactly one event, got %d",cancellationEventCount) }
 
 	lateOrder:=createOrder("cancel-late-"+fmt.Sprint(time.Now().UnixNano()),time.Now().UTC().Add(45*time.Minute))
 	late,err:=store.CancelOrder(ctx,customer,lateOrder.ID,"cancel-key-late","Late cancellation")
