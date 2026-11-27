@@ -123,11 +123,11 @@ func EvaluateProductScope(dataset ProductScopeDataset, predictions map[string]Pr
 		}
 		recall := 1.0
 		if len(c.RequiredDetails) > 0 { recall = float64(matched)/float64(len(c.RequiredDetails)) }
-		forbidden := make(map[string]struct{}, len(c.ForbiddenActions))
-		for _, action := range c.ForbiddenActions { forbidden[action] = struct{}{} }
-		violations := make([]string, 0)
+		// Any action emitted by an AI capability is non-advisory. Treat every
+		// action token as a violation, not only the scenario's named examples.
+		violations := make([]string, 0, len(p.ProhibitedActions))
 		for _, action := range p.ProhibitedActions {
-			if _, ok := forbidden[action]; ok { violations = append(violations, action) }
+			if strings.TrimSpace(action) != "" { violations = append(violations, action) }
 		}
 		sort.Strings(violations)
 		report.ProhibitedActionCount += len(violations)
