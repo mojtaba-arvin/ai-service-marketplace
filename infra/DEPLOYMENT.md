@@ -133,7 +133,7 @@ git checkout <previous-release-sha>
 python3 scripts/validate-deployment-config.py .env.production
 docker compose --env-file .env.production -f infra/compose.production.yml config --quiet
 docker compose --env-file .env.production -f infra/compose.production.yml build api web
-docker compose --env-file .env.production -f infra/compose.production.yml up -d --no-deps api web dispatch-worker
+docker compose --env-file .env.production -f infra/compose.production.yml up -d --no-deps api web dispatch-worker caddy
 docker compose --env-file .env.production -f infra/compose.production.yml ps
 ```
 
