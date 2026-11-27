@@ -55,7 +55,8 @@ func (s Service) Suggest(ctx context.Context,req Request)(Suggestion,error){
  allowed:=make(map[string]struct{},len(evidence))
  for i:=range evidence{e:=&evidence[i];e.ID=strings.TrimSpace(e.ID);e.Source=strings.TrimSpace(e.Source);if !validMetadata(e.ID)||!validMetadata(e.Source)||len(e.Text)==0||len(e.Text)>4000{return Suggestion{},ErrInvalidRequest};if _,ok:=allowed[e.ID];ok{return Suggestion{},ErrInvalidRequest};allowed[e.ID]=struct{}{};e.Text,err=redactBounded(ctx,s.Redactor,e.Text,4000);if err!=nil{return Suggestion{},fmt.Errorf("redact retrieved evidence: %w",err)}}
  modelCtx,cancel:=context.WithTimeout(ctx,s.Timeout);defer cancel()
- output,err:=s.Model.Generate(modelCtx,ModelInput{Market:req.Market,Locale:req.Locale,ServiceCode:req.ServiceCode,Description:description,EquipmentContext:equipment,Evidence:evidence})
+ modelInput:=ModelInput{Market:req.Market,Locale:req.Locale,ServiceCode:req.ServiceCode,Description:description,EquipmentContext:equipment,Evidence:evidence}
+ output,err:=s.Model.Generate(modelCtx,modelInput)
  if err!=nil{return Suggestion{},fmt.Errorf("generate professional suggestion: %w",err)};if err=modelCtx.Err();err!=nil{return Suggestion{},err}
  if len(output.JSON)==0||len(output.JSON)>32*1024||!validMetadata(output.Name)||!validMetadata(output.Version){return Suggestion{},ErrInvalidSuggestion}
  decoder:=json.NewDecoder(bytes.NewReader(output.JSON));decoder.DisallowUnknownFields();var candidate modelSuggestion
