@@ -33,4 +33,4 @@ The API reads only the append-only `analytics_event_facts` projection. It does n
 
 ### Readiness interpretation
 
-`data_ready` describes ingestion lag at query time only. It does not certify event-time finality: late-arriving events may change historical cohorts, and a deterministic historical rebuild/cutover workflow is not yet implemented. Do not use this flag as a financial or contractual close signal.
+`data_ready` describes ingestion lag at query time only. Historical shadow-generation rebuild/cutover/rollback is implemented by PR #198, but production operation and worker handoff are not evidenced. The proposed 72-hour event-time watermark and period invalidation/replay policy are not implemented yet (#314); late arrivals may change historical cohorts. Do not use this flag as event-time finality or a financial/contractual close signal.
