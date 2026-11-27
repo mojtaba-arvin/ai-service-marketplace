@@ -83,3 +83,7 @@ The module-private code above does not complete the cross-module/application int
 - Verify all of the above through the required full integration workflow before describing IDENT-008/009 as integrated or accepted.
 
 The current `main` migration set ends at `035_private_incident_evidence.sql`; the current OpenAPI contract and `marketplace/http.go` do not register address-book or external-identity provider routes. These are explicit integration gaps, not documentation-only omissions.
+
+## Project acceptance policy
+
+No separate independent QA operator or external sign-off is required. The project maintainer reviews implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.
