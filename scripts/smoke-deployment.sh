@@ -13,44 +13,19 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 command -v "$CURL" >/dev/null
 
-echo "==> Checking deployed API health"
+echo "==> Checking API process liveness"
 status="$("$CURL" --silent --show-error --output "$TMP_DIR/health.json" \
   --dump-header "$TMP_DIR/health.headers" --connect-timeout 5 --max-time 15 --write-out '%{http_code}' \
   "$BASE_URL/healthz")"
-if [[ "$status" != "200" ]]; then
-  echo "health endpoint returned HTTP $status" >&2
-  exit 1
-fi
-if ! grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' "$TMP_DIR/health.json"; then
-  echo "health endpoint did not return the expected healthy payload" >&2
+if [[ "$status" != "200" ]] || ! grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' "$TMP_DIR/health.json"; then
+  echo "liveness endpoint did not return HTTP 200 and status=ok (HTTP $status)" >&2
   exit 1
 fi
 
 request_id_header="$(tr -d '\r' <"$TMP_DIR/health.headers" | grep -i '^X-Request-ID:' || true)"
-if [[ -n "$request_id_header" ]]; then
-  if ! grep -Eiq '^X-Request-ID:[[:space:]]*[0-9a-f]{32}[[:space:]]*
-"$CURL" --fail --silent --show-error --connect-timeout 5 --max-time 15 --output /dev/null "$BASE_URL/"
-
-if [[ -n "${HTTP_BASE_URL:-}" ]]; then
-  case "$HTTP_BASE_URL" in
-    http://*) ;;
-    *) echo "HTTP_BASE_URL must use http://" >&2; exit 2 ;;
-  esac
-  redirect="$("$CURL" --silent --show-error --output /dev/null --max-time 15 \
-    --write-out '%{http_code} %{redirect_url}' "${HTTP_BASE_URL%/}/healthz")"
-  code="${redirect%% *}"
-  destination="${redirect#* }"
-  if [[ "$code" != "301" && "$code" != "308" ]] || [[ "$destination" != https://* ]]; then
-    echo "HTTP ingress did not redirect to HTTPS (received: $redirect)" >&2
-    exit 1
-  fi
-fi
-
-echo "Deployment smoke test passed for $BASE_URL"
- <<<"$request_id_header"; then
-    echo "health response contains a malformed X-Request-ID" >&2
-    exit 1
-  fi
+if [[ -n "$request_id_header" ]] && ! grep -Eiq '^X-Request-ID:[[:space:]]*[0-9a-f]{32}[[:space:]]*$' <<<"$request_id_header"; then
+  echo "health response contains a malformed X-Request-ID" >&2
+  exit 1
 fi
 
 echo "==> Checking database-backed API readiness"
