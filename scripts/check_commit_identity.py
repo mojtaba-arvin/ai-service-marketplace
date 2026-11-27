@@ -34,6 +34,7 @@ def validate_payload(pr: dict, commits: list[dict]) -> list[str]:
     labels = {item.get("name", "") for item in pr.get("labels", [])}
     allow_automation = AUTOMATION_LABEL in labels
     maintainer_work = MAINTAINER_MARKER in (pr.get("body") or "")
+    maintainer_commit_seen = False
 
     for item in commits:
         commit = item.get("commit", {})
@@ -61,10 +62,17 @@ def validate_payload(pr: dict, commits: list[dict]) -> list[str]:
                     f"{name!r} <{email}> login={login!r}"
                 )
 
-        if maintainer_work and (name != EXPECTED_NAME or email.lower() != EXPECTED_EMAIL.lower()):
+        if login == "mojtaba-arvin":
+            maintainer_commit_seen = True
+            if name != EXPECTED_NAME or email.lower() != EXPECTED_EMAIL.lower():
+                errors.append(
+                    f"{short_sha}: maintainer account must use "
+                    f"{EXPECTED_NAME} <{EXPECTED_EMAIL}>; found {name!r} <{email}>"
+                )
+        elif email.lower() == EXPECTED_EMAIL.lower():
             errors.append(
-                f"{short_sha}: maintainer-directed AI work must use "
-                f"{EXPECTED_NAME} <{EXPECTED_EMAIL}>; found {name!r} <{email}>"
+                f"{short_sha}: maintainer email must resolve to mojtaba-arvin, "
+                f"not {login!r}"
             )
 
         for line in message.splitlines():
@@ -73,6 +81,11 @@ def validate_payload(pr: dict, commits: list[dict]) -> list[str]:
                 if is_bot_identity(identity, "", None, None):
                     errors.append(f"{short_sha}: bot/AI Co-authored-by trailer rejected: {identity!r}")
 
+    if maintainer_work and not maintainer_commit_seen:
+        errors.append(
+            "maintainer-directed AI work marker requires at least one commit "
+            "authored by mojtaba-arvin"
+        )
     return errors
 
 
@@ -132,8 +145,15 @@ def run_self_tests() -> None:
     assert not validate_payload({"body": MAINTAINER_MARKER, "labels": []}, [
         item(EXPECTED_NAME, EXPECTED_EMAIL, "mojtaba-arvin", "User")
     ])
+    assert not validate_payload({"body": MAINTAINER_MARKER, "labels": []}, [
+        item(EXPECTED_NAME, EXPECTED_EMAIL, "mojtaba-arvin", "User"),
+        item("Different Human", "human@example.org", "human", "User"),
+    ])
     assert validate_payload({"body": MAINTAINER_MARKER, "labels": []}, [
         item("Different Human", "human@example.org", "human", "User")
+    ])
+    assert validate_payload({"body": "", "labels": []}, [
+        item(EXPECTED_NAME, "wrong@example.org", "mojtaba-arvin", "User")
     ])
     assert not validate_payload({"body": "", "labels": [{"name": AUTOMATION_LABEL}]}, [
         item("github-actions[bot]", "bot@users.noreply.github.com", "github-actions[bot]", "Bot")
