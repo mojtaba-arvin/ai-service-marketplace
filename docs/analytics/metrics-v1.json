@@ -1,6 +1,6 @@
 {
   "schema_version": "metrics.v1",
-  "status": "contract-only",
+  "status": "metric_contract_with_partial_runtime",
   "tenant_partition_key": "tenant_id",
   "event_identity_key": "id",
   "event_time_key": "occurred_at",
@@ -22,8 +22,9 @@
     "bucket": "calendar_day",
     "timezone": "IANA timezone resolved from the event's market configuration; never use worker or database session timezone",
     "late_arrival_watermark_hours": 72,
-    "within_watermark": "Upsert the original event-time bucket idempotently",
-    "beyond_watermark": "Mark the affected tenant/market/period for deterministic replay; never silently discard"
+    "within_watermark": "Proposed v1 behavior only; not enforced until issue #314 is implemented and verified",
+    "beyond_watermark": "Proposed v1 behavior only; period invalidation/replay is not yet implemented; issue #314",
+    "status": "specified_not_enforced"
   },
   "deduplication": {
     "primary": "tenant_id + event.id",
@@ -180,9 +181,9 @@
     "not_guaranteed": [
       "event-time finality",
       "late-arrival watermark completion",
-      "historical rebuild completeness",
+      "production rebuild/cutover and worker-handoff rehearsal",
       "finance or contractual close"
     ],
-    "limitation": "Late events may change historical cohorts. Deterministic historical rebuild, catch-up validation and atomic generation cutover are not implemented."
+    "limitation": "Tenant/generation-scoped live projection, summary API and guarded historical shadow-generation rebuild/rollback are implemented in PRs #194/#196/#198. Production operation is not evidenced. The 72-hour event-time watermark and period invalidation/replay policy are specified but not enforced; data_ready remains ingestion backlog status only."
   }
 }
