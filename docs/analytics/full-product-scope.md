@@ -43,6 +43,7 @@ Do not merge overlapping producer changes twice. External compatibility requires
 
 | Capability | Issue | Primary ownership | Dependencies |
 |---|---|---|---|
+| Event-time completeness and late-arrival policy | [#314](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/314) | Analytics completeness/replay | #87, PR #194/#198, AN-002 |
 | Provider lifecycle and supply metrics | [#297](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/297) | Analytics projection; Provider/Trust event producer | #87, TRUST-001, DISP-001 and DISP-003 for availability/offer metrics |
 | Service quality definitions and projection | [#299](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/299) | Analytics; Order/Review and Trust source events | #87, ORDER-002, TRUST-003 and TRUST-007 for adjudicated quality outcomes |
 | Ledger-backed finance metrics | [#301](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/301) | Analytics read model; Finance event producer | FIN-001/002, #10, #57, ADR 0006 and #87; B2B dimensions additionally require #88 |
