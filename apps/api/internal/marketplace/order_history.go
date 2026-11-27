@@ -50,7 +50,6 @@ func authorizeOrderHistory(actor Actor) error {
 func normalizeOrderHistoryEvent(event *OrderHistoryEvent, orderID, tenantID string) error {
  var fields map[string]json.RawMessage
  if err:=json.Unmarshal(event.Payload,&fields); err!=nil || fields==nil { return nil }
- versioned := fields["version"] != nil
  _, tenantScoped := fields["tenant_id"]
  _, aggregate := fields["aggregate"]
  _, occurredAt := fields["occurred_at"]
@@ -61,12 +60,12 @@ func normalizeOrderHistoryEvent(event *OrderHistoryEvent, orderID, tenantID stri
  // it as an envelope only when another canonical discriminator is present.
  // Strong envelope fields also catch malformed envelopes that omit "version".
  if !tenantScoped && !aggregate && !occurredAt && !metadata &&
-  !correlation && !causation && !(versioned && fields["data"] != nil) {
+  !correlation && !causation {
   return nil
  }
  var domain outbox.DomainEvent
  if err:=json.Unmarshal(event.Payload,&domain); err!=nil || outbox.ValidateDomainEvent(domain)!=nil ||
-  domain.Type!=event.Type || domain.Aggregate.Type!="order" || domain.Aggregate.ID!=orderID || domain.TenantID!=tenantID {
+  domain.Version!=1 || domain.Type!=event.Type || domain.Aggregate.Type!="order" || domain.Aggregate.ID!=orderID || domain.TenantID!=tenantID {
   return outbox.ErrInvalidPolicy
  }
  event.DomainEvent=append(json.RawMessage(nil),event.Payload...)
