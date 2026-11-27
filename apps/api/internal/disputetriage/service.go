@@ -58,7 +58,8 @@ func (s Service) Triage(ctx context.Context,req Request)(Triage,error){
  allowed:=map[string]struct{}{}
  for i:=range evidence{e:=&evidence[i];e.ID=strings.TrimSpace(e.ID);e.Source=strings.TrimSpace(e.Source);if e.ID==""||e.Source==""||len(e.ID)>128||len(e.Source)>128||len(e.Text)==0||len(e.Text)>4000{return Triage{},ErrInvalidCase};if _,ok:=allowed[e.ID];ok{return Triage{},ErrInvalidCase};allowed[e.ID]=struct{}{};e.Text,err=boundedRedaction(ctx,s.Redactor,e.Text,4000);if err!=nil{return Triage{},err}}
  modelCtx,cancel:=context.WithTimeout(ctx,s.Timeout);defer cancel()
- output,err:=s.Model.Generate(modelCtx,ModelInput{Market:req.Market,Locale:req.Locale,DisputeType:req.DisputeType,Reason:reason,Evidence:evidence})
+ modelInput:=ModelInput{Market:req.Market,Locale:req.Locale,DisputeType:req.DisputeType,Reason:reason,Evidence:evidence}
+ output,err:=s.Model.Generate(modelCtx,modelInput)
  if err!=nil{return Triage{},fmt.Errorf("generate dispute triage: %w",err)};if err=modelCtx.Err();err!=nil{return Triage{},err}
  if len(output.JSON)==0||len(output.JSON)>32*1024||strings.TrimSpace(output.Name)==""||strings.TrimSpace(output.Version)==""||len(output.Name)>128||len(output.Version)>128{return Triage{},ErrInvalidTriage}
  dec:=json.NewDecoder(bytes.NewReader(output.JSON));dec.DisallowUnknownFields();var candidate modelOutput
