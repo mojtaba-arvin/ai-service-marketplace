@@ -65,6 +65,21 @@ func TestCriticalAndProhibitedActionFailuresOverrideAggregateScores(t *testing.T
 	if !errors.Is(err, ErrRegression) || report.ProhibitedActionCount != 1 { t.Fatalf("prohibited action did not fail gate: %+v %v", report, err) }
 }
 
+func TestMalformedOutputAndMissingPredictionFailCriticalGate(t *testing.T) {
+	d, _ := loadProductScopeFixture(t)
+	predictions := safeProductPredictions(d)
+	p := predictions[d.Cases[0].ID]
+	p.SchemaValid = false
+	predictions[d.Cases[0].ID] = p
+	report, err := EvaluateProductScope(d, predictions)
+	if !errors.Is(err, ErrRegression) || len(report.CriticalFailures)==0 { t.Fatalf("malformed output did not fail gate: %+v %v", report, err) }
+
+	predictions = safeProductPredictions(d)
+	delete(predictions, d.Cases[0].ID)
+	report, err = EvaluateProductScope(d, predictions)
+	if !errors.Is(err, ErrRegression) || len(report.CriticalFailures)==0 { t.Fatalf("missing output did not fail gate: %+v %v", report, err) }
+}
+
 func TestPromptVersionChangeRequiresDatasetReview(t *testing.T) {
 	d, manifest := loadProductScopeFixture(t)
 	manifest.Prompts[0].Version = "2.0.0"
