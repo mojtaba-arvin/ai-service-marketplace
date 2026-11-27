@@ -110,13 +110,66 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 }
 
 func TestNormalizeOrderHistoryEventCompatibility(t *testing.T) {
- legacy:=OrderHistoryEvent{Type:"order.state_changed",Payload:json.RawMessage(`{"from":"requested","to":"accepted"}`)}
- original:=string(legacy.Payload)
- if err:=normalizeOrderHistoryEvent(&legacy);err!=nil {t.Fatal(err)}
- if string(legacy.Payload)!=original || len(legacy.DomainEvent)!=0 {t.Fatalf("legacy payload must remain unchanged: %#v",legacy)}
- domain:=outbox.DomainEvent{ID:"evt-1",Type:"order.created",Version:1,OccurredAt:time.Date(2026,11,22,12,0,0,0,time.UTC),TenantID:"tenant-1",Aggregate:outbox.EventAggregate{Type:"order",ID:"order-1"},Data:json.RawMessage(`{"order_id":"order-1","status":"requested"}`)}
- encoded,err:=json.Marshal(domain);if err!=nil{t.Fatal(err)}
- canonical:=OrderHistoryEvent{Type:"order.created",Payload:encoded}
- if err=normalizeOrderHistoryEvent(&canonical);err!=nil{t.Fatal(err)}
- if string(canonical.Payload)!=string(domain.Data)||string(canonical.DomainEvent)!=string(encoded){t.Fatalf("canonical event should expose both compatible payload and envelope: %#v",canonical)}
+	const aggregateType, aggregateID, tenantID := "order", "order-1", "tenant-1"
+
+	for _, raw := range []string{
+		`{"from":"requested","to":"accepted"}`,
+		`{"version":2,"status":"legacy"}`,
+	} {
+		legacy := OrderHistoryEvent{Type:"order.state_changed",Payload:json.RawMessage(raw)}
+		original := string(legacy.Payload)
+		if err:=normalizeOrderHistoryEvent(&legacy,aggregateType,aggregateID,tenantID);err!=nil {
+			t.Fatalf("legacy payload %s must remain consumable: %v",raw,err)
+		}
+		if string(legacy.Payload)!=original || len(legacy.DomainEvent)!=0 {
+			t.Fatalf("legacy payload must remain byte-for-byte unchanged: %#v",legacy)
+		}
+	}
+
+	base := outbox.DomainEvent{
+		ID:"evt-1",Type:"order.created",Version:1,
+		OccurredAt:time.Date(2026,11,22,12,0,0,0,time.UTC),TenantID:tenantID,
+		Aggregate:outbox.EventAggregate{Type:aggregateType,ID:aggregateID},
+		Data:json.RawMessage(`{"order_id":"order-1","status":"requested"}`),
+	}
+	encoded,err:=json.Marshal(base)
+	if err!=nil { t.Fatal(err) }
+	canonical:=OrderHistoryEvent{Type:"order.created",Payload:encoded}
+	if err=normalizeOrderHistoryEvent(&canonical,aggregateType,aggregateID,tenantID);err!=nil {
+		t.Fatalf("canonical v1 event should be accepted: %v",err)
+	}
+	if string(canonical.Payload)!=string(base.Data)||string(canonical.DomainEvent)!=string(encoded) {
+		t.Fatalf("canonical event should expose both compatible payload and envelope: %#v",canonical)
+	}
+
+	malformed:=json.RawMessage(`{"version":1,"tenant_id":"tenant-1","aggregate":{"type":"order","id":"order-1"},"data":{}}`)
+	if err=normalizeOrderHistoryEvent(&OrderHistoryEvent{Type:"order.created",Payload:malformed},aggregateType,aggregateID,tenantID);!errors.Is(err,outbox.ErrInvalidPolicy) {
+		t.Fatalf("malformed envelope must fail closed, got %v",err)
+	}
+
+	cases:=[]struct{
+		name string
+		mutate func(*outbox.DomainEvent)
+		eventType string
+	}{
+		{name:"wrong aggregate type",mutate:func(e *outbox.DomainEvent){e.Aggregate.Type="booking"}},
+		{name:"wrong aggregate id",mutate:func(e *outbox.DomainEvent){e.Aggregate.ID="another-order"}},
+		{name:"wrong tenant",mutate:func(e *outbox.DomainEvent){e.TenantID="another-tenant"}},
+		{name:"unsupported schema version",mutate:func(e *outbox.DomainEvent){e.Version=2}},
+		{name:"event type mismatch",eventType:"order.cancelled"},
+	}
+	for _,tc:=range cases {
+		t.Run(tc.name,func(t *testing.T){
+			event:=base
+			if tc.mutate!=nil { tc.mutate(&event) }
+			raw,marshalErr:=json.Marshal(event)
+			if marshalErr!=nil { t.Fatal(marshalErr) }
+			typ:=event.Type
+			if tc.eventType!="" { typ=tc.eventType }
+			err:=normalizeOrderHistoryEvent(&OrderHistoryEvent{Type:typ,Payload:raw},aggregateType,aggregateID,tenantID)
+			if !errors.Is(err,outbox.ErrInvalidPolicy) {
+				t.Fatalf("incompatible canonical event must fail closed, got %v",err)
+			}
+		})
+	}
 }
