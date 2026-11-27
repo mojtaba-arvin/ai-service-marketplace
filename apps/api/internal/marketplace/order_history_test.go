@@ -88,6 +88,26 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	if !types["order.created"] || !types["order.state_changed"] {
 		t.Fatalf("timeline missing order lifecycle events: %#v",timeline.Events)
 	}
+	var canonicalEvent,legacyEvent *OrderHistoryEvent
+	for i:=range timeline.Events {
+		switch timeline.Events[i].Type {
+		case "order.created":
+			canonicalEvent=&timeline.Events[i]
+		case "order.state_changed":
+			legacyEvent=&timeline.Events[i]
+		}
+	}
+	if canonicalEvent==nil || len(canonicalEvent.DomainEvent)==0 {
+		t.Fatalf("canonical event must expose its envelope additively: %#v",timeline.Events)
+	}
+	if legacyEvent==nil || len(legacyEvent.DomainEvent)!=0 {
+		t.Fatalf("legacy event in a mixed-version timeline must remain legacy: %#v",timeline.Events)
+	}
+	var legacyEventData map[string]any
+	if err=json.Unmarshal(legacyEvent.Payload,&legacyEventData);err!=nil { t.Fatal(err) }
+	if legacyEventData["from"]!="requested" || legacyEventData["to"]!="accepted" {
+		t.Fatalf("mixed-version timeline changed legacy event data: %#v",legacyEventData)
+	}
 	if _,err=store.GetOrderTimeline(ctx,other,first.ID); !errors.Is(err,ErrOrderNotFound) {
 		t.Fatalf("another customer cannot read order timeline: %v",err)
 	}
