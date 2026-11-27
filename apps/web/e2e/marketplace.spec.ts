@@ -262,11 +262,14 @@ test("session and workspace loading, API failure, and mobile layout are usable",
   await expect(page.locator(".notice.error")).toContainText("Catalog temporarily unavailable");
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 
-  const dimensions = await page.evaluate(() => ({
-    viewport: document.documentElement.clientWidth,
-    content: document.documentElement.scrollWidth,
-  }));
-  expect(dimensions.content, "mobile workspace must not overflow horizontally").toBeLessThanOrEqual(dimensions.viewport);
+  for (const width of [360, 768, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      content: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.content, `workspace must not overflow horizontally at ${width}px`).toBeLessThanOrEqual(dimensions.viewport);
+  }
   await expect(page.getByText("Payments are not enabled. Cancellation policy outcomes do not move funds.")).toBeVisible();
   await expect(page.getByRole("button", { name: /pay|checkout|payment/i })).toHaveCount(0);
 });
