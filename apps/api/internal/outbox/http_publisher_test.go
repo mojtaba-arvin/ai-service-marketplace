@@ -100,7 +100,9 @@ func TestCanonicalDomainEventRejectsMalformedIdentityAndUnsupportedVersion(t *te
 				if tc.mutate!=nil { tc.mutate(&domain) }
 				raw,err:=json.Marshal(domain)
 				if err!=nil { t.Fatal(err) }
-				event=Event{EventType:domain.Type,AggregateType:"order",AggregateID:"order-1",Payload:raw}
+				eventType:=domain.Type
+				if tc.event.EventType!="" { eventType=tc.event.EventType }
+				event=Event{EventType:eventType,AggregateType:"order",AggregateID:"order-1",Payload:raw}
 			}
 			if event.ID==0 { event.ID=733 }
 			if _,err:=canonicalDomainEvent(event);!errors.Is(err,ErrPublisherConfig) {
