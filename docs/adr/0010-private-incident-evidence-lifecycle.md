@@ -103,7 +103,7 @@ A separately deployable retention worker uses the existing private evidence adap
 - Expiry becomes eventual rather than instantaneous; the UI/API must show that an object is pending deletion or deleted without exposing storage internals.
 - Database tombstones and audit events remain available for accountability after byte deletion.
 - Backup retention and key lifecycle remain adopter operational responsibilities and must be documented and rehearsed.
-- TRUST-002 remains incomplete until the permission, management API, worker, retry behavior, backup/restore procedure, regression tests and independent acceptance are delivered.
+- TRUST-002 remains incomplete until the permission, management API, worker, retry behavior, backup/restore procedure, regression tests and maintainer acceptance are delivered.
 
 ## Non-goals
 
@@ -112,3 +112,8 @@ A separately deployable retention worker uses the existing private evidence adap
 - Deletion of adopter backups by the application.
 - Public or signed download URLs.
 - AI decisions about evidence retention, deletion or legal hold.
+
+
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.
