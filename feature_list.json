@@ -15,7 +15,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #21). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #21). passes remains false."
   },
   {
     "id": "IDENT-002",
@@ -35,7 +35,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #22). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #22). passes remains false."
   },
   {
     "id": "IDENT-003",
@@ -55,7 +55,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #23). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #23). passes remains false."
   },
   {
     "id": "IDENT-004",
@@ -75,7 +75,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #24 and PR #61). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #24 and PR #61). passes remains false."
   },
   {
     "id": "CAT-001",
@@ -93,7 +93,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #25). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #25). passes remains false."
   },
   {
     "id": "CAT-002",
@@ -113,7 +113,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #27). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #27). passes remains false."
   },
   {
     "id": "CAT-003",
@@ -133,7 +133,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #29). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #29). passes remains false."
   },
   {
     "id": "PRICE-001",
@@ -153,7 +153,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #26). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #26). passes remains false."
   },
   {
     "id": "PRICE-002",
@@ -173,7 +173,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #34). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #34). passes remains false."
   },
   {
     "id": "PRICE-003",
@@ -193,7 +193,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #35). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #35). passes remains false."
   },
   {
     "id": "ORDER-001",
@@ -215,7 +215,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #36 and PR #61). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #36 and PR #61). passes remains false."
   },
   {
     "id": "ORDER-002",
@@ -235,7 +235,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #20 and PR #61). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #20 and PR #61). passes remains false."
   },
   {
     "id": "ORDER-003",
@@ -255,7 +255,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #37 and PR #61). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #37 and PR #61). passes remains false."
   },
   {
     "id": "ORDER-004",
@@ -275,7 +275,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #38 and PR #61). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #38 and PR #61). passes remains false."
   },
   {
     "id": "DISP-001",
@@ -295,7 +295,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #39 and PR #61). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #39 and PR #61). passes remains false."
   },
   {
     "id": "DISP-002",
@@ -317,7 +317,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #40 and PR #61). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #40 and PR #61). passes remains false."
   },
   {
     "id": "DISP-003",
@@ -338,7 +338,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #41 and PR #61). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #41 and PR #61). passes remains false."
   },
   {
     "id": "FIN-001",
@@ -356,7 +356,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #30). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #30). passes remains false."
   },
   {
     "id": "FIN-002",
@@ -376,7 +376,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #31). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #31). passes remains false."
   },
   {
     "id": "FIN-003",
@@ -396,7 +396,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #32). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #32). passes remains false."
   },
   {
     "id": "FIN-004",
@@ -417,7 +417,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #33). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #33). passes remains false."
   },
   {
     "id": "TRUST-001",
@@ -437,7 +437,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #48). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #48). passes remains false."
   },
   {
     "id": "TRUST-002",
@@ -457,7 +457,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; incident report intake, evidence handling and authorized review remain open. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; incident report intake, evidence handling and authorized review remain open. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "TRUST-003",
@@ -478,7 +478,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "TRUST-004",
@@ -499,7 +499,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "MSG-001",
@@ -519,7 +519,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #47). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #47). passes remains false."
   },
   {
     "id": "MSG-002",
@@ -539,7 +539,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #47). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #47). passes remains false."
   },
   {
     "id": "MSG-003",
@@ -560,7 +560,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Partial groundwork merged in PR #52 (HTTPS outbox publisher/transport adapter). Notification preferences and complete production notification adapters remain incomplete; independent QA pending."
+    "notes": "Partial groundwork merged in PR #52 (HTTPS outbox publisher/transport adapter). Notification preferences and complete production notification adapters remain incomplete; maintainer acceptance pending."
   },
   {
     "id": "SUP-001",
@@ -580,7 +580,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #49). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #49). passes remains false."
   },
   {
     "id": "SUP-002",
@@ -600,7 +600,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation is present in support_cases.go and migration 021: case creation, assignment and status transitions append actor/action/reason/before-after events in the same transaction; PostgreSQL rejects UPDATE/DELETE. Integration coverage verifies the lifecycle and event count. Independent QA evidence is pending; passes remains false."
+    "notes": "Implementation is present in support_cases.go and migration 021: case creation, assignment and status transitions append actor/action/reason/before-after events in the same transaction; PostgreSQL rejects UPDATE/DELETE. Integration coverage verifies the lifecycle and event count. maintainer verification evidence is pending; passes remains false."
   },
   {
     "id": "ADMIN-001",
@@ -620,7 +620,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "ADMIN-002",
@@ -640,7 +640,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "ADMIN-003",
@@ -661,7 +661,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "GROW-001",
@@ -681,7 +681,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "GROW-002",
@@ -702,7 +702,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "AN-001",
@@ -722,7 +722,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "AN-002",
@@ -743,7 +743,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "B2B-001",
@@ -763,7 +763,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "B2B-002",
@@ -783,7 +783,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "B2B-003",
@@ -804,7 +804,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. Independent QA evidence is required before passes can become true."
+    "notes": "Not implemented. Retained in the complete M1–M14 product backlog; delivery is dependency- and risk-ordered, not deferred outside product scope. maintainer verification evidence is required before passes can become true."
   },
   {
     "id": "PLAT-001",
@@ -822,7 +822,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #28, PR #45, and PR #51). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #28, PR #45, and PR #51). passes remains false."
   },
   {
     "id": "PLAT-002",
@@ -842,7 +842,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #42). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #42). passes remains false."
   },
   {
     "id": "PLAT-003",
@@ -863,7 +863,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #43 and PR #44). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #43 and PR #44). passes remains false."
   },
   {
     "id": "PLAT-004",
@@ -883,7 +883,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged (PR #46). Independent QA evidence is still pending; passes remains false."
+    "notes": "Implementation merged (PR #46). passes remains false."
   },
   {
     "id": "IDENT-005",
@@ -904,7 +904,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation is in PR #158; CI and independent acceptance are pending. Device labels are metadata, not hardware attestation or proof of trust."
+    "notes": "Implementation is in PR #158; CI and maintainer acceptance are pending. Device labels are metadata, not hardware attestation or proof of trust."
   },
   {
     "id": "IDENT-006",
@@ -925,7 +925,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "CAT-004",
@@ -946,7 +946,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged in PR #168: bounded dynamic questionnaire schemas validate conditional fields and typed answers. passes remains false pending independent QA."
+    "notes": "Implementation merged in PR #168: bounded dynamic questionnaire schemas validate conditional fields and typed answers. passes remains false pending maintainer verification."
   },
   {
     "id": "PRICE-004",
@@ -968,7 +968,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "ORDER-005",
@@ -989,7 +989,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Backend completion approval and safe reorder are implemented in PR branch feat/order-customer-completion-approval-20261123: approval is customer/tenant-authorized, one-per-order, immutable and idempotent; reorder reuses the explicit service/area/answer snapshot, requires a new schedule, checks current provider availability and revalidates current catalog, price and published form. passes remains false pending exact-head CI, independent QA and remaining acceptance."
+    "notes": "Backend completion approval and safe reorder are implemented in PR branch feat/order-customer-completion-approval-20261123: approval is customer/tenant-authorized, one-per-order, immutable and idempotent; reorder reuses the explicit service/area/answer snapshot, requires a new schedule, checks current provider availability and revalidates current catalog, price and published form. passes remains false pending exact-head CI, maintainer verification and remaining acceptance."
   },
   {
     "id": "ORDER-006",
@@ -1011,7 +1011,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "DISP-004",
@@ -1032,7 +1032,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "DISP-005",
@@ -1053,7 +1053,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "FIN-005",
@@ -1076,7 +1076,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "FIN-006",
@@ -1098,7 +1098,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "FIN-007",
@@ -1120,7 +1120,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "TRUST-005",
@@ -1142,7 +1142,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "TRUST-006",
@@ -1164,7 +1164,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "TRUST-007",
@@ -1185,7 +1185,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "MSG-004",
@@ -1207,7 +1207,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "MSG-005",
@@ -1229,7 +1229,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "ADMIN-004",
@@ -1251,7 +1251,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "GROW-003",
@@ -1273,7 +1273,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "GROW-004",
@@ -1295,7 +1295,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "B2B-004",
@@ -1317,7 +1317,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "B2B-005",
@@ -1339,7 +1339,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "AN-003",
@@ -1361,7 +1361,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "PLAT-005",
@@ -1384,7 +1384,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "AI-005",
@@ -1406,7 +1406,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "AI-006",
@@ -1428,7 +1428,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "AI-007",
@@ -1450,7 +1450,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "AI-008",
@@ -1474,7 +1474,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "AI-009",
@@ -1496,7 +1496,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "AI-010",
@@ -1518,7 +1518,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "CLIENT-001",
@@ -1540,7 +1540,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "CLIENT-002",
@@ -1563,7 +1563,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "PLAT-006",
@@ -1584,7 +1584,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added by the full-product scope decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added by the full-product scope decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "IDENT-007",
@@ -1628,7 +1628,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged in PR #180: market/locale form draft and publication lifecycle serializes version numbers, retires prior active versions and protects published schemas. passes remains false pending independent QA."
+    "notes": "Implementation merged in PR #180: market/locale form draft and publication lifecycle serializes version numbers, retires prior active versions and protects published schemas. passes remains false pending maintainer verification."
   },
   {
     "id": "CAT-006",
@@ -1650,7 +1650,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Implementation merged in PR #181: scheduled order creation validates against the active published form and persists an immutable versioned answer snapshot with semantic idempotent replay. passes remains false pending independent QA."
+    "notes": "Implementation merged in PR #181: scheduled order creation validates against the active published form and persists an immutable versioned answer snapshot with semantic idempotent replay. passes remains false pending maintainer verification."
   },
   {
     "id": "IDENT-008",
@@ -1675,7 +1675,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted; passes remains false."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted; passes remains false."
   },
   {
     "id": "IDENT-009",
@@ -1699,7 +1699,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Optional by market; not implemented or independently accepted."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. Optional by market; not implemented or maintainer-accepted."
   },
   {
     "id": "ORDER-007",
@@ -1725,7 +1725,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted."
   },
   {
     "id": "PRO-001",
@@ -1749,7 +1749,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted."
   },
   {
     "id": "PRO-002",
@@ -1775,7 +1775,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted."
   },
   {
     "id": "PRO-003",
@@ -1800,7 +1800,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted."
   },
   {
     "id": "DISP-006",
@@ -1826,7 +1826,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted."
   },
   {
     "id": "FIN-008",
@@ -1852,7 +1852,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted."
   },
   {
     "id": "TRUST-008",
@@ -1877,7 +1877,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted."
   },
   {
     "id": "MSG-006",
@@ -1902,7 +1902,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted."
   },
   {
     "id": "ADMIN-005",
@@ -1927,7 +1927,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted."
   },
   {
     "id": "PLAT-007",
@@ -1980,7 +1980,7 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted."
   },
   {
     "id": "ADMIN-006",
@@ -2005,6 +2005,6 @@
     ],
     "passes": false,
     "verified_by": null,
-    "notes": "Added during full-product gap decomposition on 2026-11-23. Not implemented or independently accepted; dashboards depend on canonical analytics projections."
+    "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted; dashboards depend on canonical analytics projections."
   }
 ]
