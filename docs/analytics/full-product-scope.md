@@ -50,7 +50,7 @@ Do not merge overlapping producer changes twice. External compatibility requires
 | Privacy-aware analytics export | [#302](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/302) | Analytics export; Platform/Identity privacy policy | AN-003, tenant authorization, consent/export/deletion policy |
 | Controlled campaign/A-B experiments | [#303](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/303) | Growth assignment/lifecycle; Analytics analysis | GROW-004, AN-001, GROW-001 where referral attribution is used |
 
-The issue bodies contain the detailed metric definitions, explicit owner split, dependencies, non-goals and acceptance tests. The existing GROW-004 feature owns experimentation; it is not duplicated as a new AN feature.
+The issue bodies contain the detailed metric definitions, explicit owner split, dependencies, non-goals and acceptance tests. The existing GROW-004 feature owns experimentation; it is not duplicated as a new AN feature. Quality and finance metrics are proposed full-product capabilities; their feature-inventory identifiers should be added only through a maintainer-owned inventory change.
 
 ## Architecture constraints
 
