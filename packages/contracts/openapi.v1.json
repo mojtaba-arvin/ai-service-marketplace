@@ -539,11 +539,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response; the exact JSON envelope is described by the current handler and integration tests.",
+            "description": "Customer order timeline. Event payload remains the legacy business-data object; canonical v1 metadata is additive in domain_event.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Object"
+                  "$ref": "#/components/schemas/OrderTimeline"
                 }
               }
             }
@@ -5510,6 +5510,132 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 500
+          }
+        }
+      },
+      "DomainEventAggregate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "id"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "DomainEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "version",
+          "occurred_at",
+          "tenant_id",
+          "aggregate",
+          "data"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "const": 1
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "aggregate": {
+            "$ref": "#/components/schemas/DomainEventAggregate"
+          },
+          "correlation_id": {
+            "type": "string"
+          },
+          "causation_id": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "OrderHistoryEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "payload",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "type": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object",
+            "description": "Legacy business-data payload retained for existing timeline clients."
+          },
+          "domain_event": {
+            "$ref": "#/components/schemas/DomainEvent"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OrderTimeline": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order",
+          "created_at",
+          "updated_at",
+          "events"
+        ],
+        "properties": {
+          "order": {
+            "$ref": "#/components/schemas/Object"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderHistoryEvent"
+            }
           }
         }
       }
