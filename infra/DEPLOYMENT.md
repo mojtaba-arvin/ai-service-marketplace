@@ -101,13 +101,47 @@ The publisher sends each event with its database event ID as the `Idempotency-Ke
 Run from the repository root:
 
 ```sh
+python3 scripts/validate-deployment-config.py .env.production
 docker compose --env-file .env.production -f infra/compose.production.yml config --quiet
 docker compose --env-file .env.production -f infra/compose.production.yml up -d --build
 docker compose --env-file .env.production -f infra/compose.production.yml ps
 docker compose --env-file .env.production -f infra/compose.production.yml logs --tail=100 migrate api web caddy dispatch-worker
 ```
 
-Caddy obtains and renews certificates automatically after DNS and firewall configuration are correct. Confirm https://SITE_ADDRESS/healthz returns HTTP 200.
+Caddy obtains and renews certificates automatically after DNS and firewall configuration are correct. Verify both process liveness and database readiness, then run the public smoke check:
+
+```sh
+BASE_URL="https://$(grep '^SITE_ADDRESS=' .env.production | cut -d= -f2-)" \\
+  HTTP_BASE_URL="http://$(grep '^SITE_ADDRESS=' .env.production | cut -d= -f2-)" \\
+  bash scripts/smoke-deployment.sh
+```
+
+- `/healthz` is process liveness: HTTP 200 means the API process can answer requests. It does not assert PostgreSQL availability.
+- `/readyz` is dependency readiness: HTTP 200 with `{"status":"ready"}` means PostgreSQL is reachable; HTTP 503 means the instance must not receive traffic.
+- Docker's API healthcheck and the deployment smoke test use `/readyz`. Caddy exposes both endpoints on the public origin; do not use liveness alone as a deployment-success signal.
+
+## Application rollback
+
+Record the currently deployed Git SHA (or immutable release tag), API/Web image IDs, migration version, and a fresh off-host database backup before each release. Keep the previous source revision available locally and do not overwrite or delete its release tag.
+
+For a failed application release whose migrations are backward-compatible with the previous application version:
+
+```sh
+# Run in the deployment checkout. Replace with the exact previously deployed SHA.
+git fetch --tags origin
+git checkout <previous-release-sha>
+python3 scripts/validate-deployment-config.py .env.production
+docker compose --env-file .env.production -f infra/compose.production.yml config --quiet
+docker compose --env-file .env.production -f infra/compose.production.yml build api web
+docker compose --env-file .env.production -f infra/compose.production.yml up -d --no-deps api web dispatch-worker
+docker compose --env-file .env.production -f infra/compose.production.yml ps
+```
+
+Run `scripts/smoke-deployment.sh` again and record the restored SHA. Keep the current database and all migration records: **do not run down migrations or delete migration history**. The migration runner intentionally applies forward-only, transactional migrations; application rollback is safe only while the previous application remains compatible with the expanded schema.
+
+If a migration is not backward-compatible or data was corrupted, stop API and worker writes, preserve the failed database for investigation, and restore the pre-deploy backup into a separately verified database before switching `DATABASE_URL` back to it. Restore the matching encrypted evidence volume and its separately stored evidence key ring as well; a PostgreSQL dump alone cannot restore private evidence objects. Verify the restored database and evidence before restarting API/workers. Never overwrite the only backup or attempt an untested in-place schema downgrade.
+
+After rollback, leave the failed release and its logs available for diagnosis. A rollback is not complete until the HTTPS smoke check, application journey checks, and data-integrity checks pass.
 
 ## Backup and restore
 
