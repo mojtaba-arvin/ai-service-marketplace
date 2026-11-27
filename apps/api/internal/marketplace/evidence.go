@@ -773,7 +773,7 @@ func (h *Handler) downloadIncidentEvidence(w http.ResponseWriter, r *http.Reques
 func (h *Handler) updateIncidentEvidenceLifecycle(w http.ResponseWriter, r *http.Request, reportID, evidenceID string) {
 	principal, err := h.principal(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, "", "retention_update", "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if len(reportID) == 0 || len(reportID) > 200 || len(evidenceID) != 32 {
