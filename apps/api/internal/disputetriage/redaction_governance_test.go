@@ -12,7 +12,7 @@ import (
 
 func TestRedactionFailureNeverInvokesModelAndProvenanceHashesRedactedInput(t *testing.T) {
 	model := &fakeModel{output:ModelOutput{JSON:validOutput(), Name:"offline", Version:"fixture-v1"}}
-	svc := Service{Evidence:fakeEvidence{items:[]Evidence{{ID:"policy-1", Source:"policy", Text:"safe policy"}}}, Redactor:fakeRedactor{}, Model:model, Timeout:time.Second}
+	svc := Service{Evidence:fakeEvidence{items:[]Evidence{{ID:"order-policy-01", Source:"policy", Text:"safe policy"}}}, Redactor:fakeRedactor{}, Model:model, Timeout:time.Second}
 	req := Request{Market:"OM", Locale:"en", DisputeType:"service-quality", Reason:"Call +96890000000"}
 	got, err := svc.Triage(context.Background(), req)
 	if err != nil { t.Fatal(err) }
