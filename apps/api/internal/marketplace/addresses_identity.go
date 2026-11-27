@@ -72,7 +72,7 @@ func (s *Store) LinkExternalIdentity(ctx context.Context, actor Actor, matrix *m
 	`,string(assertion.Provider),assertion.Subject,identityID)
 	if err!=nil{return err}
 	var linkedIdentity string
-	err=tx.QueryRow(ctx,`SELECT phone_identity_id FROM external_identity_links WHERE provider=$1 AND provider_subject=$2`,string(assertion.Provider),assertion.Subject).Scan(&linkedIdentity)
+	err=tx.QueryRow(ctx,`SELECT phone_identity_id FROM external_identity_links WHERE provider=$1 AND provider_subject=$2 FOR UPDATE`,string(assertion.Provider),assertion.Subject).Scan(&linkedIdentity)
 	if err!=nil{return err}
 	if linkedIdentity!=identityID {
 		if err=tx.Commit(ctx);err!=nil{return err}
