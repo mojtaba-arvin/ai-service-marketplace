@@ -23,7 +23,7 @@ BOT_MARKERS = (
 def is_bot_identity(name: str, email: str, login: str | None, account_type: str | None) -> bool:
     if account_type and account_type.lower() == "bot":
         return True
-    if login and (login.lower().endswith("[bot]") or "agent" in login.lower()):
+    if login and (login.lower().endswith("[bot]") ):
         return True
     identity = (name + " " + email + " " + (login or "")).lower()
     return any(marker in identity for marker in BOT_MARKERS)
