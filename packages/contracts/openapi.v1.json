@@ -15,14 +15,14 @@
   "paths": {
     "/healthz": {
       "get": {
-        "summary": "Health check",
+        "summary": "Process liveness",
         "operationId": "health_check",
         "tags": [
           "Marketplace"
         ],
         "responses": {
           "200": {
-            "description": "Database-backed readiness check.",
+            "description": "The API process is alive; this endpoint does not assert database readiness.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4162,6 +4162,61 @@
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "Database readiness",
+        "operationId": "database_readiness",
+        "tags": [
+          "Marketplace"
+        ],
+        "responses": {
+          "200": {
+            "description": "The API is ready to serve requests and PostgreSQL is reachable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "description": "The API is not ready because PostgreSQL is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
