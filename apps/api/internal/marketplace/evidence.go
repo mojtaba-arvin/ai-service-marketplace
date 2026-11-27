@@ -357,7 +357,7 @@ func (s ClamAVScanner) Scan(ctx context.Context, data []byte) error {
 	if err != nil {
 		return err
 	}
-	if !strings.HasSuffix(strings.TrimSpace(response), "OK") {
+	if strings.TrimSpace(response) != "stream: OK" {
 		return fmt.Errorf("malware scanner rejected content")
 	}
 	return nil
@@ -368,6 +368,12 @@ func (s ClamAVScanner) Scan(ctx context.Context, data []byte) error {
 func (h *Handler) serveIncidentEvidence(w http.ResponseWriter, r *http.Request) bool {
 	path := strings.Trim(r.URL.Path, "/")
 	parts := strings.Split(path, "/")
+	if len(parts) == 7 && parts[0] == "v1" && parts[1] == "operator" && parts[2] == "incidents" &&
+		parts[3] != "" && parts[4] == "evidence" && len(parts[5]) == 32 &&
+		parts[6] == "lifecycle" && r.Method == http.MethodPatch {
+		h.updateIncidentEvidenceLifecycle(w, r, parts[3], parts[5])
+		return true
+	}
 	if len(parts) == 4 && parts[0] == "v1" && parts[1] == "incidents" && parts[2] != "" && parts[3] == "evidence" && r.Method == http.MethodGet {
 		h.listIncidentEvidence(w, r, parts[2], false)
 		return true
@@ -414,7 +420,7 @@ func (h *Handler) evidenceDenied(w http.ResponseWriter, ctx context.Context, ten
 func (h *Handler) listIncidentEvidence(w http.ResponseWriter, r *http.Request, reportID string, reviewerOnly bool) {
 	principal, err := h.principal(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, "", "", "list", "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if reportID == "" || len(reportID) > 200 {
@@ -509,15 +515,15 @@ func (h *Handler) listIncidentEvidence(w http.ResponseWriter, r *http.Request, r
 func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request, reportID string) {
 	principal, err := h.principal(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, "", "", "upload", "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if h.Evidence == nil {
-		writeError(w, http.StatusServiceUnavailable, "private evidence storage is not configured")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, "", principal.IdentityID, "upload", "storage_failure", http.StatusServiceUnavailable)
 		return
 	}
 	if reportID == "" || len(reportID) > 200 {
-		writeError(w, http.StatusNotFound, "incident report not found")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, "", principal.IdentityID, "upload", "not_found", http.StatusNotFound)
 		return
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, h.Evidence.MaxBytes+1))
@@ -646,11 +652,11 @@ func (h *Handler) uploadIncidentEvidence(w http.ResponseWriter, r *http.Request,
 func (h *Handler) downloadIncidentEvidence(w http.ResponseWriter, r *http.Request, reportID, evidenceID string, reviewerOnly bool) {
 	principal, err := h.principal(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, "", "download", "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if h.Evidence == nil {
-		writeError(w, http.StatusServiceUnavailable, "private evidence storage is not configured")
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID, "download", "storage_failure", http.StatusServiceUnavailable)
 		return
 	}
 	if len(reportID) == 0 || len(reportID) > 200 || len(evidenceID) != 32 {
@@ -723,7 +729,13 @@ func (h *Handler) downloadIncidentEvidence(w http.ResponseWriter, r *http.Reques
 	encrypted, err := h.Evidence.get(r.Context(), evidenceID)
 	if err != nil {
 		_ = tx.Rollback(r.Context())
-		h.evidenceDenied(w, r.Context(), tenantID, reportID, evidenceID, principal.IdentityID, "download", "storage_failure", http.StatusNotFound)
+		reason := "storage_failure"
+		status := http.StatusServiceUnavailable
+		if errors.Is(err, os.ErrNotExist) {
+			reason = "not_found"
+			status = http.StatusNotFound
+		}
+		h.evidenceDenied(w, r.Context(), tenantID, reportID, evidenceID, principal.IdentityID, "download", reason, status)
 		return
 	}
 	plaintext, err := h.Evidence.decrypt(evidenceID, mediaType, encrypted)
@@ -753,3 +765,219 @@ func (h *Handler) downloadIncidentEvidence(w http.ResponseWriter, r *http.Reques
 	_, _ = io.Copy(w, bytes.NewReader(plaintext))
 }
 
+
+
+// sensitiveEvidenceAuditReason rejects values that look like credentials or
+// signed URLs before an operator-provided reason is persisted in the audit stream.
+func sensitiveEvidenceAuditReason(reason string) bool {
+	normalized := strings.ToLower(reason)
+	if strings.Contains(normalized, "://") || strings.ContainsAny(reason, "\r\n\x00") {
+		return true
+	}
+	for _, marker := range []string{
+		"bearer ", "authorization:", "password=", "passwd=", "token=",
+		"secret=", "api_key=", "api-key=", "credential=", "signature=",
+		"sig=", "x-amz-",
+	} {
+		if strings.Contains(normalized, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// updateIncidentEvidenceLifecycle changes only adopter-controlled retention and
+// legal-hold metadata. Authorization, metadata mutation and audit snapshots share
+// one transaction; reviewer access never implies lifecycle-management authority.
+func (h *Handler) updateIncidentEvidenceLifecycle(w http.ResponseWriter, r *http.Request, reportID, evidenceID string) {
+	principal, err := h.principal(r)
+	if err != nil {
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, "", "retention_update", "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if len(reportID) == 0 || len(reportID) > 200 || len(evidenceID) != 32 {
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
+			"retention_update", "not_found", http.StatusNotFound)
+		return
+	}
+
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+	var fields map[string]json.RawMessage
+	if err = decoder.Decode(&fields); err != nil || fields == nil {
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
+			"retention_update", "invalid_input", http.StatusBadRequest)
+		return
+	}
+	var trailing any
+	if err = decoder.Decode(&trailing); err != io.EOF {
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
+			"retention_update", "invalid_input", http.StatusBadRequest)
+		return
+	}
+	for key := range fields {
+		if key != "retention_expires_at" && key != "legal_hold" && key != "reason" {
+			h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
+				"retention_update", "invalid_input", http.StatusBadRequest)
+			return
+		}
+	}
+	var reason string
+	if raw, ok := fields["reason"]; !ok || json.Unmarshal(raw, &reason) != nil {
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
+			"retention_update", "invalid_input", http.StatusBadRequest)
+		return
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" || len(reason) > 500 || sensitiveEvidenceAuditReason(reason) {
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
+			"retention_update", "invalid_input", http.StatusBadRequest)
+		return
+	}
+	retentionRaw, retentionSpecified := fields["retention_expires_at"]
+	legalRaw, legalHoldSpecified := fields["legal_hold"]
+	if !retentionSpecified && !legalHoldSpecified {
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
+			"retention_update", "invalid_input", http.StatusBadRequest)
+		return
+	}
+	var retentionUntil *time.Time
+	if retentionSpecified && !bytes.Equal(bytes.TrimSpace(retentionRaw), []byte("null")) {
+		var value time.Time
+		if err = json.Unmarshal(retentionRaw, &value); err != nil || value.IsZero() {
+			h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
+				"retention_update", "invalid_input", http.StatusBadRequest)
+			return
+		}
+		value = value.UTC()
+		retentionUntil = &value
+	}
+	var legalHold bool
+	if legalHoldSpecified {
+		if !bytes.Equal(bytes.TrimSpace(legalRaw), []byte("true")) && !bytes.Equal(bytes.TrimSpace(legalRaw), []byte("false")) {
+			h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
+				"legal_hold_set", "invalid_input", http.StatusBadRequest)
+			return
+		}
+		if err = json.Unmarshal(legalRaw, &legalHold); err != nil {
+			h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
+				"legal_hold_set", "invalid_input", http.StatusBadRequest)
+			return
+		}
+	}
+
+	actor, err := h.actorForRole(r, RoleOperator)
+	if err != nil {
+		action := "retention_update"
+		if legalHoldSpecified {
+			action = "legal_hold_set"
+			if !legalHold {
+				action = "legal_hold_cleared"
+			}
+		}
+		h.evidenceDenied(w, r.Context(), h.DefaultTenantID, reportID, evidenceID, principal.IdentityID,
+			action, "unauthorized", http.StatusForbidden)
+		return
+	}
+	tx, err := h.Store.DB.BeginTx(r.Context(), pgx.TxOptions{})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not begin evidence lifecycle update")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	if err = authorizeOperatorTx(r.Context(), tx, actor, Resource{TenantID: actor.TenantID}, ActionIncidentEvidenceManage); err != nil {
+		_ = tx.Rollback(r.Context())
+		action := "retention_update"
+		if legalHoldSpecified {
+			action = "legal_hold_set"
+			if !legalHold {
+				action = "legal_hold_cleared"
+			}
+		}
+		h.evidenceDenied(w, r.Context(), actor.TenantID, reportID, evidenceID, actor.SubjectID,
+			action, "unauthorized", http.StatusForbidden)
+		return
+	}
+
+	var beforeExpiry *time.Time
+	var beforeLegalHold bool
+	err = tx.QueryRow(r.Context(), `
+		SELECT e.retention_expires_at,e.legal_hold
+		FROM incident_evidence e
+		JOIN incident_reports r ON r.id=e.report_id AND r.tenant_id=e.tenant_id
+		WHERE e.id=$1 AND e.report_id=$2 AND e.tenant_id=$3
+		FOR UPDATE OF e
+	`, evidenceID, reportID, actor.TenantID).Scan(&beforeExpiry, &beforeLegalHold)
+	if errors.Is(err, pgx.ErrNoRows) {
+		_ = tx.Rollback(r.Context())
+		h.evidenceDenied(w, r.Context(), actor.TenantID, reportID, evidenceID, actor.SubjectID,
+			"retention_update", "not_found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not load evidence lifecycle state")
+		return
+	}
+
+	if _, err = tx.Exec(r.Context(), `
+		UPDATE incident_evidence
+		SET retention_expires_at=CASE WHEN $4 THEN $5::timestamptz ELSE retention_expires_at END,
+		    legal_hold=CASE WHEN $6 THEN $7::boolean ELSE legal_hold END
+		WHERE id=$1 AND report_id=$2 AND tenant_id=$3
+	`, evidenceID, reportID, actor.TenantID, retentionSpecified, retentionUntil, legalHoldSpecified, legalHold); err != nil {
+		writeError(w, http.StatusConflict, "evidence lifecycle state could not be updated")
+		return
+	}
+	var afterExpiry *time.Time
+	var afterLegalHold bool
+	if err = tx.QueryRow(r.Context(), `
+		SELECT retention_expires_at,legal_hold FROM incident_evidence
+		WHERE id=$1 AND report_id=$2 AND tenant_id=$3
+	`, evidenceID, reportID, actor.TenantID).Scan(&afterExpiry, &afterLegalHold); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not read updated evidence lifecycle state")
+		return
+	}
+	beforeState, err := json.Marshal(map[string]any{"retention_expires_at": beforeExpiry, "legal_hold": beforeLegalHold})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not encode evidence audit state")
+		return
+	}
+	afterState, err := json.Marshal(map[string]any{"retention_expires_at": afterExpiry, "legal_hold": afterLegalHold})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not encode evidence audit state")
+		return
+	}
+	appendAudit := func(action string) error {
+		_, auditErr := tx.Exec(r.Context(), `
+			INSERT INTO incident_evidence_access_events
+				(tenant_id,report_id,evidence_id,actor_identity_id,action,outcome,reason_category,reason,before_state,after_state)
+			VALUES($1,$2,$3,$4,$5,'success','operator_requested',$6,$7::jsonb,$8::jsonb)
+		`, actor.TenantID, reportID, evidenceID, actor.SubjectID, action, reason, beforeState, afterState)
+		return auditErr
+	}
+	if retentionSpecified {
+		if err = appendAudit("retention_update"); err != nil {
+			writeError(w, http.StatusInternalServerError, "evidence lifecycle audit unavailable")
+			return
+		}
+	}
+	if legalHoldSpecified {
+		action := "legal_hold_set"
+		if !legalHold {
+			action = "legal_hold_cleared"
+		}
+		if err = appendAudit(action); err != nil {
+			writeError(w, http.StatusInternalServerError, "evidence lifecycle audit unavailable")
+			return
+		}
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "evidence lifecycle update could not be committed")
+		return
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	writeJSON(w, http.StatusOK, map[string]any{
+		"evidence_id": evidenceID,
+		"retention_expires_at": afterExpiry,
+		"legal_hold": afterLegalHold,
+	})
+}

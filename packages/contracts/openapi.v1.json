@@ -4165,6 +4165,116 @@
           }
         }
       }
+    },
+    "/v1/operator/incidents/{report_id}/evidence/{evidence_id}/lifecycle": {
+      "patch": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "Manage adopter-controlled incident evidence retention and legal hold with a dedicated grant",
+        "operationId": "updateIncidentEvidenceLifecycle",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "retention_expires_at": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Explicit UTC expiry timestamp; null explicitly clears expiry. Omit to leave unchanged."
+                  },
+                  "legal_hold": {
+                    "type": "boolean",
+                    "description": "Explicitly set or clear legal hold. Omit to leave unchanged."
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "anyOf": [
+                  {
+                    "required": [
+                      "retention_expires_at"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "legal_hold"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated evidence lifecycle state with append-only audit snapshots."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5373,6 +5483,7 @@
               "policy:manage",
               "analytics:read",
               "operator:permissions:manage",
+              "incident:evidence:manage",
               "incident:review"
             ]
           },
@@ -5426,6 +5537,7 @@
               "policy:manage",
               "analytics:read",
               "operator:permissions:manage",
+              "incident:evidence:manage",
               "incident:review"
             ]
           },

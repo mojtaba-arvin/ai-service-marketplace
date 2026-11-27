@@ -55,7 +55,18 @@ The API requires a private persistent storage volume, an AES-256 key ring and a 
 
 Compose creates a named `evidence_data` volume with owner UID 10001 and mode 0700. The initial adapter stores authenticated-encrypted objects outside the web root with mode 0600. The scanner address must resolve to a trusted private clamd endpoint; scanner timeout, unavailability or a non-OK response rejects uploads. The API does not fall back to unscanned or plaintext storage.
 
-`EVIDENCE_RETENTION_DAYS` is optional and has no default. When explicitly set, the API denies retrieval after that interval. It does not automatically delete bytes. The metadata schema includes a legal-hold flag, but an audited retention/deletion administration workflow and backup-expiry coordination are not yet delivered; do not claim retention deletion or legal-hold operations are operational. Until that workflow is accepted, preserve evidence and backups according to the adopter's approved policy.
+`EVIDENCE_RETENTION_DAYS` is optional and has no default. When explicitly set, it assigns an expiry at upload; an authorized evidence manager may later set, change or explicitly clear an individual expiry through `PATCH /v1/operator/incidents/{report_id}/evidence/{evidence_id}/lifecycle`. The same endpoint sets/clears `legal_hold` and requires a bounded non-empty reason. Only an active same-tenant operator with the separate `incident:evidence:manage` grant may call it; `incident:review` and Support membership do not imply this authority. Lifecycle changes and before/after snapshots are written to append-only evidence audit storage in the same transaction. A legal hold overrides expiry denial only for an otherwise-authorized reporter or reviewer; it does not grant read access to the evidence manager.
+
+Example explicit policy update (use an adopter-approved timestamp; no platform duration is implied):
+
+```http
+PATCH /v1/operator/incidents/{report_id}/evidence/{evidence_id}/lifecycle
+Content-Type: application/json
+
+{"retention_expires_at":"<adopter-approved RFC3339 timestamp>","legal_hold":true,"reason":"Adopter-approved preservation instruction"}
+```
+
+Send `retention_expires_at: null` to explicitly clear an expiry. No retention default is inferred. The current implementation does not automatically delete bytes, does not purge backups, and does not provide a retryable deletion worker; expired evidence is denied retrieval unless held, while the encrypted object remains stored. Until an adopter-approved deletion and backup policy is implemented and operationally verified, preserve evidence and backups according to the adopter's approved policy.
 
 ## Seed the initial market catalog and professional
 

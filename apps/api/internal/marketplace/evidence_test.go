@@ -169,3 +169,53 @@ func TestClamAVScannerUsesBoundedINSTREAMProtocol(t *testing.T) {
 		t.Fatalf("clamd protocol server: %v", err)
 	}
 }
+
+func TestClamAVScannerRejectsMalformedAndInfectedResponses(t *testing.T) {
+	for _, response := range []string{"unexpected OK\n", "stream: Eicar-Test-Signature FOUND\n"} {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		serverErr := make(chan error, 1)
+		go func(response string) {
+			conn, acceptErr := listener.Accept()
+			if acceptErr != nil {
+				serverErr <- acceptErr
+				return
+			}
+			defer conn.Close()
+			reader := bufio.NewReader(conn)
+			if _, readErr := reader.ReadString('\x00'); readErr != nil {
+				serverErr <- readErr
+				return
+			}
+			for {
+				var size [4]byte
+				if _, readErr := io.ReadFull(reader, size[:]); readErr != nil {
+					serverErr <- readErr
+					return
+				}
+				length := binary.BigEndian.Uint32(size[:])
+				if length == 0 {
+					break
+				}
+				if _, readErr := io.CopyN(io.Discard, reader, int64(length)); readErr != nil {
+					serverErr <- readErr
+					return
+				}
+			}
+			_, writeErr := io.WriteString(conn, response)
+			serverErr <- writeErr
+		}(response)
+		scanner := ClamAVScanner{Address: listener.Addr().String()}
+		if err = scanner.Scan(context.Background(), []byte("test evidence")); err == nil {
+			listener.Close()
+			t.Fatalf("scanner response %q must fail closed", response)
+		}
+		if err = <-serverErr; err != nil {
+			listener.Close()
+			t.Fatalf("scanner response server: %v", err)
+		}
+		listener.Close()
+	}
+}
