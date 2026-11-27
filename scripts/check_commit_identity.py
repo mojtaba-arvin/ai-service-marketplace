@@ -152,7 +152,7 @@ def main() -> int:
     if args.self_test:
         run_self_tests()
     if not args.repository or not args.pr_number or not args.token:
-        if args.self_test and not args.repository and not args.pr_number and not args.token:
+        if args.self_test and not args.pr_number:
             return 0
         parser.error("--repository, --pr-number, and --token are required for PR validation")
 
