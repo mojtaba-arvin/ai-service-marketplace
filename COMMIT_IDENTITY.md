@@ -52,7 +52,7 @@ This repository's AGENTS.md prohibits implementers from modifying `.github/**`, 
 
 ```sh
 python3 scripts/check_commit_identity.py \
-  --repository mojtaba-arvin/ai-service-marketplace \\
+  --repository mojtaba-arvin/ai-service-marketplace \
   --pr-number <PR_NUMBER>
 ```
 
