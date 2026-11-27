@@ -38,7 +38,8 @@ Build a production-grade, open-source, multi-market home-services marketplace. R
 - Implementers: change only issue-scoped implementation files. Do not edit `.github/**`, `tests/spec/**`, security policy, or feature status fields.
 - Spec writers: own acceptance criteria and specification tests; do not implement production behavior.
 - Reviewers: review only; do not modify code.
-- Only an independently executed verification/evaluation workflow may mark a feature as passing.
+- Feature acceptance does not require an independent QA operator or external reviewer. The implementation agent must provide reproducible test and exact-head CI/security evidence; the project maintainer (including an authorized ChatGPT operator acting for the maintainer) may inspect that evidence and mark the feature accepted.
+- Never self-approve a pull request. Maintainer acceptance of a feature is distinct from GitHub PR approval and branch-protection requirements.
 - Do not self-approve or merge a pull request.
 
 ## Workflow
@@ -61,3 +62,7 @@ Acceptance criteria are met; tests cover success and failure paths; docs/contrac
 
 ## Playbooks
 Use the applicable guides in `docs/playbooks/`: endpoint, migration, adapter, spec/test, and blocker workflows.
+
+## Project acceptance policy
+
+There is no separate or independent QA role in this project. Acceptance is performed by the project maintainer using implementation review, automated tests, exact-head required CI/security checks, and recorded evidence. Do not leave completed work blocked waiting for an independent operator, independent QA run, or external sign-off. Do not claim acceptance when required evidence is missing or failing. `feature_list.json` status fields may be updated by the authorized maintainer after this evidence review.
