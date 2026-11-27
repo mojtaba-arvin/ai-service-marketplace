@@ -93,6 +93,8 @@ unsupportedVersion:=valid
  // A legacy payload with an unrelated version field remains legacy.
  legacy,err:=canonicalDomainEvent(Event{ID:732,AggregateType:"order",AggregateID:"order-legacy",EventType:"order.created",Payload:json.RawMessage(`{"order_id":"order-legacy","version":7,"data":{"legacy_marker":true}}`)})
  if err!=nil || legacy!=nil { t.Fatalf("legacy version field was reinterpreted: domain=%#v err=%v",legacy,err) }
+ _,err=canonicalDomainEvent(Event{ID:733,AggregateType:"order",AggregateID:"order-1",EventType:"order.cancelled",Payload:encoded})
+ if !errors.Is(err,ErrPublisherConfig) { t.Fatalf("event type mismatch must fail closed, got %v",err) }
 }
 
 func TestHTTPPublisherPreservesLegacyPayload(t *testing.T) {
@@ -103,7 +105,7 @@ func TestHTTPPublisherPreservesLegacyPayload(t *testing.T) {
  }))
  defer server.Close()
  publisher,err:=NewHTTPPublisher(server.URL,"publisher-secret",server.Client());if err!=nil{t.Fatal(err)}
- legacy:=json.RawMessage(`{"order_id":"order-legacy","status":"requested","version":7}`)
+ legacy:=json.RawMessage(`{"order_id":"order-legacy","status":"requested","version":7,"data":{"legacy_marker":true}}`)
  if err=publisher.Publish(context.Background(),Event{ID:732,AggregateType:"order",AggregateID:"order-legacy",EventType:"order.created",Payload:legacy},"732");err!=nil{t.Fatal(err)}
  if string(received["payload"])!=string(legacy) {t.Fatalf("legacy payload changed: got %s want %s",received["payload"],legacy)}
  if _,exists:=received["domain_event"];exists {t.Fatalf("legacy event must not gain domain_event: %s",received["domain_event"])}
