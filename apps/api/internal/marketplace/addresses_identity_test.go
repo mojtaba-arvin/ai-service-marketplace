@@ -76,27 +76,19 @@ func TestResolveExternalIdentityConsumesLoginNonceOnlyAfterFindingLink(t *testin
 	}
 	defer pool.Close()
 
-	_, err = pool.Exec(ctx, `
-		CREATE TEMP TABLE phone_identities (
-			id text PRIMARY KEY,
-			phone_e164 text NOT NULL
-		);
-		CREATE TEMP TABLE external_identity_links (
-			provider text NOT NULL,
-			provider_subject text NOT NULL,
+	for _, statement := range []string{
+		`CREATE TEMP TABLE phone_identities (id text PRIMARY KEY, phone_e164 text NOT NULL)`,
+		`CREATE TEMP TABLE external_identity_links (
+			provider text NOT NULL, provider_subject text NOT NULL,
 			phone_identity_id text NOT NULL REFERENCES phone_identities(id),
-			PRIMARY KEY(provider, provider_subject)
-		);
-		CREATE TEMP TABLE external_identity_link_nonces (
-			identity_id text,
-			provider text NOT NULL,
-			nonce_hash bytea NOT NULL,
-			expires_at timestamptz NOT NULL,
-			consumed_at timestamptz
-		);
-	`)
-	if err != nil {
-		t.Fatal(err)
+			PRIMARY KEY(provider, provider_subject))`,
+		`CREATE TEMP TABLE external_identity_link_nonces (
+			identity_id text, provider text NOT NULL, nonce_hash bytea NOT NULL,
+			expires_at timestamptz NOT NULL, consumed_at timestamptz)`,
+	} {
+		if _, err = pool.Exec(ctx, statement); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	registry, err := marketconfig.New([]marketconfig.Config{{
