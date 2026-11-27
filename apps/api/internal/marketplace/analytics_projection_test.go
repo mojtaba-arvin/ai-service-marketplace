@@ -37,7 +37,7 @@ func TestAnalyticsProjectionMinimizesAndQuarantinesEventsPostgres(t *testing.T) 
     if _,err=pool.Exec(ctx,"INSERT INTO analytics_active_generations(tenant_id,generation_id) VALUES($1,$2)",tenant,generation);err!=nil { t.Fatal(err) }
 
     orderID:="analytics-privacy-order-"+suffix
-    canonicalData,err:=json.Marshal(map[string]string{"order_id":orderID,"status":"requested","price_version_id":"price-v1","scheduled_at":"2026-11-26T10:00:00Z"})
+    canonicalData,err:=json.Marshal(map[string]string{"order_id":orderID,"status":"requested","price_version_id":"price-v1","scheduled_at":"2026-11-26T10:00:00Z","service_form_version_id":"form-version-v1"})
     if err!=nil { t.Fatal(err) }
     canonical:=outbox.DomainEvent{ID:"analytics-privacy-event-"+suffix,Type:"order.created",Version:1,OccurredAt:time.Now().UTC(),TenantID:tenant,
         Aggregate:outbox.EventAggregate{Type:"order",ID:orderID},Metadata:map[string]string{"market_code":"OM","traffic_class":"production"},Data:canonicalData}
@@ -83,6 +83,9 @@ func TestAnalyticsProjectionMinimizesAndQuarantinesEventsPostgres(t *testing.T) 
     var projected string
     if err=pool.QueryRow(ctx,"SELECT data::text FROM analytics_event_facts WHERE tenant_id=$1 AND generation_id=$2 AND event_id=$3",tenant,generation,canonical.ID).Scan(&projected);err!=nil { t.Fatal(err) }
     if strings.Contains(projected,"phone") { t.Fatalf("unexpected sensitive field in fact: %s",projected) }
+    if !strings.Contains(projected,"service_form_version_id") || !strings.Contains(projected,"form-version-v1") {
+        t.Fatalf("scheduled-order form version metadata must survive analytics projection: %s",projected)
+    }
     var quarantineHash string
     if err=pool.QueryRow(ctx,"SELECT payload_sha256 FROM analytics_event_quarantine WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id=$3",tenant,generation,unsafeOutboxID).Scan(&quarantineHash);err!=nil { t.Fatal(err) }
     if len(quarantineHash)!=64 { t.Fatalf("quarantine must store only a SHA-256 fingerprint: %q",quarantineHash) }
