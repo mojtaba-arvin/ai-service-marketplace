@@ -86,10 +86,10 @@ echo "==> Starting loopback-only E2E API and OTP capture"
 API_PID=$!
 
 for _ in $(seq 1 60); do
-  if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then break; fi
+  if curl -fsS http://127.0.0.1:8080/readyz >/dev/null 2>&1; then break; fi
   sleep 1
 done
-curl -fsS http://127.0.0.1:8080/healthz >/dev/null
+curl -fsS http://127.0.0.1:8080/readyz >/dev/null
 
 echo "==> Installing pinned Playwright and building the production Next.js app"
 (
@@ -126,7 +126,7 @@ https://localhost:8443 {
     reverse_proxy 127.0.0.1:8080
   }
 
-  handle /healthz {
+  handle /readyz {
     reverse_proxy 127.0.0.1:8080
   }
 
@@ -144,10 +144,10 @@ docker logs -f "$CADDY_NAME" >"$TMP_DIR/caddy.log" 2>&1 &
 CADDY_LOG_PID=$!
 
 for _ in $(seq 1 60); do
-  if curl --insecure --fail --silent https://localhost:8443/healthz >/dev/null 2>&1; then break; fi
+  if curl --insecure --fail --silent https://localhost:8443/readyz >/dev/null 2>&1; then break; fi
   sleep 1
 done
-curl --insecure --fail https://localhost:8443/healthz >/dev/null
+curl --insecure --fail https://localhost:8443/readyz >/dev/null
 
 echo "==> Running Chromium browser E2E through Caddy HTTPS ingress"
 (
