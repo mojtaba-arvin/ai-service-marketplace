@@ -161,3 +161,71 @@ test("customer booking → operator verification/dispatch → professional accep
   });
   expect(unauthenticatedStatus).toBe(401);
 });
+
+
+test("market locale controls document language and RTL/LTR direction", async ({ page }) => {
+  let locale = "ar";
+  await page.route("**/v1/auth/me", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      session_id: "locale-test-session",
+      identity_id: "locale-test-identity",
+      phone: "+15550000009",
+      roles: ["customer"],
+    }),
+  }));
+  await page.route("**/v1/catalog", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      market: "OM",
+      currency: "OMR",
+      timezone: "Asia/Muscat",
+      locale,
+      items: [{
+        category_id: "locale-category",
+        category_name: "Plumbing",
+        category_slug: "plumbing",
+        menu_id: "locale-menu",
+        service_code: "plumbing",
+        amount_minor: 1000,
+        currency: "OMR",
+      }],
+    }),
+  }));
+  await page.route("**/v1/orders*", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      items: [{
+        order: {
+          id: "locale-order-001",
+          amount_minor: 1000,
+          currency: "OMR",
+          status: "requested",
+          scheduled_at: "2026-11-23T10:00:00Z",
+        },
+        created_at: "2026-11-23T09:00:00Z",
+        updated_at: "2026-11-23T09:00:00Z",
+      }],
+    }),
+  }));
+
+  await page.goto("/");
+  await expect.poll(() => page.locator("html").getAttribute("dir")).toBe("rtl");
+  await expect(page.locator("html")).toHaveAttribute("lang", "ar");
+  const arabicMoney = await page.evaluate(() => new Intl.NumberFormat("ar", { style: "currency", currency: "OMR" }).format(1));
+  const arabicDate = await page.evaluate(() => new Date("2026-11-23T10:00:00Z").toLocaleString("ar", { timeZone: "Asia/Muscat" }));
+  await expect(page.locator(".price-line strong")).toHaveText(arabicMoney);
+  await expect(page.locator(".order-card p").first()).toContainText(arabicDate);
+
+  locale = "en-GB";
+  await page.reload();
+  await expect.poll(() => page.locator("html").getAttribute("dir")).toBe("ltr");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en-GB");
+  const englishMoney = await page.evaluate(() => new Intl.NumberFormat("en-GB", { style: "currency", currency: "OMR" }).format(1));
+  const englishDate = await page.evaluate(() => new Date("2026-11-23T10:00:00Z").toLocaleString("en-GB", { timeZone: "Asia/Muscat" }));
+  await expect(page.locator(".price-line strong")).toHaveText(englishMoney);
+  await expect(page.locator(".order-card p").first()).toContainText(englishDate);
+});

@@ -38,12 +38,28 @@ Build a production-grade, open-source, multi-market home-services marketplace. R
 - Implementers: change only issue-scoped implementation files. Do not edit `.github/**`, `tests/spec/**`, security policy, or feature status fields.
 - Spec writers: own acceptance criteria and specification tests; do not implement production behavior.
 - Reviewers: review only; do not modify code.
-- Only an independently executed verification/evaluation workflow may mark a feature as passing.
+- Feature acceptance does not require an independent QA operator or external reviewer. The implementation agent must provide reproducible test and exact-head CI/security evidence; the project maintainer (including an authorized ChatGPT operator acting for the maintainer) may inspect that evidence and mark the feature accepted.
+- Never self-approve a pull request. Maintainer acceptance of a feature is distinct from GitHub PR approval and branch-protection requirements.
 - Do not self-approve or merge a pull request.
 
+## Issue title contract
+- Every Issue title must use `<type>(<scope>): <short, clear description>`.
+- Use a lowercase Conventional Commit type: `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, `chore`, `perf`, or `revert`.
+- Use a concise lowercase kebab-case scope naming the affected domain/component (for example `identity`, `events`, `api`, `deployment`).
+- Write a specific, action-oriented description. Keep priority, milestone, feature IDs, command IDs, agent names, and workflow/run metadata in labels, milestones, or the Issue body—not in the title.
+- Do not use bracketed prefixes, standalone priority codes, `Recover:`, or agent/supervisor identity prefixes.
+- For roadmap/milestone bookkeeping, use `chore(roadmap): <description>`; for supervisor ledgers use `chore(supervisor): <description>`.
+- Examples: `feat(identity): add customer address book`, `fix(events): preserve additive event compatibility`, `test(ai): expand safety evaluation gates`, `docs(agents): clarify worker execution rules`.
+- Preserve the Issue number and all body, labels, milestone, assignees, and relationships when renaming.
+
 ## Workflow
-- Use short-lived branches: `agent/<issue>-<slug>`.
-- Use Conventional Commits and link each PR to its issue.
+- Create or identify the GitHub Issue before creating a work branch. The Issue number is mandatory and must be embedded in the branch name.
+- Canonical branch format: `<type>/issue-<number>-<slug>`.
+- Allowed type prefixes: `feature`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, `chore`, `perf`, `revert`.
+- The slug must be lowercase kebab-case, non-empty, and describe the Issue; do not include a contributor, agent, or automation identity.
+- Examples: `feature/issue-123-new-login`, `fix/issue-124-token-refresh`, `docs/issue-125-api-authentication`.
+- Do not create new `work/*` or `agent/*` branches. Those prefixes are legacy-only and may remain on pre-existing branches/PRs during transition; do not rename them as part of unrelated work.
+- Use Conventional Commits and link each PR to its exact Issue with `Closes #<number>` or `Refs #<number>`.
 - Keep PRs small, focused, and normally below 400 changed lines.
 - Run `make verify`; run `make verify-full` when infrastructure or integration behavior changes.
 - Report exact commands and outcomes. Never claim a check passed unless it was actually run.
@@ -56,3 +72,7 @@ Acceptance criteria are met; tests cover success and failure paths; docs/contrac
 
 ## Playbooks
 Use the applicable guides in `docs/playbooks/`: endpoint, migration, adapter, spec/test, and blocker workflows.
+
+## Project acceptance policy
+
+There is no separate or independent QA role in this project. Acceptance is performed by the project maintainer using implementation review, automated tests, exact-head required CI/security checks, and recorded evidence. Do not leave completed work blocked waiting for an independent operator, independent QA run, or external sign-off. Do not claim acceptance when required evidence is missing or failing. `feature_list.json` status fields may be updated by the authorized maintainer after this evidence review.

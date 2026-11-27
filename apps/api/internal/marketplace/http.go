@@ -13,6 +13,7 @@ type OTPDelivery interface { SendOTP(ctx context.Context,phone,code,idempotencyK
 
 type Handler struct {
  Store *Store
+ Evidence *EvidenceService
  OTPCode string
  TestMode bool
  OTPPepper []byte
@@ -30,6 +31,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
  w.Header().Set("Content-Type","application/json")
  if strings.HasPrefix(r.URL.Path,"/v1/auth/") { w.Header().Set("Cache-Control","no-store") }
  if !h.enforceCookieCSRF(w,r) { return }
+ if h.serveIncidentEvidence(w,r) { return }
  if h.serveMVP(w,r) { return }
  switch {
  case r.Method==http.MethodGet&&r.URL.Path=="/healthz":
@@ -47,6 +49,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
   h.revokeSession(w,r)
  case r.Method==http.MethodGet&&r.URL.Path=="/v1/auth/me":
   h.authMe(w,r)
+ case r.Method==http.MethodPost&&r.URL.Path=="/v1/auth/devices":
+  h.registerDevice(w,r)
+ case r.Method==http.MethodGet&&r.URL.Path=="/v1/auth/devices":
+  h.listDevices(w,r)
+ case r.Method==http.MethodDelete&&strings.HasPrefix(r.URL.Path,"/v1/auth/devices/"):
+  h.revokeDevice(w,r)
  case r.Method==http.MethodGet&&strings.HasPrefix(r.URL.Path,"/v1/orders/"):
   h.getOrder(w,r)
  case r.Method==http.MethodPost&&r.URL.Path=="/v1/orders":
@@ -160,6 +168,45 @@ func (h *Handler) revokeSession(w http.ResponseWriter,r *http.Request){
  if err=h.Store.RevokeSession(r.Context(),token,h.SessionPepper);err!=nil{writeError(w,http.StatusUnauthorized,"session is invalid");return}
  h.clearSessionCookies(w)
  writeJSON(w,http.StatusOK,map[string]string{"status":"revoked"})
+}
+
+
+func (h *Handler) registerDevice(w http.ResponseWriter, r *http.Request) {
+	principal, err := h.principal(r)
+	if err != nil { writeError(w, http.StatusUnauthorized, "unauthorized"); return }
+	if principal.SessionID == "test-session" { writeError(w, http.StatusNotFound, "not found"); return }
+	var in struct { Label string `json:"label"` }
+	if json.NewDecoder(r.Body).Decode(&in) != nil || strings.TrimSpace(in.Label) == "" {
+		writeError(w, http.StatusBadRequest, "device label is required"); return
+	}
+	device, err := h.Store.RegisterDevice(r.Context(), principal.IdentityID, principal.SessionID, in.Label)
+	if err != nil {
+		if errors.Is(err, ErrSessionInvalid) { writeError(w, http.StatusUnauthorized, "session is invalid"); return }
+		writeError(w, http.StatusBadRequest, "could not register device"); return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"device": device})
+}
+
+func (h *Handler) listDevices(w http.ResponseWriter, r *http.Request) {
+	principal, err := h.principal(r)
+	if err != nil { writeError(w, http.StatusUnauthorized, "unauthorized"); return }
+	if principal.SessionID == "test-session" { writeError(w, http.StatusNotFound, "not found"); return }
+	devices, err := h.Store.ListDevices(r.Context(), principal.IdentityID)
+	if err != nil { writeError(w, http.StatusInternalServerError, "could not list devices"); return }
+	writeJSON(w, http.StatusOK, map[string]any{"devices": devices})
+}
+
+func (h *Handler) revokeDevice(w http.ResponseWriter, r *http.Request) {
+	principal, err := h.principal(r)
+	if err != nil { writeError(w, http.StatusUnauthorized, "unauthorized"); return }
+	if principal.SessionID == "test-session" { writeError(w, http.StatusNotFound, "not found"); return }
+	deviceID := strings.TrimPrefix(r.URL.Path, "/v1/auth/devices/")
+	if deviceID == "" || strings.Contains(deviceID, "/") { writeError(w, http.StatusNotFound, "not found"); return }
+	if err = h.Store.RevokeDevice(r.Context(), principal.IdentityID, deviceID); err != nil {
+		if errors.Is(err, ErrDeviceNotFound) { writeError(w, http.StatusNotFound, "device not found"); return }
+		writeError(w, http.StatusInternalServerError, "could not revoke device"); return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) authMe(w http.ResponseWriter,r *http.Request){

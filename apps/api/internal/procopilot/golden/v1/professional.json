@@ -1,0 +1,7 @@
+{
+ "version":"1.0.0",
+ "cases":[
+  {"id":"om-ac-drain-leak","required_checklist":["Confirm power isolation","Inspect drain line"],"required_citations":["manual-ac-01"],"critical":true},
+  {"id":"om-water-heater-no-heat","required_checklist":["Verify power supply","Check thermostat setting"],"required_citations":["manual-water-heater-02"],"critical":true}
+ ]
+}

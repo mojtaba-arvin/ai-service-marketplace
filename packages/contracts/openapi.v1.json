@@ -3,7 +3,7 @@
   "info": {
     "title": "AI Service Marketplace HTTP API",
     "version": "1.0.0",
-    "description": "Initial source-aligned contract for the implemented public MVP HTTP surface. Test-only endpoints are intentionally excluded. Response DTOs are being progressively formalized; where marked generic, the current handler and integration tests remain the compatibility reference."
+    "description": "Source-aligned contract for the currently implemented public HTTP surface. This is a progressively formalized subset of the complete M1–M14 platform contract. Test-only endpoints are intentionally excluded. Response DTOs are being progressively formalized; where marked generic, the current handler and integration tests remain the compatibility reference."
   },
   "servers": [
     {
@@ -11,7 +11,7 @@
     }
   ],
   "x-contract-status": "initial-source-snapshot",
-  "x-last-reviewed-commit": "4536df36b235dc39ea2888c5746a37a701d3b05e",
+  "x-last-reviewed-commit": "8c5162bbfa375757ceb477cbae02e088874dccd4",
   "paths": {
     "/healthz": {
       "get": {
@@ -1650,6 +1650,138 @@
             "$ref": "#/components/parameters/TenantID"
           }
         ]
+      },
+      "patch": {
+        "summary": "Update an organization",
+        "operationId": "update_organization",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Updates the name and/or slug. Only active owners and admins may update an active organization.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updates the name and/or slug. Only active owners and admins may update an active organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Archive an organization",
+        "operationId": "archive_organization",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Soft-archives the organization. Only the active owner may archive it. Child properties are archived and all organization memberships and property delegations are revoked atomically; historical rows and downstream order/ledger records are retained.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Soft-archives the organization. Only the active owner may archive it. All organization memberships and property delegations are revoked atomically; properties and downstream order/ledger history are retained.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
       }
     },
     "/v1/organizations/{organization_id}/properties": {
@@ -2072,12 +2204,21 @@
         ]
       }
     },
-    "/v1/organizations/{organization_id}/properties/{property_id}/memberships": {
-      "get": {
-        "summary": "List active property member delegations",
-        "operationId": "list_property_memberships",
+    "/v1/organizations/{organization_id}/properties/{property_id}": {
+      "patch": {
+        "summary": "Update an organization property",
+        "operationId": "update_organization_property",
         "tags": [
-          "Marketplace"
+          "B2B"
+        ],
+        "description": "Updates supplied property fields. Active owners, admins and organization managers may update an active property.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
         ],
         "parameters": [
           {
@@ -2085,7 +2226,9 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
             }
           },
           {
@@ -2093,25 +2236,32 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
             }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyUpdate"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Active delegated memberships.",
+            "description": "Updates supplied property fields. Active owners, admins and organization managers may update an active property.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "memberships": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/PropertyMembership"
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/PropertyResponse"
                 }
               }
             }
@@ -2130,6 +2280,443 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Archive an organization property",
+        "operationId": "archive_organization_property",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Soft-archives a property and revokes its active property delegations in the same transaction. Historical records are retained.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Soft-archives a property and revokes its active property delegations in the same transaction. Historical records are retained.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/organizations/{organization_id}/properties/{property_id}/memberships": {
+      "get": {
+        "summary": "List active property delegations",
+        "operationId": "list_property_delegations",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Lists active delegations for an active property. Only active organization owners, admins and managers may list them.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lists active delegations for an active property. Only active organization owners, admins and managers may list them.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyMembershipsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      },
+      "post": {
+        "summary": "Grant property access",
+        "operationId": "grant_property_delegation",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Grants visibility to an existing active organization member. Owners/admins may grant manager or viewer; organization managers may grant viewer only. Delegation roles grant visibility only and do not confer property-write authority.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyMembershipCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Grants visibility to an existing active organization member. Owners/admins may grant manager or viewer; organization managers may grant viewer only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyMembershipResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/organizations/{organization_id}/properties/{property_id}/memberships/{identity_id}": {
+      "delete": {
+        "summary": "Revoke property access",
+        "operationId": "revoke_property_delegation",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Revokes an active property delegation. Owners/admins may revoke either role; organization managers may revoke viewer delegations only.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "identity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revokes an active property delegation. Owners/admins may revoke either role; organization managers may revoke viewer delegations only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/organizations/{organization_id}/properties/{property_id}/memberships/{identity_id}/role": {
+      "patch": {
+        "summary": "Change property access role",
+        "operationId": "change_property_delegation_role",
+        "tags": [
+          "B2B"
+        ],
+        "description": "Changes an active delegation between manager and viewer. Only organization owners and admins may change delegation roles. Delegation roles grant visibility only and do not confer property-write authority.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "identity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyMembershipRoleChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Changes an active delegation between manager and viewer. Only organization owners and admins may change delegation roles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyMembershipResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/auth/devices": {
+      "get": {
+        "summary": "List devices registered to the authenticated identity",
+        "operationId": "list_auth_devices",
+        "tags": [
+          "Identity"
+        ],
+        "responses": {
+          "200": {
+            "description": "Registered device inventory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthDeviceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -2145,52 +2732,34 @@
         ]
       },
       "post": {
-        "summary": "Assign an organization member to a property",
-        "operationId": "assign_property_membership",
+        "summary": "Register the current authenticated session as a device",
+        "operationId": "register_auth_device",
         "tags": [
-          "Marketplace"
-        ],
-        "parameters": [
-          {
-            "name": "organization_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "property_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "$ref": "#/components/parameters/CSRFToken"
-          }
+          "Identity"
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PropertyMembershipCreate"
+                "$ref": "#/components/schemas/DeviceRegistration"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Property access granted.",
+            "description": "Device registered",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "device"
+                  ],
                   "properties": {
-                    "membership": {
-                      "$ref": "#/components/schemas/PropertyMembership"
+                    "device": {
+                      "$ref": "#/components/schemas/AuthDevice"
                     }
                   }
                 }
@@ -2209,8 +2778,53 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/auth/devices/{device_id}": {
+      "delete": {
+        "summary": "Revoke a device and all sessions bound to it",
+        "operationId": "revoke_auth_device",
+        "tags": [
+          "Identity"
+        ],
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Device and its sessions revoked"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -2226,57 +2840,255 @@
         ]
       }
     },
-    "/v1/organizations/{organization_id}/properties/{property_id}/memberships/{identity_id}": {
-      "delete": {
-        "summary": "Revoke a member's property access",
-        "operationId": "revoke_property_membership",
+    "/v1/operator/service-forms": {
+      "post": {
+        "summary": "Create a draft version of a market-specific service questionnaire",
+        "operationId": "create_service_form_draft",
         "tags": [
-          "Marketplace"
+          "Catalog"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceFormDraftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Draft form version created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "form"
+                  ],
+                  "properties": {
+                    "form": {
+                      "$ref": "#/components/schemas/ServiceFormVersion"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/service-forms/{form_id}/publish": {
+      "post": {
+        "summary": "Publish a draft service form version and retire the previous published version",
+        "operationId": "publish_service_form_version",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
         ],
         "parameters": [
           {
-            "name": "organization_id",
+            "name": "form_id",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1
             }
-          },
-          {
-            "name": "property_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "identity_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "$ref": "#/components/parameters/CSRFToken"
           }
         ],
         "responses": {
           "200": {
-            "description": "Property access revoked.",
+            "description": "Published service form version",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "form"
+                  ],
                   "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "revoked"
-                      ]
+                    "form": {
+                      "$ref": "#/components/schemas/ServiceFormVersion"
                     }
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/catalog/service-forms": {
+      "get": {
+        "summary": "Get the published service questionnaire for a menu and market",
+        "operationId": "get_published_service_form",
+        "tags": [
+          "Catalog"
+        ],
+        "parameters": [
+          {
+            "name": "menu_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "market",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "OM"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published service form",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "form"
+                  ],
+                  "properties": {
+                    "form": {
+                      "$ref": "#/components/schemas/PublishedServiceForm"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/orders/{order_id}/completion-approval": {
+      "post": {
+        "summary": "Approve completed customer order",
+        "description": "Only the owning customer may approve work after the professional marks the order completed. The immutable one-per-order approval makes retries idempotent. This operation does not capture, release or transfer funds.",
+        "operationId": "approve_customer_order_completion",
+        "tags": [
+          "Marketplace"
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The existing approval was returned for an idempotent retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Completion approval created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
                 }
               }
             }
@@ -2299,27 +3111,20 @@
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "cookieAuth": []
-          }
-        ]
+        }
       }
     },
-    "/v1/organizations/{organization_id}/properties/{property_id}/memberships/{identity_id}/role": {
-      "patch": {
-        "summary": "Change a member's property role",
-        "operationId": "change_property_membership_role",
+    "/v1/orders/{order_id}/reorder": {
+      "post": {
+        "summary": "Reorder a completed customer order",
+        "description": "Creates a new order from the original service, service-area and questionnaire-answer snapshot. The new schedule is required. Current provider availability is checked before creation; current active catalog, price and published questionnaire are revalidated by the normal order-creation transaction. Availability is a preflight, not a slot reservation; dispatch and booking revalidate it again. Idempotency is scoped to the source order and Idempotency-Key.",
+        "operationId": "reorder_customer_order",
         "tags": [
           "Marketplace"
         ],
         "parameters": [
           {
-            "name": "organization_id",
+            "name": "order_id",
             "in": "path",
             "required": true,
             "schema": {
@@ -2327,20 +3132,7 @@
             }
           },
           {
-            "name": "property_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "identity_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/IdempotencyKey"
           },
           {
             "$ref": "#/components/parameters/CSRFToken"
@@ -2351,21 +3143,655 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PropertyMembershipRole"
+                "$ref": "#/components/schemas/ReorderOrder"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Existing order returned for an idempotent retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "New order created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/analytics/summary": {
+      "get": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Get a tenant-scoped production analytics summary",
+        "operationId": "getOperatorAnalyticsSummary",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "description": "Inclusive RFC3339 event-time lower bound.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "description": "Exclusive RFC3339 event-time upper bound; range must not exceed 90 days.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "market_code",
+            "in": "query",
+            "required": false,
+            "description": "Optional uppercase ISO-3166 alpha-2 market filter.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenant-scoped production summary. Events without production traffic and market metadata are excluded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid time window or market filter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operator analytics permission is required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Analytics summary could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/incidents": {
+      "post": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "Submit an incident report for an order the caller participates in",
+        "operationId": "createIncidentReport",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentReportInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Incident report created. Response includes an emergency-service disclaimer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentReportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/incidents/{report_id}": {
+      "get": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "Read an incident report submitted by the authenticated identity",
+        "operationId": "getIncidentReport",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reporter-owned incident report and emergency-service disclaimer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentReportResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/permissions": {
+      "get": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "List tenant-scoped operator permission grants and revocations",
+        "operationId": "listOperatorPermissionGrants",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Permission history for the authenticated operator tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "grants"
+                  ],
+                  "properties": {
+                    "grants": {
+                      "type": "array",
+                      "maxItems": 500,
+                      "items": {
+                        "$ref": "#/components/schemas/OperatorPermissionGrant"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/permissions/grants": {
+      "post": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Grant an allowlisted action to another operator in the current tenant",
+        "operationId": "grantOperatorPermission",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperatorPermissionGrantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Permission grant created and audited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorPermissionGrantResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/permissions/grants/{grant_id}/revoke": {
+      "post": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Revoke another operator's active permission grant",
+        "operationId": "revokeOperatorPermission",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "grant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperatorPermissionRevokeRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Property role updated.",
+            "description": "Permission grant revoked and audit event appended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorPermissionGrantResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/incidents": {
+      "get": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "List same-tenant incident reports for an explicitly authorized reviewer",
+        "operationId": "listOperatorIncidentReports",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "submitted",
+                "triaged",
+                "investigating",
+                "resolved",
+                "closed"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenant-scoped reviewer queue.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "reports"
+                  ],
                   "properties": {
-                    "membership": {
-                      "$ref": "#/components/schemas/PropertyMembership"
+                    "reports": {
+                      "type": "array",
+                      "maxItems": 200,
+                      "items": {
+                        "$ref": "#/components/schemas/IncidentReport"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/incidents/{report_id}": {
+      "get": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Read an incident report as an explicitly authorized same-tenant reviewer",
+        "operationId": "getOperatorIncidentReport",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reviewer-authorized incident report.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentReportResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/operator/incidents/{report_id}/transition": {
+      "post": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Assign, reclassify or advance an incident report with an audited reason",
+        "operationId": "transitionOperatorIncidentReport",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentReviewerTransitionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Incident report after the audited reviewer transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentReportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/incidents/{report_id}/evidence": {
+      "post": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "Upload private evidence to an incident report as its original reporter",
+        "operationId": "uploadIncidentEvidence",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Evidence stored privately after content sniffing and malware scanning.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "evidence_id",
+                    "media_type",
+                    "size_bytes"
+                  ],
+                  "properties": {
+                    "evidence_id": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    },
+                    "media_type": {
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "type": "integer",
+                      "minimum": 1
                     }
                   }
                 }
@@ -2387,10 +3813,26 @@
           "409": {
             "$ref": "#/components/responses/Conflict"
           },
+          "413": {
+            "description": "Evidence exceeds the configured byte limit."
+          },
+          "415": {
+            "description": "Sniffed media type is not allowed."
+          },
           "500": {
             "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "description": "Private storage, encryption key or malware scanner is unavailable."
           }
-        },
+        }
+      },
+      "get": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "List private evidence metadata as the original reporter",
+        "operationId": "listReporterIncidentEvidence",
         "security": [
           {
             "bearerAuth": []
@@ -2398,7 +3840,330 @@
           {
             "cookieAuth": []
           }
-        ]
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized incident evidence metadata. No storage paths or URLs are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "evidence"
+                  ],
+                  "properties": {
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "evidence_id",
+                          "media_type",
+                          "size_bytes",
+                          "created_at",
+                          "legal_hold"
+                        ],
+                        "properties": {
+                          "evidence_id": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{32}$"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "retention_expires_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "legal_hold": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/v1/incidents/{report_id}/evidence/{evidence_id}": {
+      "get": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "Download private evidence as the original incident reporter",
+        "operationId": "downloadIncidentEvidence",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Decrypted evidence bytes; response is private, no-store and nosniff.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "410": {
+            "description": "Configured retention access window has expired."
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "description": "Private storage, encryption key or malware scanner is unavailable."
+          }
+        }
+      }
+    },
+    "/v1/operator/incidents/{report_id}/evidence/{evidence_id}": {
+      "get": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "Download private evidence with an active same-tenant incident:review grant",
+        "operationId": "downloadIncidentEvidenceAsReviewer",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Decrypted evidence bytes; response is private, no-store and nosniff.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "410": {
+            "description": "Configured retention access window has expired."
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "description": "Private storage, encryption key or malware scanner is unavailable."
+          }
+        }
+      }
+    },
+    "/v1/operator/incidents/{report_id}/evidence": {
+      "get": {
+        "tags": [
+          "Trust & Safety"
+        ],
+        "summary": "List private evidence metadata with an active same-tenant incident:review grant",
+        "operationId": "listReviewerIncidentEvidence",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized incident evidence metadata. No storage paths or URLs are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "evidence"
+                  ],
+                  "properties": {
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "evidence_id",
+                          "media_type",
+                          "size_bytes",
+                          "created_at",
+                          "legal_hold"
+                        ],
+                        "properties": {
+                          "evidence_id": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{32}$"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "retention_expires_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "legal_hold": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
       }
     }
   },
@@ -2477,6 +4242,11 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 100
+          },
+          "answers": {
+            "type": "object",
+            "description": "Required when a published questionnaire exists for the selected service, market and default locale. Validated against that immutable schema version and stored as an order snapshot.",
+            "additionalProperties": true
           }
         }
       },
@@ -2765,28 +4535,125 @@
           }
         }
       },
-      "PropertyMembership": {
+      "OrganizationUpdate": {
         "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-z0-9]+([a-z0-9-]*[a-z0-9])?$"
+          }
+        }
+      },
+      "PropertyUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "property_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "country_code": {
+            "type": "string",
+            "pattern": "^[A-Za-z]{2}$"
+          },
+          "region_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "city_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "area_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        }
+      },
+      "PropertyMembershipCreate": {
+        "type": "object",
+        "additionalProperties": false,
         "required": [
-          "property_id",
-          "organization_id",
-          "tenant_id",
           "identity_id",
-          "role",
-          "status"
+          "role"
         ],
         "properties": {
+          "identity_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "viewer"
+            ]
+          }
+        }
+      },
+      "PropertyMembershipRoleChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "viewer"
+            ]
+          }
+        }
+      },
+      "PropertyMembership": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "property_id",
+          "organization_id",
+          "identity_id",
+          "role",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
           "property_id": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "organization_id": {
-            "type": "string"
-          },
-          "tenant_id": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "identity_id": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "role": {
             "type": "string",
@@ -2801,15 +4668,745 @@
               "active",
               "revoked"
             ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "PropertyMembershipCreate": {
+      "OrganizationSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "tenant_id",
+          "name",
+          "slug",
+          "status",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "manager",
+              "member",
+              "viewer"
+            ]
+          }
+        }
+      },
+      "PropertySummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "organization_id",
+          "tenant_id",
+          "property_code",
+          "name",
+          "country_code",
+          "region_code",
+          "city_code",
+          "area_code",
+          "status",
+          "access_role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "property_code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "region_code": {
+            "type": "string"
+          },
+          "city_code": {
+            "type": "string"
+          },
+          "area_code": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ]
+          },
+          "access_role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "manager",
+              "member",
+              "viewer"
+            ]
+          }
+        }
+      },
+      "OrganizationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "organization"
+        ],
+        "properties": {
+          "organization": {
+            "$ref": "#/components/schemas/OrganizationSummary"
+          }
+        }
+      },
+      "PropertyResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "property"
+        ],
+        "properties": {
+          "property": {
+            "$ref": "#/components/schemas/PropertySummary"
+          }
+        }
+      },
+      "PropertyMembershipResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "membership"
+        ],
+        "properties": {
+          "membership": {
+            "$ref": "#/components/schemas/PropertyMembership"
+          }
+        }
+      },
+      "PropertyMembershipsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "memberships"
+        ],
+        "properties": {
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PropertyMembership"
+            }
+          }
+        }
+      },
+      "StatusResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "archived",
+              "revoked"
+            ]
+          }
+        }
+      },
+      "DeviceRegistration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "User-visible device label; do not include secrets or sensitive personal data."
+          }
+        }
+      },
+      "AuthDevice": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "created_at",
+          "last_seen_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AuthDeviceList": {
+        "type": "object",
+        "required": [
+          "devices"
+        ],
+        "properties": {
+          "devices": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/AuthDevice"
+            }
+          }
+        }
+      },
+      "ServiceFormDraftRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "menu_id",
+          "market_code",
+          "locale",
+          "schema"
+        ],
+        "properties": {
+          "menu_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "market_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{2,8}$"
+          },
+          "locale": {
+            "type": "string",
+            "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"
+          },
+          "schema": {
+            "type": "object",
+            "description": "Supported bounded JSON Schema subset; unsupported keywords are rejected."
+          }
+        }
+      },
+      "ServiceFormVersion": {
+        "type": "object",
+        "required": [
+          "id",
+          "menu_id",
+          "service_code",
+          "market_code",
+          "locale",
+          "version",
+          "schema",
+          "status",
+          "created_by",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "menu_id": {
+            "type": "string"
+          },
+          "service_code": {
+            "type": "string"
+          },
+          "market_code": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "schema": {
+            "type": "object"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "retired"
+            ]
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "published_by": {
+            "type": "string"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "retired_by": {
+            "type": "string"
+          },
+          "retired_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PublishedServiceForm": {
+        "type": "object",
+        "required": [
+          "id",
+          "menu_id",
+          "service_code",
+          "market_code",
+          "locale",
+          "version",
+          "schema",
+          "published_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "menu_id": {
+            "type": "string"
+          },
+          "service_code": {
+            "type": "string"
+          },
+          "market_code": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "schema": {
+            "type": "object"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OrderCompletionApproval": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "approved_at"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "approved_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReorderOrder": {
+        "type": "object",
+        "required": [
+          "scheduled_at"
+        ],
+        "properties": {
+          "scheduled_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "answers": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "window_from",
+          "window_to",
+          "orders_created",
+          "offers_created",
+          "offers_accepted",
+          "orders_cancelled",
+          "orders_completed",
+          "offer_acceptance_rate",
+          "cancellation_rate",
+          "completion_rate",
+          "median_assignment_seconds",
+          "p90_assignment_seconds",
+          "data_ready",
+          "eligible_events",
+          "excluded_events",
+          "pending_events"
+        ],
+        "properties": {
+          "window_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "window_to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "market_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "orders_created": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "offers_created": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "offers_accepted": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "orders_cancelled": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "orders_completed": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "offer_acceptance_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "cancellation_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "completion_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "median_assignment_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "p90_assignment_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "data_ready": {
+            "type": "boolean",
+            "description": "True only when production-classified market-attributed facts exist in the requested window and the active generation has no pending canonical tenant events."
+          },
+          "eligible_events": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "excluded_events": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Events excluded because traffic classification is not production or market attribution is missing."
+          },
+          "pending_events": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Canonical tenant-scoped outbox events not yet processed by the active generation's consumer."
+          }
+        }
+      },
+      "IncidentReportInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id",
+          "reporter_role",
+          "category",
+          "narrative"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "reporter_role": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "professional"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,49}$"
+          },
+          "narrative": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 4000
+          },
+          "occurred_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "severity_hint": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "low",
+              "high",
+              "critical"
+            ],
+            "default": "unknown"
+          },
+          "evidence_references": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          }
+        }
+      },
+      "IncidentReport": {
+        "type": "object",
+        "required": [
+          "id",
+          "order_id",
+          "reporter_role",
+          "category",
+          "narrative",
+          "severity_hint",
+          "status",
+          "evidence_references",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "order_id": {
+            "type": "string"
+          },
+          "reporter_role": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "professional"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "narrative": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "severity_hint": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "low",
+              "high",
+              "critical"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "submitted",
+              "triaged",
+              "investigating",
+              "resolved",
+              "closed"
+            ]
+          },
+          "evidence_references": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "assigned_reviewer_identity_id": {
+            "type": "string",
+            "description": "Only present on reviewer-authorized responses."
+          }
+        }
+      },
+      "IncidentReportResponse": {
+        "type": "object",
+        "required": [
+          "report",
+          "emergency_notice"
+        ],
+        "properties": {
+          "report": {
+            "$ref": "#/components/schemas/IncidentReport"
+          },
+          "emergency_notice": {
+            "type": "string",
+            "description": "States that incident intake is not monitored as an emergency service."
+          }
+        }
+      },
+      "OperatorPermissionGrant": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "identity_id",
+          "tenant_id",
+          "action",
+          "grant_reason",
+          "granted_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "identity_id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "order:read",
+              "order:assign",
+              "provider:verify",
+              "case:read",
+              "market:configure",
+              "catalog:manage",
+              "policy:manage",
+              "analytics:read",
+              "operator:permissions:manage",
+              "incident:review"
+            ]
+          },
+          "granted_by_identity_id": {
+            "type": "string"
+          },
+          "grant_reason": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "granted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked_by_identity_id": {
+            "type": "string"
+          },
+          "revoke_reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      },
+      "OperatorPermissionGrantRequest": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "identity_id",
-          "role"
+          "action",
+          "reason"
         ],
         "properties": {
           "identity_id": {
@@ -2817,28 +5414,102 @@
             "minLength": 1,
             "maxLength": 200
           },
-          "role": {
+          "action": {
             "type": "string",
             "enum": [
-              "manager",
-              "viewer"
+              "order:read",
+              "order:assign",
+              "provider:verify",
+              "case:read",
+              "market:configure",
+              "catalog:manage",
+              "policy:manage",
+              "analytics:read",
+              "operator:permissions:manage",
+              "incident:review"
             ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Required audit reason. Self-grant is prohibited."
           }
         }
       },
-      "PropertyMembershipRole": {
+      "OperatorPermissionRevokeRequest": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "role"
+          "reason"
         ],
         "properties": {
-          "role": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Required audit reason. Self-revocation is prohibited."
+          }
+        }
+      },
+      "OperatorPermissionGrantResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "grant"
+        ],
+        "properties": {
+          "grant": {
+            "$ref": "#/components/schemas/OperatorPermissionGrant"
+          }
+        }
+      },
+      "IncidentReviewerTransitionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "reason"
+        ],
+        "properties": {
+          "action": {
             "type": "string",
             "enum": [
-              "manager",
-              "viewer"
+              "assign",
+              "severity",
+              "status"
             ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "triaged",
+              "investigating",
+              "resolved",
+              "closed"
+            ],
+            "description": "Required only when action=status; transitions must be sequential."
+          },
+          "severity_hint": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "low",
+              "high",
+              "critical"
+            ],
+            "description": "Required only when action=severity; advisory triage hint only."
+          },
+          "assigned_reviewer_identity_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Required only when action=assign; target must have an active same-tenant incident:review grant."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
           }
         }
       }

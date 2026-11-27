@@ -26,7 +26,7 @@ func (s *Store) FindDispatchCandidates(ctx context.Context,actor Actor,categoryI
 	case RoleCustomer:
 		if err:=Authorize(actor,Resource{TenantID:actor.TenantID,OwnerID:actor.SubjectID},ActionOrderCreate); err!=nil { return nil,err }
 	case RoleOperator:
-		if err:=Authorize(actor,Resource{TenantID:actor.TenantID},ActionOrderAssign); err!=nil { return nil,err }
+		// The persisted grant is checked under the read transaction below.
 	default:
 		return nil,ErrForbidden
 	}
@@ -36,9 +36,12 @@ func (s *Store) FindDispatchCandidates(ctx context.Context,actor Actor,categoryI
 	}
 	startAt=startAt.UTC()
 	endAt=endAt.UTC()
-	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{AccessMode:pgx.ReadOnly})
+	tx,err:=s.DB.BeginTx(ctx,pgx.TxOptions{})
 	if err!=nil { return nil,err }
 	defer tx.Rollback(ctx)
+	if actor.Role==RoleOperator {
+		if err=authorizeOperatorTx(ctx,tx,actor,Resource{TenantID:actor.TenantID},ActionOrderAssign);err!=nil{return nil,err}
+	}
 	rows,err:=tx.Query(ctx,`
 		WITH RECURSIVE ancestors AS (
 			SELECT id,parent_id,enabled FROM service_categories WHERE id=$1
@@ -87,7 +90,13 @@ func (s *Store) FindDispatchCandidatesForOrder(ctx context.Context,actor Actor,o
 	if actor.Role==RoleCustomer {
 		if err:=Authorize(actor,Resource{TenantID:actor.TenantID,OwnerID:actor.SubjectID},ActionOrderRead); err!=nil { return nil,err }
 	} else if actor.Role==RoleOperator {
-		if err:=Authorize(actor,Resource{TenantID:actor.TenantID},ActionOrderAssign); err!=nil { return nil,err }
+		checkTx,beginErr:=s.DB.BeginTx(ctx,pgx.TxOptions{})
+		if beginErr!=nil{return nil,beginErr}
+		if beginErr=authorizeOperatorTx(ctx,checkTx,actor,Resource{TenantID:actor.TenantID},ActionOrderAssign);beginErr!=nil{
+			_ = checkTx.Rollback(ctx)
+			return nil,beginErr
+		}
+		if beginErr=checkTx.Commit(ctx);beginErr!=nil{return nil,beginErr}
 	} else {
 		return nil,ErrForbidden
 	}

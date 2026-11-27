@@ -20,7 +20,7 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	pool,err:=pgxpool.New(ctx,dsn)
 	if err!=nil { t.Fatal(err) }
 	defer pool.Close()
-	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","007_market_config.sql","008_catalog_localization.sql","015_order_schedule.sql","022_identity_memberships.sql","023_order_tenant_scope.sql"} {
+	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","007_market_config.sql","008_catalog_localization.sql","015_order_schedule.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","026_market_config_audit.sql","027_service_form_versions.sql","028_order_service_form_answers.sql","029_order_completion_approval.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
 		if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("apply %s: %v",name,err) }
@@ -52,6 +52,13 @@ func TestAuthorizedPaginatedOrderHistoryPostgres(t *testing.T) {
 	first:=create(customer,"history-first-"+fmt.Sprint(time.Now().UnixNano()))
 	second:=create(customer,"history-second-"+fmt.Sprint(time.Now().UnixNano()))
 	third:=create(customer,"history-third-"+fmt.Sprint(time.Now().UnixNano()))
+	if _,err=store.TransitionOrderAsActor(ctx,customer,third.ID,"cancelled"); !errors.Is(err,ErrInvalidTransition) {
+		t.Fatalf("customer must use the versioned cancellation workflow, not generic state transition: %v",err)
+	}
+	var thirdStatus string
+	if err=pool.QueryRow(ctx,`SELECT status FROM orders WHERE id=$1`,third.ID).Scan(&thirdStatus); err!=nil || thirdStatus!="requested" {
+		t.Fatalf("rejected direct cancellation must not mutate order state: status=%s err=%v",thirdStatus,err)
+	}
 	otherOrder:=create(other,"history-other-"+fmt.Sprint(time.Now().UnixNano()))
 	// The same identity may have memberships in multiple tenants. Its order
 	// history and timeline must remain scoped to the active tenant context.

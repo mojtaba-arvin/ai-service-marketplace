@@ -49,12 +49,23 @@ type DomainEvent struct {
 
 var domainEventTypePattern = regexp.MustCompile("^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_]*)+$")
 
-var prohibitedEventFieldNames = map[string]struct{}{
- "phone": {}, "phone_number": {}, "email": {}, "address": {},
- "full_address": {}, "access_token": {}, "refresh_token": {}, "token": {},
- "password": {}, "secret": {}, "evidence_ref": {}, "evidence_reference": {},
- "national_id": {}, "identity_document": {}, "raw_text": {},
- "latitude": {}, "longitude": {},
+// Names are stored without separators so snake_case, kebab-case, dotted and
+// camelCase variants receive the same privacy treatment.
+var prohibitedEventFieldNames = []string{
+ "phone", "phonenumber", "email", "address", "accesstoken", "refreshtoken",
+ "token", "password", "secret", "evidenceref", "evidencereference",
+ "nationalid", "identitydocument", "rawtext", "latitude", "longitude",
+}
+
+func prohibitedEventFieldName(key string) bool {
+ normalized := strings.ToLower(strings.TrimSpace(key))
+ normalized = strings.NewReplacer("_", "", "-", "", ".", "", " ", "").Replace(normalized)
+ for _, prohibited := range prohibitedEventFieldNames {
+  if strings.Contains(normalized, prohibited) {
+   return true
+  }
+ }
+ return false
 }
 
 func ValidateDomainEvent(event DomainEvent) error {
@@ -72,8 +83,7 @@ func ValidateDomainEvent(event DomainEvent) error {
  if err:=json.Unmarshal(event.Data,&data); err!=nil || data==nil { return ErrInvalidPolicy }
  if containsProhibitedEventField(data) { return ErrInvalidPolicy }
  for key:=range event.Metadata {
-  normalized:=strings.ToLower(strings.TrimSpace(key))
-  if _,blocked:=prohibitedEventFieldNames[normalized]; blocked { return ErrInvalidPolicy }
+  if prohibitedEventFieldName(key) { return ErrInvalidPolicy }
  }
  return nil
 }
@@ -82,8 +92,7 @@ func containsProhibitedEventField(value any) bool {
  switch typed:=value.(type) {
  case map[string]any:
   for key,nested:=range typed {
-   normalized:=strings.ToLower(strings.TrimSpace(key))
-   if _,blocked:=prohibitedEventFieldNames[normalized]; blocked { return true }
+   if prohibitedEventFieldName(key) { return true }
    if containsProhibitedEventField(nested) { return true }
   }
  case []any:
@@ -194,4 +203,46 @@ func (c Consumer) Process(ctx context.Context,event Event)(bool,error){
  if err=c.Handler(ctx,tx,event);err!=nil{return false,err}
  if err=tx.Commit(ctx);err!=nil{return false,err}
  return true,nil
+}
+
+// ReplayBatch replays persisted outbox rows after afterID in stable outbox-ID
+// order. The consumer name is the projection generation: use a new name when
+// rebuilding a projection from the beginning. The returned cursor advances
+// only past successfully processed or already-deduplicated events.
+// ReplayBatch processes a bounded, already-committed historical range in ID order.
+// The caller must ensure producer transactions are quiescent before treating the
+// returned cursor as a complete watermark: PostgreSQL sequence IDs can commit
+// out of order. For live consumption, poll unprocessed rows via processed_events
+// instead of advancing a cursor over a concurrently-written outbox.
+func (c Consumer) ReplayBatch(ctx context.Context, afterID int64, limit int) (int, int64, error) {
+ if c.DB == nil || strings.TrimSpace(c.Name) == "" || c.Handler == nil ||
+  afterID < 0 || limit < 1 || limit > 500 {
+  return 0, afterID, ErrInvalidPolicy
+ }
+ rows, err := c.DB.Query(ctx, `SELECT id,aggregate_type,aggregate_id,event_type,payload,attempts
+  FROM outbox_events WHERE id>$1 ORDER BY id LIMIT $2`, afterID, limit)
+ if err != nil { return 0, afterID, err }
+ events := make([]Event, 0, limit)
+ for rows.Next() {
+  var event Event
+  if err = rows.Scan(&event.ID,&event.AggregateType,&event.AggregateID,&event.EventType,&event.Payload,&event.Attempts); err != nil {
+   rows.Close()
+   return 0, afterID, err
+  }
+  events = append(events,event)
+ }
+ if err = rows.Err(); err != nil {
+  rows.Close()
+  return 0, afterID, err
+ }
+ rows.Close()
+
+ applied, cursor := 0, afterID
+ for _, event := range events {
+  didApply, processErr := c.Process(ctx,event)
+  if processErr != nil { return applied, cursor, processErr }
+  if didApply { applied++ }
+  cursor = event.ID
+ }
+ return applied, cursor, nil
 }

@@ -46,7 +46,12 @@ func TestCanonicalDomainEventFailsClosedForMissingTenantAndSensitiveFields(t *te
   {"invalid event type",func(e *DomainEvent){e.Type="Order Created"}},
   {"non-object data",func(e *DomainEvent){e.Data=[]byte(`["bad"]`)}},
   {"raw phone field",func(e *DomainEvent){e.Data=[]byte(`{"customer":{"phone":"+96890000000"}}`)}},
+  {"camel case phone field",func(e *DomainEvent){e.Data=[]byte(`{"customer":{"phoneNumber":"+96890000000"}}`)}},
+  {"compound address field",func(e *DomainEvent){e.Data=[]byte(`{"customer_fullAddress":"sensitive"}`)}},
+  {"camel case evidence reference",func(e *DomainEvent){e.Data=[]byte(`{"evidenceRef":"private://document/12345678"}`)}},
+  {"nested refresh token",func(e *DomainEvent){e.Data=[]byte(`{"context":[{"refreshToken":"secret"}]}`)}},
   {"secret metadata",func(e *DomainEvent){e.Metadata=map[string]string{"access_token":"secret"}}},
+  {"camel case metadata",func(e *DomainEvent){e.Metadata=map[string]string{"privateEvidenceRef":"private://document/12345678"}}},
  }
  for _,tc:=range cases {t.Run(tc.name,func(t *testing.T){event:=base;tc.mutate(&event);if err:=ValidateDomainEvent(event);!errors.Is(err,ErrInvalidPolicy){t.Fatalf("expected fail-closed validation, got %v",err)}})}
 }

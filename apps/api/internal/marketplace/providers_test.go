@@ -38,6 +38,7 @@ func TestProviderEligibilityPostgres(t *testing.T) {
 	professional1:=Actor{SubjectID:identityIDs[0],TenantID:"market-a",Role:RoleProfessional}
 	professional2:=Actor{SubjectID:identityIDs[1],TenantID:"market-a",Role:RoleProfessional}
 	operator:=Actor{SubjectID:identityIDs[2],TenantID:"market-a",Role:RoleOperator}
+	if err=ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify); err!=nil { t.Fatal(err) }
 	provider1,err:=store.CreateProviderProfile(ctx,professional1,"Verified electrician")
 	if err!=nil { t.Fatal(err) }
 	provider2,err:=store.CreateProviderProfile(ctx,professional2,"Unverified electrician")

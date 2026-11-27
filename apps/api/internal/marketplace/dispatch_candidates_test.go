@@ -20,7 +20,7 @@ func TestDispatchCandidatesRequireAllEligibilityAndAvailabilityGatesPostgres(t *
 	pool,err:=pgxpool.New(ctx,dsn)
 	if err!=nil { t.Fatal(err) }
 	defer pool.Close()
-	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","006_provider_eligibility.sql","007_market_config.sql","008_catalog_localization.sql","015_order_schedule.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","016_cancellation_policy.sql","017_provider_availability.sql"} {
+	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","006_provider_eligibility.sql","007_market_config.sql","026_market_config_audit.sql","008_catalog_localization.sql","015_order_schedule.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","026_market_config_audit.sql","027_service_form_versions.sql","028_order_service_form_answers.sql","016_cancellation_policy.sql","017_provider_availability.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
 		if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("apply %s: %v",name,err) }
@@ -37,7 +37,10 @@ func TestDispatchCandidatesRequireAllEligibilityAndAvailabilityGatesPostgres(t *
 	proA:=Actor{SubjectID:ids[1],TenantID:"market-dispatch",Role:RoleProfessional}
 	proB:=Actor{SubjectID:ids[2],TenantID:"market-dispatch",Role:RoleProfessional}
 	operator:=Actor{SubjectID:ids[3],TenantID:"market-dispatch",Role:RoleOperator}
-	if _,err=store.SaveMarket(ctx,operator,MarketConfig{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"dispatch-candidates-v1",Enabled:true,Locales:[]string{"en","ar"}}); err!=nil { t.Fatal(err) }
+	marketOperator:=Actor{SubjectID:ids[3],TenantID:platformTenantID,Role:RoleOperator}
+	if err=ensureTestOperatorGrants(ctx,pool,marketOperator,ActionMarketConfigure); err!=nil { t.Fatal(err) }
+	if err=ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify,ActionOrderAssign); err!=nil { t.Fatal(err) }
+	if _,err=store.SaveMarket(ctx,marketOperator,MarketConfig{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"dispatch-candidates-v1",Enabled:true,Locales:[]string{"en","ar"}}); err!=nil { t.Fatal(err) }
 	category,err:=store.CreateCategory(ctx,nil,fmt.Sprintf("dispatch-%d",time.Now().UnixNano()),"Dispatch")
 	if err!=nil { t.Fatal(err) }
 	if _,err=pool.Exec(ctx,`INSERT INTO market_category_visibility(market_code,category_id,visible) VALUES('OM',$1,true)`,category.ID);err!=nil { t.Fatal(err) }

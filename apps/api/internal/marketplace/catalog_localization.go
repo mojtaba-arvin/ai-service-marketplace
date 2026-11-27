@@ -24,38 +24,58 @@ type LocalizedCategory struct {
 }
 
 func (s *Store) SetCategoryVisibility(ctx context.Context, actor Actor, marketCode, categoryID string, visible bool) error {
-	if err:=Authorize(actor,Resource{TenantID:actor.TenantID},ActionCatalogManage); err!=nil { return err }
-	market,err:=s.GetMarket(ctx,marketCode)
-	if err!=nil { return err }
-	if _,err=s.GetCategory(ctx,categoryID); err!=nil { return err }
-	_,err=s.DB.Exec(ctx,`
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil { return err }
+	defer tx.Rollback(ctx)
+	if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: platformTenantID}, ActionCatalogManage); err != nil {
+		return err
+	}
+	market, err := loadMarketConfigTx(ctx, tx, strings.ToUpper(strings.TrimSpace(marketCode)))
+	if err != nil { return err }
+	if market == nil || !market.Enabled { return ErrMarketUnavailable }
+	var categoryExists bool
+	if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM service_categories WHERE id=$1)", categoryID).Scan(&categoryExists); err != nil {
+		return err
+	}
+	if !categoryExists { return ErrCategoryUnavailable }
+	if _, err = tx.Exec(ctx, `
 		INSERT INTO market_category_visibility(market_code,category_id,visible)
 		VALUES($1,$2,$3)
 		ON CONFLICT(market_code,category_id) DO UPDATE
 		SET visible=EXCLUDED.visible,updated_at=now()
-	`,market.Code,categoryID,visible)
-	return err
+	`, market.Code, categoryID, visible); err != nil { return err }
+	return tx.Commit(ctx)
 }
 
 func (s *Store) SetCategoryTranslation(ctx context.Context, actor Actor, marketCode, categoryID, locale, displayName, description string) error {
-	if err:=Authorize(actor,Resource{TenantID:actor.TenantID},ActionCatalogManage); err!=nil { return err }
-	market,err:=s.GetMarket(ctx,marketCode)
-	if err!=nil { return err }
-	locale=normalizeMarketLocale(locale)
-	supported:=false
-	for _,candidate:=range market.Locales { if candidate==locale { supported=true; break } }
-	displayName=strings.TrimSpace(displayName)
-	if !supported || displayName=="" || len(displayName)>160 || len(description)>2000 {
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil { return err }
+	defer tx.Rollback(ctx)
+	if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: platformTenantID}, ActionCatalogManage); err != nil {
+		return err
+	}
+	market, err := loadMarketConfigTx(ctx, tx, strings.ToUpper(strings.TrimSpace(marketCode)))
+	if err != nil { return err }
+	if market == nil || !market.Enabled { return ErrMarketUnavailable }
+	locale = normalizeMarketLocale(locale)
+	supported := false
+	for _, candidate := range market.Locales { if candidate == locale { supported = true; break } }
+	displayName = strings.TrimSpace(displayName)
+	if !supported || displayName == "" || len(displayName) > 160 || len(description) > 2000 {
 		return ErrInvalidCategory
 	}
-	if _,err=s.GetCategory(ctx,categoryID); err!=nil { return err }
-	_,err=s.DB.Exec(ctx,`
+	var categoryExists bool
+	if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM service_categories WHERE id=$1)", categoryID).Scan(&categoryExists); err != nil {
+		return err
+	}
+	if !categoryExists { return ErrCategoryUnavailable }
+	if _, err = tx.Exec(ctx, `
 		INSERT INTO category_translations(market_code,category_id,locale,display_name,description)
 		VALUES($1,$2,$3,$4,$5)
 		ON CONFLICT(market_code,category_id,locale) DO UPDATE
 		SET display_name=EXCLUDED.display_name,description=EXCLUDED.description,updated_at=now()
-	`,market.Code,categoryID,locale,displayName,description)
-	return err
+	`, market.Code, categoryID, locale, displayName, description); err != nil { return err }
+	return tx.Commit(ctx)
 }
 
 func (s *Store) ResolveLocalizedCategory(ctx context.Context, marketCode, locale, categoryID string) (LocalizedCategory,error) {

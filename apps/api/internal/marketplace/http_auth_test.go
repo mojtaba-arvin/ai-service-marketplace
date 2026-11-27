@@ -30,7 +30,7 @@ func TestProductionHTTPOTPAndSessionLifecyclePostgres(t *testing.T){
   "010_ledger_idempotency_reversal.sql","011_payment_adapter_contract.sql","012_settlement_reconciliation.sql",
   "013_inspection_quotes.sql","014_quote_variations.sql","015_order_schedule.sql","016_cancellation_policy.sql",
   "017_provider_availability.sql","018_dispatch_offers.sql","019_outbox_delivery.sql","020_professional_verification.sql",
-  "021_support_cases.sql","022_identity_memberships.sql","023_order_tenant_scope.sql",
+  "021_support_cases.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","025_auth_devices.sql","029_order_completion_approval.sql",
  }{
   raw,e:=os.ReadFile(filepath.Join("..","..","migrations",name));if e!=nil{t.Fatal(e)}
   if _,e=execMigrationScript(ctx, pool, raw);e!=nil{t.Fatalf("apply %s: %v",name,e)}
@@ -115,4 +115,59 @@ func TestHTTPOTPDeliveryUsesHTTPSAndStableIdempotencyKey(t *testing.T){
  delivery,err:=NewHTTPOTPDelivery(server.URL,"secret-token",server.Client());if err!=nil{t.Fatal(err)}
  if err=delivery.SendOTP(context.Background(),"+96890000000","123456","otp:challenge-1");err!=nil{t.Fatal(err)}
  if _,err=NewHTTPOTPDelivery("http://example.test","secret-token",nil);!errors.Is(err,ErrOTPDeliveryConfig){t.Fatalf("insecure endpoint accepted: %v",err)}
+}
+
+func TestHTTPDeviceManagementIsIdentityScopedAndRevokesSessionsPostgres(t *testing.T) {
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" { t.Skip("TEST_DATABASE_URL is not configured") }
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil { t.Fatal(err) }
+	defer pool.Close()
+	for _, name := range []string{"002_identity.sql", "003_sessions.sql", "025_auth_devices.sql"} {
+		raw, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
+		if readErr != nil { t.Fatal(readErr) }
+		if _, err = execMigrationScript(ctx, pool, raw); err != nil { t.Fatalf("apply %s: %v", name, err) }
+	}
+	pepper := []byte("http-device-test-session-pepper-at-least-32-bytes")
+	identityID, err := newID()
+	if err != nil { t.Fatal(err) }
+	sessionID, err := newID()
+	if err != nil { t.Fatal(err) }
+	familyID, err := newID()
+	if err != nil { t.Fatal(err) }
+	phone := fmt.Sprintf("+1993%011d", time.Now().UnixNano()%100000000000)
+	if _, err = pool.Exec(ctx, `INSERT INTO phone_identities(id,phone_e164) VALUES($1,$2)`, identityID, phone); err != nil { t.Fatal(err) }
+	token := "http-device-access-"+sessionID
+	if _, err = pool.Exec(ctx, `
+		INSERT INTO auth_sessions(id,family_id,phone_identity_id,access_token_hash,refresh_token_hash,access_expires_at,refresh_expires_at)
+		VALUES($1,$2,$3,$4,$5,now()+interval '15 minutes',now()+interval '1 day')
+	`, sessionID, familyID, identityID, sessionDigest(token, pepper), sessionDigest("http-device-refresh-"+sessionID, pepper)); err != nil { t.Fatal(err) }
+	h := &Handler{Store:&Store{DB:pool},SessionPepper:pepper}
+
+	request := func(method, path, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		if body != "" { req.Header.Set("Content-Type", "application/json") }
+		recorder := httptest.NewRecorder()
+		h.ServeHTTP(recorder, req)
+		return recorder
+	}
+	created := request(http.MethodPost, "/v1/auth/devices", `{"label":"Workstation"}`)
+	if created.Code != http.StatusCreated { t.Fatalf("register device: status=%d body=%s", created.Code, created.Body.String()) }
+	var createdBody struct { Device AuthDevice `json:"device"` }
+	if err = json.Unmarshal(created.Body.Bytes(), &createdBody); err != nil { t.Fatal(err) }
+	if createdBody.Device.ID == "" { t.Fatal("device id missing") }
+
+	listed := request(http.MethodGet, "/v1/auth/devices", "")
+	if listed.Code != http.StatusOK { t.Fatalf("list devices: status=%d body=%s", listed.Code, listed.Body.String()) }
+	var listBody struct { Devices []AuthDevice `json:"devices"` }
+	if err = json.Unmarshal(listed.Body.Bytes(), &listBody); err != nil { t.Fatal(err) }
+	if len(listBody.Devices) != 1 || listBody.Devices[0].ID != createdBody.Device.ID { t.Fatalf("unexpected device list: %#v", listBody.Devices) }
+
+	revoked := request(http.MethodDelete, "/v1/auth/devices/"+createdBody.Device.ID, "")
+	if revoked.Code != http.StatusNoContent { t.Fatalf("revoke device: status=%d body=%s", revoked.Code, revoked.Body.String()) }
+	me := request(http.MethodGet, "/v1/auth/me", "")
+	if me.Code != http.StatusUnauthorized { t.Fatalf("device-revoked session still authenticated: %d", me.Code) }
 }

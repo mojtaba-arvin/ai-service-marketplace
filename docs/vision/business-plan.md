@@ -1,76 +1,70 @@
-# Product Vision — Open-Source Managed Home Services Marketplace
+# Product Vision — Open-Source Full-Scale Home Services Marketplace
 
-## Project intent
+## Product intent
 
-Build an open-source, production-oriented platform for operating a two-sided home-services marketplace that connects households and organizations with independent service professionals.
+Build and maintain a complete, open-source, self-hostable software platform that enables independent teams to create, operate and extend multi-market home-services marketplaces. It serves customers, professionals, marketplace operators, support and finance staff, property/building managers, and developers integrating external systems.
 
-This repository is a reusable software project and reference implementation. Its purpose is to develop dependable marketplace capabilities, clear domain boundaries, integration contracts, operational tooling, and deployment practices that can be self-hosted, studied, extended, and adapted by other teams.
+This is a product scope, not a market-entry plan. It is not limited to a demo, MVP, single vertical slice, one country or one vendor. The repository must progressively deliver the complete capabilities in [Product Scope](../product-scope.md), with truthful per-feature implementation and verification status.
 
-The project is **not** a market-entry plan, country launch commitment, or authorization to activate regulated services. Geographic information supplied by the project owner is engineering context for realistic configuration, localization, and compatibility testing.
+## Actors and outcomes
 
-## Product shape
+- Customers discover services, describe work by conversation/form/media, understand estimates, schedule, communicate safely, track fulfillment, approve changes/completion, pay, review and reorder.
+- Professionals onboard and verify identity/skills, define services/coverage, manage availability, receive and fulfill jobs, quote unknown work, track earnings/settlements, use business tools and improve quality.
+- Operators/support configure the marketplace, manage people and orders, intervene in guarded workflows, handle disputes, campaigns, communications and operational health.
+- Finance teams reconcile ledger, PSPs, escrow, refunds, chargebacks, invoices, tax records and professional settlements.
+- Organizations/property managers manage members and properties, schedule maintenance, monitor consumption, receive consolidated billing and integrate through APIs/webhooks.
+- Developers/adopters self-host, configure markets/adapters, use contracts, run deterministic tests and extend modules without forking core behavior.
 
-The platform follows a managed-marketplace model. Trust, service quality, transparent pricing, reliable order handling, and auditable operations are core software capabilities.
+## Fourteen product domains
 
-Primary actors:
-- **Customer:** discovers services, requests and schedules work, approves quotes or changes, and follows order progress.
-- **Professional:** maintains a profile, skills, service areas, availability, and accepts eligible work.
-- **Operator/support:** handles verification workflows, exceptions, disputes, and operational interventions under explicit permissions.
-- **Organization:** can later manage multiple properties, members, service requests, and consolidated records.
+1. **M1 Identity & accounts:** OTP and optional email/social providers; customer/professional/admin/support/finance/B2B roles; profiles, multiple addresses, devices, trusted devices, sessions, abuse controls, privacy export and deletion.
+2. **M2 Catalog & service design:** admin-managed hierarchy, services, dynamic questionnaires, versioned prices/rules/multipliers, packages/subscriptions and localized SEO content.
+3. **M3 Customer experience:** conversational/form/photo intake, structured extraction, clarifying questions, scheduling/urgency, explained estimates, live tracking/ETA, masked chat/calls, work approval, variations, invoices, bilateral reviews, history/reorder and policy-based cancellation/rescheduling.
+4. **M4 Professional experience:** onboarding, KYC, skill exams/academy, calendar/areas, offers, structured quotes, wallet/settlement, CRM/invoices/reports, offline-critical workflows and quality coaching.
+5. **M5 Matching & capacity:** explainable ranking by distance/skill/rating/availability/fairness, broadcast/sequential/customer-choice dispatch, reassignment, capacity controls and demand/supply forecasting.
+6. **M6 Payments & finance:** immutable double-entry ledger, idempotency/replay, escrow/holds, PSP adapters, commissions/rewards/penalties/credits, payouts/refunds/chargebacks, invoices, tax reports, reconciliation and explainable fraud controls.
+7. **M7 Trust & safety:** identity/credential/background checks, periodic review, SOS/trip sharing, insurance/claims, disputes/evidence/human adjudication, suspicious behavior detection, moderation and append-only audit.
+8. **M8 Communications:** push/SMS/email and optional market channels, templates/preferences/delivery, transactional vs marketing consent, protected in-app chat, support tickets, knowledge base and AI assistance.
+9. **M9 Admin & operations:** people/orders/market management, visible guarded state machine, controlled interventions, dispute/finance queues, price/campaign/policy/flag controls, dashboards, granular RBAC and step-up approval.
+10. **M10 Growth:** service×region SEO, editorial content, referrals, coupons/campaigns, landing pages, attribution, A/B tests and lifecycle communication.
+11. **M11 B2B:** organizations, memberships, multiple properties, maintenance contracts, consumption reports, consolidated invoices and building-manager APIs/webhooks.
+12. **M12 Data & analytics:** canonical events, warehouse/export, operational/business dashboards, experiments, leakage and quality monitoring with explicit metric definitions.
+13. **M13 Platform & compliance:** market configuration for country/language/currency/tax/locale/RTL/timezone/policies/providers, i18n, observability, secrets, backup/DR, consent/privacy and retention.
+14. **M14 AI:** Intake Copilot, Pro Copilot, Dispute Triage, Support Copilot, explainable Leakage/Fraud Detector, Quality Score/coaching, Demand/ETA/Price Forecast.
 
-## Core product capabilities
+## Architecture principles
 
-1. Identity, authentication, sessions, and role-scoped authorization.
-2. Service taxonomy, professional skills, service areas, and availability.
-3. Versioned pricing, fixed-price services, and customer-approved quotes.
-4. Order scheduling, lifecycle transitions, dispatch candidates, expiring offers, and acceptance.
-5. Immutable financial records and provider-neutral payment contracts.
-6. Trust, verification, support, dispute, and audit workflows.
-7. Notifications, transactional events, and reliable background processing.
-8. Market configuration, localization, and provider adapters.
-9. Operational administration, analytics, and optional organization/B2B workflows.
-10. AI-assisted intake and support capabilities with deterministic policy boundaries.
+- Complete product scope; incremental, dependency-aware delivery. Staging does not reduce intended scope.
+- Modular monolith for transactional domains with explicit ownership and public APIs/events.
+- Contract-first APIs/events: OpenAPI and JSON Schema are versioned sources of truth; generated clients are preferred.
+- PostgreSQL is transactional source of truth; PostGIS supports geographic queries.
+- Outbox events commit atomically; consumers are idempotent and tolerate retries/reordering.
+- Market behavior is configuration plus replaceable adapters, not country-specific code forks.
+- External providers have local fakes, contract tests and explicit capabilities.
+- Money uses integer minor units and immutable balanced double-entry entries; corrections use reversals.
+- Human authority and deterministic policy govern money, safety, identity, disputes, access and reputation.
+- AI is eval-first, observable, cost-bounded, privacy-aware and provider-neutral.
+- Privacy, accessibility, localization, RTL, self-hosting and recovery are product capabilities.
 
-The feature backlog and acceptance evidence—not this vision document—define implementation status.
+## AI authority boundary
 
-## Product principles
+AI may classify, summarize, extract, recommend, draft, forecast and coach. It does not autonomously capture/release money, approve KYC, decide safety/emergency outcomes, resolve disputes, change reputation or take consequential action. These require deterministic policy and/or authorized human approval with provenance and audit evidence.
 
-- Make the core workflows correct, observable, secure, and testable before optimizing for scale.
-- Keep the transactional core as a modular monolith until measured evidence justifies extraction.
-- Keep module ownership and public interfaces explicit.
-- Treat PostgreSQL as the source of truth for transactional state.
-- Store money as integer minor units with explicit currency; use immutable, balanced double-entry records for financial postings.
-- Make retries and external side effects idempotent; use an outbox for reliable event delivery.
-- Enforce authorization server-side and default to least privilege.
-- Keep provider-specific behavior behind replaceable adapters with offline fakes and contract tests.
-- AI can assist with intake, classification, drafting, and support; it must not autonomously decide identity, safety, reputation, disputes, or payable amounts.
-- Preserve privacy through data minimization, redaction, retention controls, and auditable access.
+## Market and regulatory boundary
 
-## Geographic and localization context
+Market configuration represents country, currency, tax, language/direction, locale, timezone, address format, work hours, cancellation policy and provider capabilities. Armenia and GCC fixtures may exercise configuration but do not imply launch priority, legal conclusions or approval to activate regulated services. Production PSP/KYC/tax/background-check activation requires adopter credentials, local review and explicit operator approval.
 
-The owner identified **Armenia and the six GCC countries** as useful regional context:
-- Armenia
-- Bahrain
-- Kuwait
-- Oman
-- Qatar
-- Saudi Arabia
-- United Arab Emirates
+## Definition of product completeness
 
-Use this context to exercise country-aware configuration and identify localization dimensions such as currency, locale, language/direction, timezone, address formats, maps, messaging, and provider capabilities.
+Each capability requires a module specification and acceptance criteria; migrations/public contracts/authorization where applicable; success, failure, concurrency, retry and negative-path tests; fake adapters and contract tests; accessible/localized user workflows; observability, runbooks, privacy/security controls and deployment docs; and maintainer acceptance evidence before feature status is marked passing.
 
-This list is not a launch sequence, exclusive product scope, regulatory assessment, or instruction to enable real payments, KYC, tax, or other regulated integrations. Keep examples and fixtures clearly marked as non-production. Country-specific legal or provider requirements must not be inferred from this list.
+Current implementation and gaps are tracked in [feature_list.json](../../feature_list.json), [module specifications](../specs/README.md), [GitHub Issues](https://github.com/mojtaba-arvin/ai-service-marketplace/issues) and [Development Progress](../progress.md). A roadmap stage or PR is not proof of completion.
 
-## Quality attributes
+## Non-goals
 
-- **Correctness:** explicit state machines, transactional invariants, concurrency safety, and reproducible migrations.
-- **Security:** least privilege, secure sessions, abuse controls, secret hygiene, and threat-informed tests.
-- **Reliability:** bounded retries, idempotency, health/readiness checks, backups, and recovery procedures.
-- **Extensibility:** versioned contracts, modular ownership, adapter boundaries, and documented ADRs.
-- **Portability:** reproducible local development and containerized self-hosting without mandatory proprietary services.
-- **Accessibility and localization:** responsive interfaces, semantic UI, locale-aware formatting, and support for right-to-left languages where required.
-- **Operability:** structured logs, metrics, traces, audit trails, and clear runbooks.
+The repository does not choose an adopter's commercial model, commission rates, launch country/date, legal position or vendor contract. These remain adopter decisions and market-specific configuration, not hard-coded assumptions.
 
-## Non-goals of this document
 
-This document does not define revenue targets, commission rates, customer acquisition, market sizing, launch dates, country prioritization, or legal conclusions. Those topics are outside the engineering vision and must not be treated as project acceptance criteria.
+## Project acceptance policy
+
+No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.

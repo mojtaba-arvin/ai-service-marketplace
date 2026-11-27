@@ -19,6 +19,7 @@ const (
 	ActionOrderAccept       Action = "order:accept"
 	ActionOrderStart        Action = "order:start"
 	ActionOrderComplete     Action = "order:complete"
+	ActionOrderApproveCompletion Action = "order:completion:approve"
 	ActionOrderAssign       Action = "order:assign"
 	ActionQuoteApprove      Action = "quote:approve"
 	ActionQuoteAccept       Action = "quote:accept"
@@ -26,6 +27,7 @@ const (
 	ActionProfileUpdate     Action = "profile:update"
 	ActionProviderVerify    Action = "provider:verify"
 	ActionCaseRead          Action = "case:read"
+	ActionIncidentReview    Action = "incident:review"
 	ActionSupportCaseRead   Action = "support:case:read"
 	ActionSupportCaseComment Action = "support:case:comment"
 	ActionLedgerPost        Action = "ledger:post"
@@ -33,6 +35,8 @@ const (
 	ActionMarketConfigure Action = "market:configure"
 	ActionCatalogManage Action = "catalog:manage"
 	ActionPolicyManage Action = "policy:manage"
+	ActionAnalyticsRead Action = "analytics:read"
+	ActionOperatorPermissionsManage Action = "operator:permissions:manage"
 )
 
 var ErrForbidden = errors.New("access denied")
@@ -74,7 +78,7 @@ func Authorize(actor Actor, resource Resource, action Action) error {
 		switch action {
 		case ActionOrderCreate:
 			allowed = true
-		case ActionOrderRead, ActionOrderCancel, ActionQuoteApprove:
+		case ActionOrderRead, ActionOrderCancel, ActionQuoteApprove, ActionOrderApproveCompletion:
 			allowed = resource.OwnerID != "" && resource.OwnerID == actor.SubjectID
 		}
 	case RoleProfessional:
@@ -85,10 +89,9 @@ func Authorize(actor Actor, resource Resource, action Action) error {
 			allowed = resource.OwnerID != "" && resource.OwnerID == actor.SubjectID
 		}
 	case RoleOperator:
-		switch action {
-		case ActionOrderRead, ActionOrderAssign, ActionProviderVerify, ActionCaseRead, ActionMarketConfigure, ActionCatalogManage, ActionPolicyManage:
-			allowed = true
-		}
+		// Operator membership is eligibility only. Pure policy evaluation has no
+		// database grant context, so every operator action fails closed here.
+		// Sensitive operator paths must call authorizeOperatorTx in their Store tx.
 	case RoleSupport:
 		switch action {
 		case ActionSupportCaseRead, ActionSupportCaseComment:

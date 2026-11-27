@@ -61,6 +61,29 @@ func (s *Store) authorizeProvider(ctx context.Context, actor Actor, providerID s
 	return identityID,nil
 }
 
+func authorizeProviderOperatorTx(ctx context.Context, tx pgx.Tx, actor Actor, providerID string, action Action) (string, error) {
+	if actor.Role != RoleOperator || actor.SubjectID == "" || actor.TenantID == "" {
+		return "", ErrForbidden
+	}
+	var identityID, tenantID string
+	err := tx.QueryRow(ctx, `
+		SELECT identity_id,tenant_id FROM provider_profiles WHERE id=$1 FOR SHARE
+	`, providerID).Scan(&identityID, &tenantID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrProviderNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	if tenantID != actor.TenantID {
+		return "", ErrForbidden
+	}
+	if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: tenantID, OwnerID: identityID}, action); err != nil {
+		return "", err
+	}
+	return identityID, nil
+}
+
 func (s *Store) AddProviderSkill(ctx context.Context, actor Actor, providerID, categoryID string) error {
 	if _,err:=s.authorizeProvider(ctx,actor,providerID,ActionProfileUpdate); err!=nil { return err }
 	enabled,err:=s.CanAcceptOrders(ctx,categoryID)
@@ -90,47 +113,86 @@ func (s *Store) AddProviderServiceArea(ctx context.Context, actor Actor, provide
 }
 
 func (s *Store) VerifyProviderProfile(ctx context.Context, actor Actor, providerID string) error {
-	if _,err:=s.authorizeProvider(ctx,actor,providerID,ActionProviderVerify); err!=nil { return err }
-	tag,err:=s.DB.Exec(ctx,`
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = authorizeProviderOperatorTx(ctx, tx, actor, providerID, ActionProviderVerify); err != nil {
+		return err
+	}
+	tag, err := tx.Exec(ctx, `
 		UPDATE provider_profiles SET verified_at=COALESCE(verified_at,now()),
 			verified_by_identity_id=COALESCE(verified_by_identity_id,$2),updated_at=now()
 		WHERE id=$1
-	`,providerID,actor.SubjectID)
-	if err!=nil { return err }
-	if tag.RowsAffected()!=1 { return ErrProviderNotFound }
-	return nil
+	`, providerID, actor.SubjectID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrProviderNotFound
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) VerifyProviderSkill(ctx context.Context, actor Actor, providerID, categoryID string) error {
-	if _,err:=s.authorizeProvider(ctx,actor,providerID,ActionProviderVerify); err!=nil { return err }
-	tag,err:=s.DB.Exec(ctx,`
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = authorizeProviderOperatorTx(ctx, tx, actor, providerID, ActionProviderVerify); err != nil {
+		return err
+	}
+	tag, err := tx.Exec(ctx, `
 		UPDATE provider_skills SET verified_at=COALESCE(verified_at,now()),
 			verified_by_identity_id=COALESCE(verified_by_identity_id,$3)
 		WHERE provider_id=$1 AND category_id=$2
-	`,providerID,categoryID,actor.SubjectID)
-	if err!=nil { return err }
-	if tag.RowsAffected()!=1 { return ErrProviderNotEligible }
-	return nil
+	`, providerID, categoryID, actor.SubjectID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrProviderNotEligible
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) SetProviderActive(ctx context.Context, actor Actor, providerID string, active bool) error {
-	if _,err:=s.authorizeProvider(ctx,actor,providerID,ActionProviderVerify); err!=nil { return err }
+	tx, err := s.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = authorizeProviderOperatorTx(ctx, tx, actor, providerID, ActionProviderVerify); err != nil {
+		return err
+	}
 	if active {
 		var eligible bool
-		err:=s.DB.QueryRow(ctx,`
+		err = tx.QueryRow(ctx, `
 			SELECT p.verified_at IS NOT NULL
 				AND EXISTS(SELECT 1 FROM provider_skills ps WHERE ps.provider_id=p.id AND ps.verified_at IS NOT NULL)
 				AND EXISTS(SELECT 1 FROM provider_service_areas sa WHERE sa.provider_id=p.id AND sa.active=true)
 			FROM provider_profiles p WHERE p.id=$1
-		`,providerID).Scan(&eligible)
-		if errors.Is(err,pgx.ErrNoRows) { return ErrProviderNotFound }
-		if err!=nil { return err }
-		if !eligible { return ErrProviderNotEligible }
+		`, providerID).Scan(&eligible)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrProviderNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if !eligible {
+			return ErrProviderNotEligible
+		}
 	}
-	tag,err:=s.DB.Exec(ctx,`UPDATE provider_profiles SET active=$2,updated_at=now() WHERE id=$1`,providerID,active)
-	if err!=nil { return err }
-	if tag.RowsAffected()!=1 { return ErrProviderNotFound }
-	return nil
+	tag, err := tx.Exec(ctx, `UPDATE provider_profiles SET active=$2,updated_at=now() WHERE id=$1`, providerID, active)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrProviderNotFound
+	}
+	return tx.Commit(ctx)
 }
 
 // FindEligibleProviders fails closed unless the category and every ancestor are

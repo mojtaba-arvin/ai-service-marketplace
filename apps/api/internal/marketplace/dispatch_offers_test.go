@@ -2,6 +2,7 @@ package marketplace
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mojtaba-arvin/ai-service-marketplace/apps/api/internal/outbox"
 )
 
 func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
@@ -21,7 +23,7 @@ func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
 	pool,err:=pgxpool.New(ctx,dsn)
 	if err!=nil { t.Fatal(err) }
 	defer pool.Close()
-	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","006_provider_eligibility.sql","007_market_config.sql","008_catalog_localization.sql","015_order_schedule.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","016_cancellation_policy.sql","017_provider_availability.sql","018_dispatch_offers.sql"} {
+	for _,name:=range []string{"001_walking_skeleton.sql","002_identity.sql","004_catalog.sql","005_pricing.sql","006_provider_eligibility.sql","007_market_config.sql","026_market_config_audit.sql","008_catalog_localization.sql","015_order_schedule.sql","022_identity_memberships.sql","023_order_tenant_scope.sql","026_market_config_audit.sql","027_service_form_versions.sql","028_order_service_form_answers.sql","016_cancellation_policy.sql","017_provider_availability.sql","018_dispatch_offers.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
 		if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("apply %s: %v",name,err) }
@@ -38,7 +40,10 @@ func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
 	proA:=Actor{SubjectID:ids[1],TenantID:"market-dispatch",Role:RoleProfessional}
 	proB:=Actor{SubjectID:ids[2],TenantID:"market-dispatch",Role:RoleProfessional}
 	operator:=Actor{SubjectID:ids[3],TenantID:"market-dispatch",Role:RoleOperator}
-	if _,err=store.SaveMarket(ctx,operator,MarketConfig{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"dispatch-offers-v1",Enabled:true,Locales:[]string{"en","ar"}}); err!=nil { t.Fatal(err) }
+	marketOperator:=Actor{SubjectID:ids[3],TenantID:platformTenantID,Role:RoleOperator}
+	if err=ensureTestOperatorGrants(ctx,pool,marketOperator,ActionMarketConfigure); err!=nil { t.Fatal(err) }
+	if err=ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify,ActionOrderAssign); err!=nil { t.Fatal(err) }
+	if _,err=store.SaveMarket(ctx,marketOperator,MarketConfig{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"dispatch-offers-v1",Enabled:true,Locales:[]string{"en","ar"}}); err!=nil { t.Fatal(err) }
 	category,err:=store.CreateCategory(ctx,nil,fmt.Sprintf("offers-%d",time.Now().UnixNano()),"Offers")
 	if err!=nil { t.Fatal(err) }
 	if _,err=pool.Exec(ctx,`INSERT INTO market_category_visibility(market_code,category_id,visible) VALUES('OM',$1,true)`,category.ID);err!=nil { t.Fatal(err) }
@@ -66,8 +71,18 @@ func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
 	order,created,err:=store.CreateScheduledOrder(ctx,customer,"dispatch-offer-race-"+fmt.Sprint(time.Now().UnixNano()),menu.ID,base,"OM","Muscat","Muscat","Al-Khuwair")
 	if err!=nil || !created { t.Fatalf("create scheduled order: %#v %v",order,err) }
 	expires:=time.Now().UTC().Add(5*time.Minute)
+	wrongTenantOperator:=operator
+	wrongTenantOperator.TenantID="market-other"
+	if _,err=store.CreateDispatchOffers(ctx,wrongTenantOperator,order.ID,[]string{providerA.ID},1,expires); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("operator from another tenant must not create offers: %v",err)
+	}
 	offers,err:=store.CreateDispatchOffers(ctx,operator,order.ID,[]string{providerA.ID,providerB.ID},2,expires)
 	if err!=nil || len(offers)!=2 { t.Fatalf("create two bounded offers: %#v %v",offers,err) }
+	wrongTenantProfessional:=proA
+	wrongTenantProfessional.TenantID="market-other"
+	if _,err=store.AcceptDispatchOffer(ctx,wrongTenantProfessional,offers[0].ID); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("professional from another tenant must not accept an offer: %v",err)
+	}
 	if _,err=pool.Exec(ctx,`UPDATE dispatch_rounds SET round_no=round_no+1 WHERE id=$1`,offers[0].RoundID); err==nil {
 		t.Fatal("dispatch rounds must be immutable audit records")
 	}
@@ -144,6 +159,15 @@ func TestDispatchOffersSingleWinnerDeclineAndExpiryPostgres(t *testing.T) {
 		var got int
 		if err=pool.QueryRow(ctx,`SELECT count(*) FROM outbox_events WHERE event_type=$1 AND aggregate_id=ANY($2::text[])`,eventType,aggregateIDs).Scan(&got); err!=nil || got!=len(aggregateIDs) {
 			t.Fatalf("outbox event %s count=%d want=%d err=%v",eventType,got,len(aggregateIDs),err)
+		}
+		for _,aggregateID:=range aggregateIDs {
+			var raw []byte
+			if err=pool.QueryRow(ctx,`SELECT payload FROM outbox_events WHERE event_type=$1 AND aggregate_id=$2`,eventType,aggregateID).Scan(&raw); err!=nil { t.Fatal(err) }
+			var event outbox.DomainEvent
+			if err=json.Unmarshal(raw,&event); err!=nil { t.Fatalf("decode %s event: %v",eventType,err) }
+			if err=outbox.ValidateDomainEvent(event); err!=nil || event.TenantID!=operator.TenantID {
+				t.Fatalf("%s must be canonical and tenant-scoped: event=%+v err=%v",eventType,event,err)
+			}
 		}
 	}
 }

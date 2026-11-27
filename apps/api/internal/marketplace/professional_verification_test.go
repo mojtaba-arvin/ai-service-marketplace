@@ -26,6 +26,7 @@ func TestProfessionalVerificationCasePostgres(t *testing.T){
  if _,err=pool.Exec(ctx,`INSERT INTO provider_profiles(id,identity_id,tenant_id,display_name,active) VALUES($1,$2,$3,'Test professional',true)`,providerID,professionalID,tenant);err!=nil{t.Fatal(err)}
  professional:=Actor{SubjectID:professionalID,TenantID:tenant,Role:RoleProfessional}
  operator:=Actor{SubjectID:operatorID,TenantID:tenant,Role:RoleOperator}
+ if err=ensureTestOperatorGrants(ctx,pool,operator,ActionProviderVerify,ActionCaseRead);err!=nil{t.Fatal(err)}
  created,err:=store.CreateProfessionalVerificationCase(ctx,professional,providerID,"private://evidence/"+providerID)
  if err!=nil{t.Fatal(err)}
  if created.Status!="submitted"||created.EvidenceRef==""{t.Fatalf("unexpected case: %+v",created)}
