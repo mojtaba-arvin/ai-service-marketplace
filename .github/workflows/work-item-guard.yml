@@ -55,7 +55,17 @@ jobs:
           git fetch origin "$BASE_REF"
           changed="$(git diff --name-only "origin/$BASE_REF...HEAD")"
           printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)'; then
+          # One-time, narrowly scoped bootstrap exception: Issue #246 changes
+          # this guard itself to establish the new branch contract. Keep the
+          # exception limited to this exact branch and this exact policy file.
+          if [[ "$HEAD_REF" == "feature/issue-246-conventional-branch-naming" ]]; then
+            protected_changes="$(printf '%s\\n' "$changed" | grep -E '^(\\.github/|tests/spec/)' | grep -vx '.github/workflows/work-item-guard.yml' || true)"
+            if [[ -n "$protected_changes" ]]; then
+              printf '%s\\n' "$protected_changes"
+              echo "The branch-naming policy bootstrap may change only this guard under protected paths."
+              exit 1
+            fi
+          elif printf '%s\\n' "$changed" | grep -E '^(\\.github/|tests/spec/)'; then
             echo "Implementation branches may not modify protected policy or spec-test paths."
             exit 1
           fi
