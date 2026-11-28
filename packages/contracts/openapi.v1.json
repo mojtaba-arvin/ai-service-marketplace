@@ -5112,7 +5112,7 @@
           "quarantined_events",
           "ingestion_backlog_status",
           "source_coverage_status",
-          "missing_ingestion_timestamps",
+          "untrusted_ingestion_timestamps",
           "duplicate_reorder_conflicts",
           "event_time_policy_version"
         ],
@@ -5256,12 +5256,6 @@
             ],
             "description": "Producer/source coverage; unknown is not a claim of complete source coverage."
           },
-          "missing_ingestion_timestamps": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "description": "Facts with no recoverable persisted outbox ingestion timestamp; these prevent event-time completeness."
-          },
           "duplicate_reorder_conflicts": {
             "type": "integer",
             "format": "int64",
@@ -5271,6 +5265,12 @@
           "event_time_policy_version": {
             "type": "string",
             "description": "Versioned policy identifier used for the metric-family lateness classification."
+          },
+          "untrusted_ingestion_timestamps": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Facts with missing or legacy/untrusted outbox insertion-time provenance; these prevent event-time completeness."
           }
         }
       },
