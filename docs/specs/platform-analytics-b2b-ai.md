@@ -69,13 +69,13 @@ The organization/property registry is not yet linked to order or finance records
 - Order-linked payment operations must carry validated tenant/order references. Existing `payment_ledger_links` then provides the explicit payment-to-journal bridge. Unattributed journals are excluded from organization statements.
 - Consolidated statements are replayable read models over eligible immutable postings, partitioned by tenant, organization, property, currency and period; reversals are included and currencies are never combined. No mutable organization balance is introduced.
 
-No association columns, historical backfill, financial read model or billing operation is included in the current implementation. Implementation is gated on independent order tenant-isolation QA (#57), finance invariant QA (#10), and canonical event producer/consumer readiness (#87). Legacy rows remain unassigned unless explicitly reconciled with auditable evidence.
+No association columns, historical backfill, financial read model or billing operation is included in the current implementation. Implementation is gated on automated order tenant-isolation tests (#57), finance invariant tests (#10), maintainer review of their evidence, and canonical event producer/consumer readiness (#87). Legacy rows remain unassigned unless explicitly reconciled with auditable evidence.
 
 ### Explicit limits
 
 Invitation delivery is in-app only: no email/SMS, no invitation to identities that do not yet exist in the tenant, and no invitation expiry/re-send workflow. Pending-invitation pagination beyond the bounded first 100, order/ledger aggregation and consolidated billing remain deferred. No payment capture, money movement or production billing is introduced.
 
-Merged implementation and passing CI are not maintainer verification. The feature inventory remains `passes: false` until independent negative-path and acceptance evidence is recorded.
+Merged implementation and passing CI are not maintainer verification. The feature inventory remains `passes: false` until reproducible negative-path test evidence is reviewed and recorded by the authorized maintainer.
 
 ## AI intake and evaluation (M14)
 
@@ -92,7 +92,7 @@ The new `internal/procopilot` package defines an evidence-grounded, advisory bou
 
 Every suggestion is marked `requires_professional_review=true`. The package has no persistence or command execution capability and cannot approve a quote, mutate an order, set a payable amount or decide safety. The versioned golden set and deterministic evaluator are in `internal/procopilot/golden/v1`; offline tests cover redaction, citation provenance, unknown money fields and critical-case regressions.
 
-This is a reusable service boundary, not yet a production API/UI integration or evidence of independent AI acceptance. Provider wiring, real knowledge-source integration, operator/professional UX and independent evaluation remain open.
+This is a reusable service boundary, not yet a production API/UI integration or evidence of product-level AI acceptance. Provider wiring, real knowledge-source integration, operator/professional UX and risk-based adversarial evaluation remain open.
 
 
 ### Dispute Triage Copilot
