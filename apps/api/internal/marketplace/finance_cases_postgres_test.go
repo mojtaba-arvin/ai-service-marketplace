@@ -88,6 +88,10 @@ func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	if _,err = pool.Exec(ctx,`INSERT INTO payment_ledger_links(id,operation_id,journal_id) VALUES($1,$2,$3)`,
 		"link-"+orderID,op.ID,sourceJournal.ID); err != nil { t.Fatal(err) }
+	if bound,bindErr := store.BindPaymentOperationToOrder(ctx,requester,op.ID,orderID,sourceJournal.ID,
+		"Explicit finance source attribution from verified order and journal"); bindErr != nil || !bound {
+		t.Fatalf("explicit payment/order binding: bound=%v err=%v",bound,bindErr)
+	}
 
 	base := FinanceCaseInput{CaseType:FinanceCasePayout,OrderID:orderID,
 		SourcePaymentOperationID:op.ID,SourceJournalID:sourceJournal.ID,ProviderCode:"fake",
