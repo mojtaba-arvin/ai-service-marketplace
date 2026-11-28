@@ -129,6 +129,8 @@ CREATE TABLE IF NOT EXISTS analytics_event_duplicates (
 );
 CREATE INDEX IF NOT EXISTS analytics_event_duplicates_identity_idx
     ON analytics_event_duplicates(tenant_id,generation_id,event_id);
+DROP TRIGGER IF EXISTS analytics_event_duplicates_immutable ON analytics_event_duplicates;
+DROP TRIGGER IF EXISTS analytics_event_duplicates_no_truncate ON analytics_event_duplicates;
 CREATE TRIGGER analytics_event_duplicates_immutable BEFORE UPDATE OR DELETE ON analytics_event_duplicates
 FOR EACH ROW EXECUTE FUNCTION reject_analytics_projection_mutation();
 CREATE TRIGGER analytics_event_duplicates_no_truncate BEFORE TRUNCATE ON analytics_event_duplicates
