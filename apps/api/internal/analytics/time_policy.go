@@ -88,3 +88,22 @@ func EventTimeWatermark(now time.Time, policy EventTimePolicy) time.Time {
 func IsPeriodMature(periodEnd, watermark time.Time) bool {
 	return !periodEnd.IsZero() && !watermark.IsZero() && !periodEnd.After(watermark)
 }
+
+func EventTimeCompleteness(periodEnd, watermark time.Time, pending, quarantined, untrusted, duplicateReorderConflicts, late, lateIncluded, excluded, eligible int64) string {
+	switch {
+	case pending > 0, quarantined > 0, untrusted > 0:
+		return "incomplete"
+	case duplicateReorderConflicts > 0, late > lateIncluded:
+		return "correction_required"
+	case excluded > 0:
+		return "incomplete"
+	case eligible == 0:
+		return "unavailable"
+	case !IsPeriodMature(periodEnd, watermark):
+		return "immature"
+	case late > 0:
+		return "corrected"
+	default:
+		return "finalized"
+	}
+}
