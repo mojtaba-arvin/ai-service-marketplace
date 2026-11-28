@@ -45,7 +45,7 @@ func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 	migrations := []string{
 		"001_walking_skeleton.sql","002_identity.sql","009_ledger_accounts.sql",
 		"010_ledger_idempotency_reversal.sql","011_payment_adapter_contract.sql",
-		"012_settlement_reconciliation.sql","022_identity_memberships.sql","023_order_tenant_scope.sql",
+		"012_settlement_reconciliation.sql","015_order_schedule.sql","022_identity_memberships.sql","023_order_tenant_scope.sql",
 		"031_operator_action_grants.sql","032_operator_permission_event_integrity.sql",
 		"033_incident_report_intake.sql","034_incident_reviewer_workflow.sql",
 		"035_private_incident_evidence.sql","037_finance_case_workflows.sql",
