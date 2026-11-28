@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS finance_cases (
     status text NOT NULL DEFAULT 'requested' CHECK (status IN ('requested','accepted','provider_confirmed','failed','reconciled')),
     provider_outcome text NOT NULL DEFAULT 'not_submitted' CHECK (provider_outcome IN ('not_submitted','unknown','confirmed','failed')),
     requested_by_identity_id text NOT NULL REFERENCES phone_identities(id) ON DELETE RESTRICT,
+    request_reason text NOT NULL CHECK (length(btrim(request_reason)) BETWEEN 1 AND 500),
     accepted_by_identity_id text REFERENCES phone_identities(id) ON DELETE RESTRICT,
     acceptance_reason text NOT NULL DEFAULT '',
     failure_code text NOT NULL DEFAULT '',
