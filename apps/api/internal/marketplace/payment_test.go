@@ -89,3 +89,157 @@ func TestPaymentOperationAndWebhookPersistencePostgres(t *testing.T) {
 		t.Fatal("payment operation audit events must be immutable")
 	}
 }
+
+
+// TestPaymentIdempotencyWebhookAndTerminalStateRacesPostgres coordinates
+// concurrent transactions and verifies only one durable outcome wins.
+func TestPaymentIdempotencyWebhookAndTerminalStateRacesPostgres(t *testing.T) {
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" { t.Skip("TEST_DATABASE_URL is not configured") }
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil { t.Fatal(err) }
+	defer pool.Close()
+	migration, err := os.ReadFile(filepath.Join("..", "..", "migrations", "011_payment_adapter_contract.sql"))
+	if err != nil { t.Fatal(err) }
+	if _, err = execMigrationScript(ctx, pool, migration); err != nil { t.Fatalf("payment migration: %v", err) }
+	store := &Store{DB: pool}
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	// Same key and same canonical request converge to one operation.
+	key := "payment-identical-race-" + suffix
+	start := make(chan struct{})
+	type operationResult struct { op PaymentOperation; created bool; err error }
+	opResults := make(chan operationResult, 2)
+	var wg sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			op, created, callErr := store.BeginPaymentOperation(ctx, "fake", "authorize", key, 2100, "OMR")
+			opResults <- operationResult{op: op, created: created, err: callErr}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(opResults)
+	createdCount := 0
+	var operationID string
+	for r := range opResults {
+		if r.err != nil { t.Fatalf("identical operation race failed: %v", r.err) }
+		if r.created { createdCount++ }
+		if operationID == "" { operationID = r.op.ID }
+		if r.op.ID != operationID { t.Fatalf("same idempotency key returned different operations: %s != %s", operationID, r.op.ID) }
+	}
+	if createdCount != 1 { t.Fatalf("exactly one operation should be created, got %d", createdCount) }
+	var count int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM payment_operations WHERE provider_code='fake' AND idempotency_key=$1`, key).Scan(&count); err != nil { t.Fatal(err) }
+	if count != 1 { t.Fatalf("identical request race persisted %d operations", count) }
+
+	// A changed amount racing the original request must conflict regardless of
+	// which transaction inserts first; it must never create a second operation.
+	conflictKey := "payment-conflicting-race-" + suffix
+	conflictStart := make(chan struct{})
+	conflictResults := make(chan error, 2)
+	var conflictWG sync.WaitGroup
+	for _, amount := range []int64{3100, 4100} {
+		conflictWG.Add(1)
+		go func(amount int64) {
+			defer conflictWG.Done()
+			<-conflictStart
+			_, _, callErr := store.BeginPaymentOperation(ctx, "fake", "capture", conflictKey, amount, "OMR")
+			conflictResults <- callErr
+		}(amount)
+	}
+	close(conflictStart)
+	conflictWG.Wait()
+	close(conflictResults)
+	successes, conflicts := 0, 0
+	for callErr := range conflictResults {
+		if callErr == nil { successes++ } else if errors.Is(callErr, ErrPaymentIdempotencyConflict) { conflicts++ } else { t.Fatalf("unexpected operation race error: %v", callErr) }
+	}
+	if successes != 1 || conflicts != 1 { t.Fatalf("changed request race must have one winner and one conflict: success=%d conflicts=%d", successes, conflicts) }
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM payment_operations WHERE provider_code='fake' AND idempotency_key=$1`, conflictKey).Scan(&count); err != nil { t.Fatal(err) }
+	if count != 1 { t.Fatalf("conflicting operation race persisted %d rows", count) }
+
+	// Duplicate delivery of an identical event is acknowledged once; changed
+	// bytes under the same event ID conflict even when both receipts race.
+	webhookRace := func(eventID string, bodies [][]byte) (int, int) {
+		t.Helper()
+		gate := make(chan struct{})
+		type receiptResult struct { duplicate bool; err error }
+		results := make(chan receiptResult, len(bodies))
+		var group sync.WaitGroup
+		for _, body := range bodies {
+			group.Add(1)
+			go func(payload []byte) {
+				defer group.Done()
+				<-gate
+				duplicate, receiptErr := store.RecordPaymentWebhook(ctx, "fake", eventID, payload)
+				results <- receiptResult{duplicate: duplicate, err: receiptErr}
+			}(body)
+		}
+		close(gate)
+		group.Wait()
+		close(results)
+		ok, duplicate, conflict := 0, 0, 0
+		for r := range results {
+			if r.err != nil {
+				if errors.Is(r.err, ErrPaymentWebhookConflict) { conflict++; continue }
+				t.Fatalf("webhook receipt race: %v", r.err)
+			}
+			ok++
+			if r.duplicate { duplicate++ }
+		}
+		if ok+conflict != len(bodies) { t.Fatalf("lost webhook receipt results: ok=%d conflict=%d total=%d", ok, conflict, len(bodies)) }
+		return duplicate, conflict
+	}
+	identicalID := "evt-identical-" + suffix
+	identicalBody := []byte(`{"event_id":"identical","status":"succeeded"}`)
+	duplicates, conflicts := webhookRace(identicalID, [][]byte{identicalBody, identicalBody})
+	if duplicates != 1 || conflicts != 0 { t.Fatalf("identical webhook race: duplicates=%d conflicts=%d", duplicates, conflicts) }
+	changedID := "evt-changed-" + suffix
+	duplicates, conflicts = webhookRace(changedID, [][]byte{
+		[]byte(`{"event_id":"changed","status":"succeeded"}`),
+		[]byte(`{"event_id":"changed","status":"failed"}`),
+	})
+	if duplicates != 0 || conflicts != 1 { t.Fatalf("changed webhook race: duplicates=%d conflicts=%d", duplicates, conflicts) }
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM payment_webhook_receipts WHERE provider_code='fake' AND event_id=$1`, changedID).Scan(&count); err != nil { t.Fatal(err) }
+	if count != 1 { t.Fatalf("changed webhook race persisted %d receipts", count) }
+
+	// Two contradictory terminal callbacks race against the same pending
+	// operation. Exactly one state transition and audit event may commit.
+	terminalKey := "payment-terminal-race-" + suffix
+	pending, _, err := store.BeginPaymentOperation(ctx, "fake", "capture", terminalKey, 5100, "OMR")
+	if err != nil { t.Fatal(err) }
+	terminalStart := make(chan struct{})
+	terminalResults := make(chan error, 2)
+	var terminalWG sync.WaitGroup
+	for _, outcome := range []struct{ status, reference, failure string }{
+		{"succeeded", "fake-terminal-ref-" + suffix, ""},
+		{"failed", "", "late_failure"},
+	} {
+		terminalWG.Add(1)
+		go func(status, reference, failure string) {
+			defer terminalWG.Done()
+			<-terminalStart
+			_, outcomeErr := store.RecordPaymentOutcome(ctx, pending.ID, status, reference, failure)
+			terminalResults <- outcomeErr
+		}(outcome.status, outcome.reference, outcome.failure)
+	}
+	close(terminalStart)
+	terminalWG.Wait()
+	close(terminalResults)
+	terminalSuccesses, terminalConflicts := 0, 0
+	for outcomeErr := range terminalResults {
+		if outcomeErr == nil { terminalSuccesses++ } else if errors.Is(outcomeErr, ErrPaymentStateConflict) { terminalConflicts++ } else { t.Fatalf("unexpected terminal transition race error: %v", outcomeErr) }
+	}
+	if terminalSuccesses != 1 || terminalConflicts != 1 { t.Fatalf("terminal transition race must have one winner: success=%d conflicts=%d", terminalSuccesses, terminalConflicts) }
+	var finalStatus string
+	if err = pool.QueryRow(ctx, `SELECT status FROM payment_operations WHERE id=$1`, pending.ID).Scan(&finalStatus); err != nil { t.Fatal(err) }
+	if finalStatus != "succeeded" && finalStatus != "failed" { t.Fatalf("operation did not reach one terminal state: %s", finalStatus) }
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM payment_operation_events WHERE operation_id=$1 AND event_type='provider_outcome'`, pending.ID).Scan(&count); err != nil { t.Fatal(err) }
+	if count != 1 { t.Fatalf("contradictory terminal race wrote %d outcome audit events", count) }
+}
