@@ -69,7 +69,7 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
 	if err:=json.Unmarshal(event.Payload,&domain); err!=nil {
 		return p.quarantine(ctx,tx,event,"invalid_envelope_json")
 	}
-	if strings.TrimSpace(p.TenantID)!="" && strings.TrimSpace(domain.TenantID)!=strings.TrimSpace(p.TenantID) {
+	if strings.TrimSpace(p.TenantID)!="" && strings.TrimSpace(domain.TenantID)!="" && strings.TrimSpace(domain.TenantID)!=strings.TrimSpace(p.TenantID) {
 		return errors.New("analytics event tenant does not match projection tenant")
 	}
 	if outbox.ValidateDomainEvent(domain)!=nil {
