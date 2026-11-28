@@ -170,13 +170,14 @@ func (s *Store) CreateFinanceCase(ctx context.Context, actor Actor, in FinanceCa
 	err = tx.QueryRow(ctx,`SELECT tenant_id FROM orders WHERE id=$1 FOR SHARE`,in.OrderID).Scan(&orderTenant)
 	if errors.Is(err,pgx.ErrNoRows) || orderTenant != actor.TenantID { return FinanceCase{},false,ErrForbidden }
 	if err != nil { return FinanceCase{},false,err }
-	var opProvider, opStatus, opCurrency string
+	var opProvider, opStatus, opCurrency, opTenant, opOrder string
 	var opAmount int64
-	err = tx.QueryRow(ctx,`SELECT provider_code,status,currency,amount_minor FROM payment_operations WHERE id=$1 FOR SHARE`,
-		in.SourcePaymentOperationID).Scan(&opProvider,&opStatus,&opCurrency,&opAmount)
+	err = tx.QueryRow(ctx,`SELECT provider_code,status,currency,amount_minor,COALESCE(tenant_id,''),COALESCE(order_id,'')
+		FROM payment_operations WHERE id=$1 FOR SHARE`,
+		in.SourcePaymentOperationID).Scan(&opProvider,&opStatus,&opCurrency,&opAmount,&opTenant,&opOrder)
 	if errors.Is(err,pgx.ErrNoRows) { return FinanceCase{},false,ErrFinanceCaseInput }
 	if err != nil { return FinanceCase{},false,err }
-	if opProvider != in.ProviderCode || opStatus != "succeeded" || opCurrency != in.Currency || in.AmountMinor > opAmount {
+	if opProvider != in.ProviderCode || opStatus != "succeeded" || opCurrency != in.Currency || opTenant != actor.TenantID || opOrder != in.OrderID || in.AmountMinor > opAmount {
 		return FinanceCase{},false,ErrFinanceCaseInput
 	}
 	var linked bool
