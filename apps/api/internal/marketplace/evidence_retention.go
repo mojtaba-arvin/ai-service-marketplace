@@ -80,19 +80,26 @@ func (w *EvidenceDeletionWorker) RunOnce(ctx context.Context)(int,error) {
 // Active evidence is never silently removed by a reconciliation pass.
 func (w *EvidenceDeletionWorker) ReconcileMissing(ctx context.Context,limit int)(int,error){
  if err:=w.valid();err!=nil{return 0,err};if limit<1||limit>w.BatchSize{return 0,errors.New("invalid reconciliation limit")}
- rows,err:=w.DB.Query(ctx,`SELECT id,tenant_id,report_id FROM incident_evidence WHERE deletion_state='deletion_pending' AND legal_hold=false ORDER BY created_at,id LIMIT $1`,limit)
+ rows,err:=w.DB.Query(ctx,`SELECT id,tenant_id,report_id,deletion_attempts FROM incident_evidence WHERE deletion_state='deletion_pending' AND legal_hold=false ORDER BY created_at,id LIMIT $1`,limit)
  if err!=nil{return 0,err}
- type item struct{id,tenant,report string};items:=make([]item,0,limit)
- for rows.Next(){var v item;if err=rows.Scan(&v.id,&v.tenant,&v.report);err!=nil{rows.Close();return 0,err};items=append(items,v)}
+ type item struct{id,tenant,report string;attempt int};items:=make([]item,0,limit)
+ for rows.Next(){var v item;if err=rows.Scan(&v.id,&v.tenant,&v.report,&v.attempt);err!=nil{rows.Close();return 0,err};items=append(items,v)}
  if err=rows.Err();err!=nil{rows.Close();return 0,err};rows.Close();count:=0
  for _,v:=range items{
-  _,e:=w.Storage.Get(ctx,v.id,1);if !errors.Is(e,os.ErrNotExist){continue}
+  _,e:=w.Storage.Get(ctx,v.id,1)
+  if e!=nil&&!errors.Is(e,os.ErrNotExist){
+   auditTx,beginErr:=w.DB.BeginTx(ctx,pgx.TxOptions{});if beginErr!=nil{return count,beginErr}
+   _,beginErr=auditTx.Exec(ctx,`INSERT INTO incident_evidence_access_events(tenant_id,report_id,evidence_id,actor_identity_id,action,outcome,reason_category,attempt)
+    VALUES($1,$2,$3,'system:evidence-retention','deletion_reconciled','failure','storage_failure',$4)`,v.tenant,v.report,v.id,v.attempt)
+   if beginErr!=nil{_ = auditTx.Rollback(ctx);return count,beginErr};if beginErr=auditTx.Commit(ctx);beginErr!=nil{return count,beginErr};continue
+  }
+  if !errors.Is(e,os.ErrNotExist){continue}
   tx,e:=w.DB.BeginTx(ctx,pgx.TxOptions{});if e!=nil{return count,e}
   tag,e:=tx.Exec(ctx,`UPDATE incident_evidence SET deletion_state='deleted',deleted_at=COALESCE(deleted_at,now()),
    deletion_claim_token=NULL,deletion_claimed_until=NULL,deletion_error_category=''
    WHERE id=$1 AND tenant_id=$2 AND deletion_state='deletion_pending' AND legal_hold=false`,v.id,v.tenant)
-  if e==nil&&tag.RowsAffected()==1{_,e=tx.Exec(ctx,`INSERT INTO incident_evidence_access_events(tenant_id,report_id,evidence_id,actor_identity_id,action,outcome,reason_category)
-   VALUES($1,$2,$3,'system:evidence-retention','deletion_reconciled','success','reconciliation')`,v.tenant,v.report,v.id)}
+  if e==nil&&tag.RowsAffected()==1{_,e=tx.Exec(ctx,`INSERT INTO incident_evidence_access_events(tenant_id,report_id,evidence_id,actor_identity_id,action,outcome,reason_category,attempt)
+   VALUES($1,$2,$3,'system:evidence-retention','deletion_reconciled','success','reconciliation',$4)`,v.tenant,v.report,v.id,v.attempt)}
   if e!=nil{_ = tx.Rollback(ctx);return count,e};if e=tx.Commit(ctx);e!=nil{return count,e};if tag.RowsAffected()==1{count++}
  }
  return count,nil
