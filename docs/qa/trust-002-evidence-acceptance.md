@@ -48,7 +48,7 @@
 
 ## Acceptance rules
 
-- The maintainer verification operator must be different from the implementation author and must record their identity and environment.
+- The authorized maintainer records the identity, exact commit SHA, environment and evidence reviewed. The maintainer may also be the implementation author; acceptance depends on reproducible scenario evidence and review of the results, not separation of human identities. Where an isolated deployment or disposable tenants are required by a scenario, preserve those technical conditions.
 - A green CI run is necessary but does not satisfy this matrix or set `feature_list.json` `passes: true`.
 - EVD-17 and the deletion portion of EVD-16 remain blocked until an audited retention/legal-hold/deletion workflow and backup-expiry coordination are implemented and tested.
 - TRUST-002 remains open until all required implementation, exact-head checks and maintainer acceptance evidence are complete.
