@@ -63,3 +63,9 @@ func ClassifyEventTime(occurredAt, ingestedAt time.Time, policy EventTimePolicy)
 func EventTimeWatermark(now time.Time, policy EventTimePolicy) time.Time {
 	return now.UTC().Add(-policy.AllowedLateness)
 }
+
+// IsPeriodMature uses an exclusive period end: equality with the watermark is
+// finalizable, while any end after the watermark remains provisional.
+func IsPeriodMature(periodEnd, watermark time.Time) bool {
+	return !periodEnd.IsZero() && !watermark.IsZero() && !periodEnd.After(watermark)
+}
