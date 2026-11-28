@@ -60,7 +60,8 @@ func TestAnalyticsEventTimeLateClockSkewAndCorrectionReplayPostgres(t *testing.T
 		return event
 	}
 
-	lateEvent := appendEvent("late-"+suffix, time.Now().UTC().Add(-73*time.Hour))
+	lateOccurredAt := time.Now().UTC().Add(-73*time.Hour)
+	lateEvent := appendEvent("late-"+suffix, lateOccurredAt)
 	skewEvent := appendEvent("skew-"+suffix, time.Now().UTC().Add(time.Minute))
 	liveProjector := analytics.Projector{DB:pool,ConsumerName:consumerName,GenerationID:generation,TenantID:tenant}
 	liveConsumer := liveProjector.Consumer()
@@ -75,7 +76,7 @@ func TestAnalyticsEventTimeLateClockSkewAndCorrectionReplayPostgres(t *testing.T
 	if err = pool.QueryRow(ctx, `SELECT occurred_at,ingested_at,late_arrival,included_in_metrics
 		FROM analytics_event_facts WHERE tenant_id=$1 AND generation_id=$2 AND event_id=$3`,
 		tenant,generation,"late-"+suffix).Scan(&occurredAt,&ingestedAt,&late,&included); err != nil { t.Fatal(err) }
-	if !occurredAt.Equal(time.Date(2026, occurredAt.Month(), occurredAt.Day(), occurredAt.Hour(), occurredAt.Minute(), occurredAt.Second(), occurredAt.Nanosecond(), time.UTC)) || !late || included {
+	if !occurredAt.Equal(lateOccurredAt) || !late || included || !ingestedAt.After(occurredAt) {
 		t.Fatalf("late fact must preserve source time and remain excluded pending correction: occurred=%s ingested=%s late=%v included=%v", occurredAt, ingestedAt, late, included)
 	}
 	var skewQuarantine int
