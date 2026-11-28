@@ -158,6 +158,8 @@ CREATE TABLE IF NOT EXISTS finance_cases (
            (status<>'reconciled' AND reconciled_journal_id IS NULL)),
     CHECK ((accepted_by_identity_id IS NULL AND acceptance_reason='') OR
            (accepted_by_identity_id IS NOT NULL AND length(btrim(acceptance_reason)) BETWEEN 1 AND 500)),
+    CHECK ((status='failed' AND length(btrim(failure_code)) BETWEEN 1 AND 200) OR
+           (status<>'failed' AND failure_code='')),
     CHECK ((status IN ('provider_confirmed','reconciled') AND provider_outcome='confirmed') OR
            (status='failed' AND provider_outcome='failed') OR
            (status IN ('requested','accepted') AND provider_outcome IN ('not_submitted','unknown')))
@@ -264,6 +266,9 @@ BEGIN
        OR NEW.amount_minor IS DISTINCT FROM OLD.amount_minor OR NEW.currency IS DISTINCT FROM OLD.currency
        OR NEW.requested_by_identity_id IS DISTINCT FROM OLD.requested_by_identity_id
        OR NEW.request_reason IS DISTINCT FROM OLD.request_reason
+       OR (OLD.accepted_by_identity_id IS NOT NULL AND
+           (NEW.accepted_by_identity_id IS DISTINCT FROM OLD.accepted_by_identity_id OR
+            NEW.acceptance_reason IS DISTINCT FROM OLD.acceptance_reason))
        OR NEW.reversal_of_case_id IS DISTINCT FROM OLD.reversal_of_case_id
        OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
         RAISE EXCEPTION 'finance case request provenance is immutable';
