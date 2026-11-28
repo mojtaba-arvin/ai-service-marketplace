@@ -5113,7 +5113,8 @@
           "ingestion_backlog_status",
           "source_coverage_status",
           "missing_ingestion_timestamps",
-          "duplicate_reorder_conflicts"
+          "duplicate_reorder_conflicts",
+          "event_time_policy_version"
         ],
         "properties": {
           "window_from": {
@@ -5266,6 +5267,10 @@
             "format": "int64",
             "minimum": 0,
             "description": "Identical event IDs whose lower outbox ID arrived after a higher-ID canonical fact; requires deterministic correction replay."
+          },
+          "event_time_policy_version": {
+            "type": "string",
+            "description": "Versioned policy identifier used for the metric-family lateness classification."
           }
         }
       },
