@@ -29,6 +29,7 @@ type Summary struct {
     AllowedLatenessSeconds int64 `json:"allowed_lateness_seconds"`
     LateEvents int64 `json:"late_events"`
     LateEventsIncluded int64 `json:"late_events_included"`
+    QuarantinedEvents int64 `json:"quarantined_events"`
     IngestionBacklogStatus string `json:"ingestion_backlog_status"`
     SourceCoverageStatus string `json:"source_coverage_status"`
     ExcludedEvents int64 `json:"excluded_events"`
@@ -134,18 +135,23 @@ SELECT
     (SELECT count(*) FROM active_analytics_event_facts WHERE tenant_id=$1 AND occurred_at >= $2 AND occurred_at < $3
        AND event_time_family='order_funnel' AND late_arrival=true AND ($4='' OR market_code=$4 OR market_code IS NULL)),
     (SELECT count(*) FROM active_analytics_event_facts WHERE tenant_id=$1 AND occurred_at >= $2 AND occurred_at < $3
-       AND event_time_family='order_funnel' AND late_arrival=true AND included_in_metrics=true AND ($4='' OR market_code=$4 OR market_code IS NULL))
+       AND event_time_family='order_funnel' AND late_arrival=true AND included_in_metrics=true AND ($4='' OR market_code=$4 OR market_code IS NULL)),
+    (SELECT count(*) FROM analytics_event_quarantine q JOIN active_generation ag ON ag.tenant_id=q.tenant_id AND ag.generation_id=q.generation_id
+       WHERE q.tenant_id=$1 AND (q.occurred_at IS NULL OR (q.occurred_at >= $2 AND q.occurred_at < $3))
+         AND ($4='' OR q.market_code=$4 OR q.market_code IS NULL))
 `,tenantID,from,to,filter.MarketCode).Scan(
         &result.OrdersCreated,&result.OffersCreated,&result.OffersAccepted,
         &result.OrdersCancelled,&result.OrdersCompleted,
         &result.MedianAssignmentSeconds,&result.P90AssignmentSeconds,
-        &result.EligibleEvents,&result.ExcludedEvents,&result.PendingEvents,&result.LateEvents,&result.LateEventsIncluded)
+        &result.EligibleEvents,&result.ExcludedEvents,&result.PendingEvents,&result.LateEvents,&result.LateEventsIncluded,&result.QuarantinedEvents)
     if err!=nil { return Summary{},err }
     result.DataReady=result.EligibleEvents>0 && result.PendingEvents==0
     policy,_:=EventTimePolicyFor("order.created")
     result.AllowedLatenessSeconds=int64(policy.AllowedLateness.Seconds())
     result.EventTimeWatermark=EventTimeWatermark(time.Now().UTC(),policy)
     switch {
+    case result.QuarantinedEvents>0:
+        result.EventTimeCompleteness="incomplete"
     case result.EligibleEvents==0:
         result.EventTimeCompleteness="unavailable"
     case result.ExcludedEvents>0:
@@ -161,7 +167,7 @@ SELECT
     }
     if result.PendingEvents==0 { result.IngestionBacklogStatus="drained" } else { result.IngestionBacklogStatus="pending" }
     result.SourceCoverageStatus="unknown"
-    if result.EligibleEvents==0 { result.SourceCoverageStatus="unavailable" } else if result.ExcludedEvents>0 { result.SourceCoverageStatus="incomplete" }
+    if result.QuarantinedEvents>0 || result.ExcludedEvents>0 { result.SourceCoverageStatus="incomplete" } else if result.EligibleEvents==0 { result.SourceCoverageStatus="unavailable" }
     if result.OffersCreated>0 { result.OfferAcceptanceRate=float64(result.OffersAccepted)/float64(result.OffersCreated) }
     if result.OrdersCreated>0 {
         result.CancellationRate=float64(result.OrdersCancelled)/float64(result.OrdersCreated)
