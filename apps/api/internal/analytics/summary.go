@@ -58,6 +58,8 @@ func QuerySummary(ctx context.Context, db queryRower, tenantID string, filter Su
     from,to:=filter.From.UTC(),filter.To.UTC()
     var result Summary
     result.WindowFrom,result.WindowTo,result.MarketCode=from,to,filter.MarketCode
+    policy,_:=EventTimePolicyFor("order.created")
+    latenessSeconds:=int64(policy.AllowedLateness.Seconds())
     err:=db.QueryRow(ctx,`
 WITH active_generation AS (
  SELECT ag.tenant_id,ag.generation_id,g.consumer_name FROM analytics_active_generations ag JOIN analytics_projection_generations g ON g.tenant_id=ag.tenant_id AND g.generation_id=ag.generation_id WHERE ag.tenant_id=$1
@@ -139,16 +141,15 @@ SELECT
     (SELECT count(*) FROM analytics_event_quarantine q JOIN active_generation ag ON ag.tenant_id=q.tenant_id AND ag.generation_id=q.generation_id
        WHERE q.tenant_id=$1 AND (q.occurred_at IS NULL OR (q.occurred_at >= $2 AND q.occurred_at < $3))
          AND ($4='' OR q.market_code=$4 OR q.market_code IS NULL)),
-    clock_timestamp() - interval '72 hours'
-`,tenantID,from,to,filter.MarketCode).Scan(
+    clock_timestamp() - ($5 * interval '1 second')
+`,tenantID,from,to,filter.MarketCode,latenessSeconds).Scan(
         &result.OrdersCreated,&result.OffersCreated,&result.OffersAccepted,
         &result.OrdersCancelled,&result.OrdersCompleted,
         &result.MedianAssignmentSeconds,&result.P90AssignmentSeconds,
         &result.EligibleEvents,&result.ExcludedEvents,&result.PendingEvents,&result.LateEvents,&result.LateEventsIncluded,&result.QuarantinedEvents,&result.EventTimeWatermark)
     if err!=nil { return Summary{},err }
     result.DataReady=result.EligibleEvents>0 && result.PendingEvents==0
-    policy,_:=EventTimePolicyFor("order.created")
-    result.AllowedLatenessSeconds=int64(policy.AllowedLateness.Seconds())
+    result.AllowedLatenessSeconds=latenessSeconds
     result.EventTimeWatermark=result.EventTimeWatermark.UTC()
     switch {
     case result.QuarantinedEvents>0:
