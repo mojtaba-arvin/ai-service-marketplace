@@ -215,19 +215,34 @@ func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 
 	// A confirmed chargeback with a mismatched journal is recorded as a durable
 	// discrepancy, not silently linked or used to mutate the ledger.
+	mismatchInput := chargeInput
+	mismatchInput.ProviderIdempotencyKey = "chargeback-mismatch-"+orderID
+	mismatch,_,err := store.CreateFinanceCase(ctx,requester,mismatchInput)
+	if err != nil { t.Fatal(err) }
+	mismatch,err = store.AcceptFinanceCase(ctx,approver,mismatch.ID,"Review separate provider dispute")
+	if err != nil { t.Fatal(err) }
+	mismatchEvent := FinanceCaseWebhook{EventID:"evt-chargeback-mismatch-"+orderID,ProviderCode:"fake",
+		ProviderIdempotencyKey:mismatchInput.ProviderIdempotencyKey,Outcome:"confirmed",
+		ProviderReference:"fake-chargeback-mismatch-ref",AmountMinor:300,Currency:"OMR"}
+	mismatchPayload,_ := json.Marshal(mismatchEvent)
+	mismatch,_,err = store.ApplyFinanceCaseWebhook(ctx,verifier,mismatchPayload,verifier.Sign(mismatchPayload))
+	if err != nil || mismatch.Status != FinanceCaseProviderConfirmed { t.Fatalf("confirm discrepancy case: %+v %v",mismatch,err) }
+
+	// A confirmed chargeback with a mismatched journal is recorded as a durable
+	// discrepancy, not silently linked or used to mutate the ledger.
 	var current FinanceCase
-	if err = pool.QueryRow(ctx,`SELECT `+financeCaseColumns+` FROM finance_cases WHERE id=$1`,charge.ID).Scan(
+	if err = pool.QueryRow(ctx,`SELECT `+financeCaseColumns+` FROM finance_cases WHERE id=$1`,mismatch.ID).Scan(
 		&current.ID,&current.TenantID,&current.CaseType,&current.OrderID,&current.SourcePaymentOperationID,
 		&current.SourceJournalID,&current.ProviderCode,&current.ProviderIdempotencyKey,&current.AmountMinor,&current.Currency,
 		&current.Status,&current.ProviderOutcome,&current.RequestedByIdentityID,&current.AcceptedByIdentityID,
 		&current.AcceptanceReason,&current.RequestReason,&current.FailureCode,&current.ReversalOfCaseID,
 		&current.ReconciledJournalID,&current.CreatedAt,&current.UpdatedAt); err != nil { t.Fatal(err) }
 	if current.Status == FinanceCaseProviderConfirmed {
-		mismatch,postErr := store.PostJournal(ctx,"mismatch-"+orderID,"OMR","mismatched journal",
+		mismatchJournal,postErr := store.PostJournal(ctx,"mismatch-"+orderID,"OMR","mismatched journal",
 			[]JournalLine{{AccountCode:"provider_payable",Side:"debit",AmountMinor:299,Currency:"OMR"},
 				{AccountCode:"customer_funds",Side:"credit",AmountMinor:299,Currency:"OMR"}})
 		if postErr != nil { t.Fatal(postErr) }
-		if _,err = store.ReconcileFinanceCase(ctx,approver,current.ID,mismatch.ID,"Investigate amount discrepancy"); !errors.Is(err,ErrFinanceCaseConflict) {
+		if _,err = store.ReconcileFinanceCase(ctx,approver,current.ID,mismatchJournal.ID,"Investigate amount discrepancy"); !errors.Is(err,ErrFinanceCaseConflict) {
 			t.Fatalf("mismatched journal must not reconcile: %v",err)
 		}
 		if err = pool.QueryRow(ctx,`SELECT count(*) FROM finance_case_reconciliation_checks
