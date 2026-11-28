@@ -24,7 +24,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS payment_ledger_links_operation_journal_unique
 ALTER TABLE payment_operations
     ADD COLUMN IF NOT EXISTS tenant_id text,
     ADD COLUMN IF NOT EXISTS order_id text;
-DO $
+DO $do$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='payment_operations_order_tenant_fk') THEN
         ALTER TABLE payment_operations
@@ -37,7 +37,7 @@ BEGIN
             CHECK ((tenant_id IS NULL AND order_id IS NULL) OR
                    (tenant_id IS NOT NULL AND order_id IS NOT NULL));
     END IF;
-END $;
+END $do$;
 CREATE UNIQUE INDEX IF NOT EXISTS payment_operations_id_tenant_order_unique
     ON payment_operations(id,tenant_id,order_id);
 
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS payment_operation_order_bindings (
 CREATE INDEX IF NOT EXISTS payment_operation_order_bindings_tenant_idx
     ON payment_operation_order_bindings(tenant_id,order_id,created_at);
 
-CREATE OR REPLACE FUNCTION guard_payment_operation_order_binding() RETURNS trigger LANGUAGE plpgsql AS $
+CREATE OR REPLACE FUNCTION guard_payment_operation_order_binding() RETURNS trigger LANGUAGE plpgsql AS $fn$
 BEGIN
     IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.order_id IS DISTINCT FROM OLD.order_id THEN
         IF OLD.tenant_id IS NOT NULL OR OLD.order_id IS NOT NULL OR
@@ -175,7 +175,7 @@ CREATE TABLE IF NOT EXISTS finance_case_reconciliation_checks (
 CREATE OR REPLACE FUNCTION reject_finance_case_evidence_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
     RAISE EXCEPTION 'finance case events, webhook receipts and ledger links are append-only';
-END $$;
+END $fn$;
 DROP TRIGGER IF EXISTS finance_case_events_immutable ON finance_case_events;
 CREATE TRIGGER finance_case_events_immutable BEFORE UPDATE OR DELETE ON finance_case_events
 FOR EACH ROW EXECUTE FUNCTION reject_finance_case_evidence_mutation();
