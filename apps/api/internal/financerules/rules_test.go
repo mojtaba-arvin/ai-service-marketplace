@@ -57,3 +57,26 @@ func TestInputSnapshotHashIsDeterministic(t *testing.T) {
 	b,err:=Calculate(r,in);if err!=nil{t.Fatal(err)}
 	if a.InputHash==""||a.InputHash!=b.InputHash||string(a.RuleSnapshot)!=string(b.RuleSnapshot){t.Fatalf("unstable provenance: %+v %+v",a,b)}
 }
+
+func TestRoundingModesAndZeroOutcome(t *testing.T) {
+	r:=approvedRule();r.Rate=1
+	in:=Input{MarketID:"OM",Currency:"OMR",At:r.EffectiveFrom,BasisMinor:5000,SourceID:"order"}
+	r.Rounding=HalfUp
+	got,err:=Calculate(r,in);if err!=nil||got.AmountMinor!=1{t.Fatalf("half-up: %+v %v",got,err)}
+	r.Rounding=Down
+	got,err=Calculate(r,in);if err!=nil||got.AmountMinor!=0{t.Fatalf("down: %+v %v",got,err)}
+	r.Rounding=Up
+	got,err=Calculate(r,in);if err!=nil||got.AmountMinor!=1{t.Fatalf("up: %+v %v",got,err)}
+}
+func TestInputHashNormalizesEquivalentInstantsToUTC(t *testing.T) {
+	r:=approvedRule()
+	at:=r.EffectiveFrom.Add(time.Hour)
+	a,err:=Calculate(r,Input{MarketID:"OM",Currency:"OMR",At:at,SourceID:"order",BasisMinor:100})
+	if err!=nil{t.Fatal(err)}
+	_,offset:=at.Zone()
+	_ = offset
+	other:=at.In(time.FixedZone("equivalent",3600))
+	b,err:=Calculate(r,Input{MarketID:"OM",Currency:"OMR",At:other,SourceID:"order",BasisMinor:100})
+	if err!=nil{t.Fatal(err)}
+	if a.InputHash!=b.InputHash{t.Fatalf("equivalent instants produced different hashes: %s %s",a.InputHash,b.InputHash)}
+}
