@@ -70,7 +70,7 @@ Stop and label the issue `needs-human` when requirements conflict, a security/fi
 Acceptance criteria are met; tests cover success and failure paths; docs/contracts are current; security and module boundaries hold; required CI is green; no secrets are present; the PR explains evidence and known limitations.
 
 ## Playbooks
-Use the applicable guides in `docs/playbooks/`: endpoint, migration, adapter, spec/test, and blocker workflows.
+Use the applicable guides in `docs/playbooks/`: endpoint, migration, adapter, spec/test, blocker, and [evidence-gated PR review/merge](docs/playbooks/evidence-gated-pr-merge.md) workflows.
 
 ## Project acceptance policy
 
