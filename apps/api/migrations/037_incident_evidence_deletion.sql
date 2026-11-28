@@ -1,16 +1,17 @@
 -- Retryable private-evidence deletion. Rows and audit events remain permanent tombstones.
 ALTER TABLE incident_evidence
- ADD COLUMN deletion_state text NOT NULL DEFAULT 'active' CHECK(deletion_state IN ('active','deletion_pending','deleted')),
- ADD COLUMN deletion_attempts integer NOT NULL DEFAULT 0 CHECK(deletion_attempts>=0),
- ADD COLUMN deletion_claim_token text,
- ADD COLUMN deletion_claimed_until timestamptz,
- ADD COLUMN deleted_at timestamptz,
- ADD COLUMN deletion_error_category text NOT NULL DEFAULT '' CHECK(deletion_error_category IN ('','storage_failure'));
+ ADD COLUMN IF NOT EXISTS deletion_state text NOT NULL DEFAULT 'active' CHECK(deletion_state IN ('active','deletion_pending','deleted')),
+ ADD COLUMN IF NOT EXISTS deletion_attempts integer NOT NULL DEFAULT 0 CHECK(deletion_attempts>=0),
+ ADD COLUMN IF NOT EXISTS deletion_claim_token text,
+ ADD COLUMN IF NOT EXISTS deletion_claimed_until timestamptz,
+ ADD COLUMN IF NOT EXISTS deleted_at timestamptz,
+ ADD COLUMN IF NOT EXISTS deletion_error_category text NOT NULL DEFAULT '' CHECK(deletion_error_category IN ('','storage_failure'));
+ALTER TABLE incident_evidence DROP CONSTRAINT IF EXISTS incident_evidence_deletion_state_consistency;
 ALTER TABLE incident_evidence ADD CONSTRAINT incident_evidence_deletion_state_consistency CHECK (
  (deletion_state='active' AND deletion_claim_token IS NULL AND deletion_claimed_until IS NULL AND deleted_at IS NULL)
  OR (deletion_state='deletion_pending' AND deleted_at IS NULL)
  OR (deletion_state='deleted' AND deletion_claim_token IS NULL AND deletion_claimed_until IS NULL AND deleted_at IS NOT NULL));
-CREATE INDEX incident_evidence_deletion_candidates_idx ON incident_evidence(retention_expires_at,created_at,id)
+CREATE INDEX IF NOT EXISTS incident_evidence_deletion_candidates_idx ON incident_evidence(retention_expires_at,created_at,id)
  WHERE legal_hold=false AND deletion_state IN ('active','deletion_pending');
 ALTER TABLE incident_evidence_access_events DROP CONSTRAINT IF EXISTS incident_evidence_access_events_action_check;
 ALTER TABLE incident_evidence_access_events ADD CONSTRAINT incident_evidence_access_events_action_check CHECK(action IN (
