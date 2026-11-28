@@ -142,6 +142,14 @@ func TestDispatchCandidatesRequireAllEligibilityAndAvailabilityGatesPostgres(t *
 	}
 	if _,err=pool.Exec(ctx,`UPDATE orders SET status='requested' WHERE id=$1`,order.ID); err!=nil { t.Fatal(err) }
 
+	// Even an otherwise authorized operator cannot resolve an order ID outside
+	// the tenant bound to the authenticated Actor.
+	if _,err=pool.Exec(ctx,`UPDATE orders SET tenant_id='market-foreign' WHERE id=$1`,order.ID); err!=nil { t.Fatal(err) }
+	if _,err=store.FindDispatchCandidatesForOrder(ctx,operator,order.ID,start,end); !errors.Is(err,ErrOrderNotFound) {
+		t.Fatalf("authorized operator must not distinguish a foreign-tenant order: %v",err)
+	}
+	if _,err=pool.Exec(ctx,`UPDATE orders SET tenant_id=$2 WHERE id=$1`,order.ID,operator.TenantID); err!=nil { t.Fatal(err) }
+
 	// Prepare a separate permission administrator to revoke the dispatch grant.
 	adminID:=newTestIdentity(t,ctx,pool)
 	adminTenant:=operator.TenantID
