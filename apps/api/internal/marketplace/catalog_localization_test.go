@@ -28,6 +28,30 @@ func TestMarketLocalizedCatalogVisibilityPostgres(t *testing.T) {
 	store:=&Store{DB:pool}
 	operator:=Actor{SubjectID:"catalog-operator",TenantID:"platform",Role:RoleOperator}
 	if err=ensureTestOperatorGrants(ctx,pool,operator,ActionMarketConfigure,ActionCatalogManage); err!=nil { t.Fatal(err) }
+	otherTenantOperator:=Actor{SubjectID:"catalog-other-tenant-operator",TenantID:"market-a",Role:RoleOperator}
+	if err=ensureTestOperatorGrants(ctx,pool,otherTenantOperator,ActionCatalogManage); err!=nil { t.Fatal(err) }
+	if _,err=store.CreateCategoryForActor(ctx,otherTenantOperator,nil,"other-tenant-category","Other tenant category"); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("non-platform operator must not create global catalog categories: %v",err)
+	}
+
+	protectedRoot,err:=store.CreateCategoryForActor(ctx,operator,nil,fmt.Sprintf("protected-%d",time.Now().UnixNano()),"Protected root")
+	if err!=nil { t.Fatalf("authorized category creation: %v",err) }
+	source,err:=store.CreateCategoryForActor(ctx,operator,nil,fmt.Sprintf("source-%d",time.Now().UnixNano()),"Source")
+	if err!=nil { t.Fatal(err) }
+	if err=store.MoveCategoryForActor(ctx,operator,source.ID,&protectedRoot.ID); err!=nil { t.Fatalf("authorized category move: %v",err) }
+	if err=store.MoveCategoryForActor(ctx,operator,"missing-category",nil); !errors.Is(err,ErrCategoryNotFound) {
+		t.Fatalf("moving a missing category must return not found: %v",err)
+	}
+	moved,err:=store.GetCategory(ctx,source.ID)
+	if err!=nil || moved.ParentID==nil || *moved.ParentID!=protectedRoot.ID { t.Fatalf("authorized move parent mismatch: %#v %v",moved,err) }
+	if err=store.MoveCategoryForActor(ctx,operator,protectedRoot.ID,&source.ID); !errors.Is(err,ErrInvalidCategory) {
+		t.Fatalf("authorized category move must reject cycles: %v",err)
+	}
+	if err=store.SetCategoryEnabledForActor(ctx,operator,protectedRoot.ID,false); err!=nil { t.Fatal(err) }
+	if _,err=store.CreateCategoryForActor(ctx,operator,&protectedRoot.ID,"blocked-child","Blocked child"); !errors.Is(err,ErrCategoryDisabled) {
+		t.Fatalf("authorized category creation beneath disabled ancestor must fail: %v",err)
+	}
+	if err=store.SetCategoryEnabledForActor(ctx,operator,protectedRoot.ID,true); err!=nil { t.Fatal(err) }
 	for _,config:=range []MarketConfig{
 		{Code:"OM",DefaultLocale:"en",Currency:"OMR",Timezone:"Asia/Muscat",PolicyVersion:"v1",Enabled:true,Locales:[]string{"en","ar"}},
 		{Code:"DE",DefaultLocale:"de",Currency:"EUR",Timezone:"Europe/Berlin",PolicyVersion:"v1",Enabled:true,Locales:[]string{"de"}},
@@ -49,8 +73,13 @@ func TestMarketLocalizedCatalogVisibilityPostgres(t *testing.T) {
 	if err!=nil || de.DisplayName!="Haushaltsdienste" || de.MarketCode!="DE" { t.Fatalf("German category: %#v %v",de,err) }
 	fallback,err:=store.ResolveLocalizedCategory(ctx,"OM","fr",root.ID)
 	if err!=nil || fallback.Locale!="en" || fallback.DisplayName!="Home services" { t.Fatalf("default locale fallback: %#v %v",fallback,err) }
+	child,err:=store.CreateCategory(ctx,&root.ID,fmt.Sprintf("plumbing-%d",time.Now().UnixNano()),"Plumbing")
+	if err!=nil { t.Fatal(err) }
+	if err=store.SetCategoryVisibility(ctx,operator,"OM",child.ID,true); err!=nil { t.Fatal(err) }
+	if err=store.SetCategoryTranslation(ctx,operator,"OM",child.ID,"en","Plumbing","Localized plumbing description"); err!=nil { t.Fatal(err) }
+	if _,err=store.ResolveLocalizedCategory(ctx,"OM","en",child.ID); err!=nil { t.Fatalf("visible child with visible ancestor should resolve: %v",err) }
 	listed,err:=store.ListLocalizedCategories(ctx,"OM","en",nil)
-	if err!=nil || len(listed)!=1 || listed[0].ID!=root.ID { t.Fatalf("visible category listing: %#v %v",listed,err) }
+	if err!=nil || len(listed)!=2 { t.Fatalf("visible category listing should include root and child: %#v %v",listed,err) }
 	if _,err=store.ResolveLocalizedCategory(ctx,"DE","en",root.ID); err!=nil { t.Fatalf("unsupported locale should resolve to market default: %v",err) }
 
 	hidden,err:=store.CreateCategory(ctx,nil,fmt.Sprintf("hidden-%d",time.Now().UnixNano()),"Hidden")
@@ -62,6 +91,13 @@ func TestMarketLocalizedCatalogVisibilityPostgres(t *testing.T) {
 	if _,err=store.ResolveLocalizedCategory(ctx,"OM","en",root.ID); !errors.Is(err,ErrCategoryUnavailable) {
 		t.Fatalf("hidden category must not resolve: %v",err)
 	}
+	if _,err=store.ResolveLocalizedCategory(ctx,"OM","en",child.ID); !errors.Is(err,ErrCategoryUnavailable) {
+		t.Fatalf("visible child beneath a market-hidden ancestor must not resolve: %v",err)
+	}
+	hiddenAncestorList,err:=store.ListLocalizedCategories(ctx,"OM","en",nil)
+	if err!=nil || len(hiddenAncestorList)!=0 {
+		t.Fatalf("market-hidden ancestor must hide its entire subtree: %#v %v",hiddenAncestorList,err)
+	}
 	if err=store.SetCategoryVisibility(ctx,operator,"OM",root.ID,true); err!=nil { t.Fatal(err) }
 	if err=store.SetCategoryEnabled(ctx,root.ID,false); err!=nil { t.Fatal(err) }
 	disabledList,err:=store.ListLocalizedCategories(ctx,"OM","en",nil)
@@ -71,7 +107,20 @@ func TestMarketLocalizedCatalogVisibilityPostgres(t *testing.T) {
 	if err=store.SetCategoryVisibility(ctx,operator,"ZZ",root.ID,true); !errors.Is(err,ErrMarketUnavailable) {
 		t.Fatalf("unknown market must fail closed: %v",err)
 	}
-	if err=store.SetCategoryTranslation(ctx,Actor{SubjectID:"support",TenantID:"platform",Role:RoleSupport},"OM",root.ID,"en","Blocked",""); !errors.Is(err,ErrForbidden) {
+	support:=Actor{SubjectID:"support",TenantID:"platform",Role:RoleSupport}
+	if _,err=store.CreateCategoryForActor(ctx,support,nil,"support-created","Support created"); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("support must not create categories: %v",err)
+	}
+	if err=store.MoveCategoryForActor(ctx,support,root.ID,nil); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("support must not move categories: %v",err)
+	}
+	if err=store.SetCategoryEnabledForActor(ctx,support,root.ID,false); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("support must not change category lifecycle: %v",err)
+	}
+	if err=store.SetCategoryTranslation(ctx,support,"OM",root.ID,"en","Blocked",""); !errors.Is(err,ErrForbidden) {
 		t.Fatalf("support must not edit catalog translations: %v",err)
+	}
+	if err=store.SetCategoryVisibility(ctx,support,"OM",root.ID,false); !errors.Is(err,ErrForbidden) {
+		t.Fatalf("support must not change catalog visibility: %v",err)
 	}
 }

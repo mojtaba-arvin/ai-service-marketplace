@@ -92,7 +92,16 @@ func (s *Store) ResolveLocalizedCategory(ctx context.Context, marketCode, locale
 		FROM service_categories c
 		JOIN market_category_visibility v ON v.category_id=c.id AND v.market_code=$2 AND v.visible=true
 		JOIN category_translations t ON t.category_id=c.id AND t.market_code=$2 AND t.locale=$3
-		WHERE c.id=$1 AND c.enabled AND (SELECT COALESCE(bool_and(enabled),false) FROM ancestors)
+		WHERE c.id=$1 AND c.enabled
+		  AND (
+			SELECT COALESCE(bool_and(
+				a.enabled AND EXISTS (
+					SELECT 1 FROM market_category_visibility av
+					WHERE av.category_id=a.id AND av.market_code=$2 AND av.visible=true
+				)
+			),false)
+			FROM ancestors a
+		  )
 	`,categoryID,market.Code,resolvedLocale).Scan(&category.ID,&category.ParentID,&category.Slug,&category.DisplayName,
 		&category.Description,&category.MarketCode,&category.Locale,&category.UpdatedAt)
 	if errors.Is(err,pgx.ErrNoRows) { return LocalizedCategory{},ErrCategoryUnavailable }
@@ -115,7 +124,11 @@ func (s *Store) ListLocalizedCategories(ctx context.Context, marketCode, locale 
 				UNION ALL
 				SELECT p.id,p.parent_id,p.enabled FROM service_categories p JOIN ancestors a ON p.id=a.parent_id
 			)
-			SELECT 1 FROM ancestors WHERE enabled=false
+			SELECT 1
+			FROM ancestors a
+			LEFT JOIN market_category_visibility av
+			  ON av.category_id=a.id AND av.market_code=$1
+			WHERE a.enabled=false OR av.visible IS DISTINCT FROM true
 		  )
 		ORDER BY c.parent_id NULLS FIRST,c.slug,c.id
 	`,market.Code,resolvedLocale,parentID)
