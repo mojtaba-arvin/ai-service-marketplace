@@ -27,7 +27,7 @@ All real providers implement the provider-neutral contract through an adapter. P
 
 ## Verification
 
-- `ledger_test.go`: balance, replay, changed payload, reversal, disabled/unknown accounts and database immutability.
+- `ledger_test.go`: balance, replay, changed payload, reversal, disabled/unknown accounts, same-key concurrency, competing reversals, UPDATE/DELETE immutability and TRUNCATE rejection.
 - `payment_test.go`: fake provider idempotency, timeouts, declines, webhook signature and persistence.
 - `reconciliation_test.go`: matched/unmatched, amount/currency differences, statement replay and no ledger auto-adjustment.
 
