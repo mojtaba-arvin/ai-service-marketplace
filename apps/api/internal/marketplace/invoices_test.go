@@ -60,7 +60,8 @@ func TestBuildInvoiceRecordSnapshotsSourceAndTaxProvenance(t *testing.T) {
 		t.Fatalf("source line order was not preserved: %#v", record.Lines)
 	}
 	if record.PriceVersionID != "price-v7" || record.TaxComponents[0].RuleID != "tax-rule-1" ||
-		record.TaxComponents[0].RuleVersion != 1 || record.TaxComponents[0].ApprovalReference != "approval-ref-1" {
+		record.TaxComponents[0].RuleVersion != 1 || record.TaxComponents[0].ApprovalReference != "approval-ref-1" ||
+		record.TaxComponents[0].CalculatedAt != input.IssuedAt {
 		t.Fatalf("source or tax provenance missing: %#v", record)
 	}
 	if record.Currency != "USD" || record.LedgerJournalIDs[0] != "journal-1" || record.PaymentOperationIDs[0] != "payment-1" {
