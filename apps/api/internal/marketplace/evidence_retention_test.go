@@ -78,4 +78,12 @@ func TestEvidenceDeletionWorkerPostgresRetryHoldMissingAndConcurrency(t *testing
  if err=db.QueryRow(ctx,"SELECT deletion_state FROM incident_evidence WHERE id=$1","55555555555555555555555555555555").Scan(&state);err!=nil{t.Fatal(err)}
  if state!="deleted"{t.Fatalf("concurrent deletion state=%s",state)}
  if storage.calls["55555555555555555555555555555555"]!=1{t.Fatalf("concurrent storage delete calls=%d, want 1",storage.calls["55555555555555555555555555555555"])}
+ // Reconciliation handles an absent object left pending behind a live claim lease.
+ reconcileID:="77777777777777777777777777777777"
+ _,err=db.Exec(ctx,`INSERT INTO incident_evidence(id,tenant_id,report_id,retention_expires_at,legal_hold,deletion_state,deletion_claim_token,deletion_claimed_until) VALUES($1,'tenant-a','report-a',$2,false,'deletion_pending','stale-claim',$3)`,reconcileID,now.Add(-time.Hour),now.Add(time.Hour));if err!=nil{t.Fatal(err)}
+ reconciled,err:=w.ReconcileMissing(ctx,1);if err!=nil{t.Fatal(err)};if reconciled!=1{t.Fatalf("reconciled=%d, want 1",reconciled)}
+ if err=db.QueryRow(ctx,"SELECT deletion_state FROM incident_evidence WHERE id=$1",reconcileID).Scan(&state);err!=nil{t.Fatal(err)}
+ if state!="deleted"{t.Fatalf("reconciled missing object state=%s",state)}
+ if err=db.QueryRow(ctx,"SELECT count(*) FROM incident_evidence_access_events WHERE evidence_id=$1 AND action='deletion_reconciled'",reconcileID).Scan(&audit);err!=nil{t.Fatal(err)}
+ if audit!=1{t.Fatalf("reconciliation audit count=%d, want 1",audit)}
 }
