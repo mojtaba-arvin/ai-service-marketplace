@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -108,6 +109,12 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 		t.Fatalf("concurrent journal idempotency must persist one journal/two entries: journals=%d entries=%d", raceJournals, raceEntries)
 	}
 
+	if _,err=store.PostJournal(ctx,"overflow-"+suffix,"OMR","Overflow",[]JournalLine{
+		{AccountCode:cash.Code,Side:"debit",AmountMinor:math.MaxInt64,Currency:"OMR"},
+		{AccountCode:cash.Code,Side:"debit",AmountMinor:1,Currency:"OMR"},
+		{AccountCode:payable.Code,Side:"credit",AmountMinor:math.MaxInt64,Currency:"OMR"},
+	}); !errors.Is(err,ErrLedgerInvalidJournal) { t.Fatalf("overflowing journal totals must fail: %v",err) }
+
 	if _,err=store.PostJournal(ctx,"unbalanced-"+suffix,"OMR","Unbalanced",[]JournalLine{
 		{AccountCode:cash.Code,Side:"debit",AmountMinor:100,Currency:"OMR"},
 		{AccountCode:payable.Code,Side:"credit",AmountMinor:99,Currency:"OMR"},
@@ -206,6 +213,42 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 	}
 	if reversalCount != 1 {
 		t.Fatalf("concurrent reversal must persist exactly one compensating journal: got %d", reversalCount)
+	}
+
+	// A shared idempotency key used concurrently for different originals must
+	// return one result and a typed payload conflict, not a raw unique violation.
+	secondOriginal, err := store.PostJournal(ctx, "ledger-reversal-shared-key-second-"+suffix, "OMR", "Second reversal original", reversalLines)
+	if err != nil {
+		t.Fatalf("post second original for shared-key reversal race: %v", err)
+	}
+	sharedReversalKey := "ledger-reversal-shared-key-" + suffix
+	sharedStart := make(chan struct{})
+	sharedResults := make(chan error, 2)
+	for _, originalID := range []string{reversalRaceOriginal.ID, secondOriginal.ID} {
+		reversalWG.Add(1)
+		go func(originalID string) {
+			defer reversalWG.Done()
+			<-sharedStart
+			_, reverseErr := store.ReverseJournal(ctx, sharedReversalKey, originalID, "Shared-key correction")
+			sharedResults <- reverseErr
+		}(originalID)
+	}
+	close(sharedStart)
+	reversalWG.Wait()
+	close(sharedResults)
+	var sharedSuccesses, sharedConflicts int
+	for reverseErr := range sharedResults {
+		switch {
+		case reverseErr == nil:
+			sharedSuccesses++
+		case errors.Is(reverseErr, ErrLedgerIdempotencyConflict):
+			sharedConflicts++
+		default:
+			t.Fatalf("unexpected shared-key reversal result: %v", reverseErr)
+		}
+	}
+	if sharedSuccesses != 1 || sharedConflicts != 1 {
+		t.Fatalf("shared reversal key must yield one success and one payload conflict: successes=%d conflicts=%d", sharedSuccesses, sharedConflicts)
 	}
 
 }
