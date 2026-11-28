@@ -91,23 +91,24 @@ func TestAnalyticsEventTimeLateClockSkewAndCorrectionReplayPostgres(t *testing.T
 	if conflictCount != 1 { t.Fatalf("conflicting payload for same event ID must quarantine, got %d", conflictCount) }
 
 	var occurredAt, ingestedAt time.Time
-	var late, included bool
-	if err = pool.QueryRow(ctx, `SELECT occurred_at,ingested_at,late_arrival,included_in_metrics
+	var late, included, ingestionTrusted bool
+	if err = pool.QueryRow(ctx, `SELECT occurred_at,ingested_at,late_arrival,included_in_metrics,ingestion_time_trusted
 		FROM analytics_event_facts WHERE tenant_id=$1 AND generation_id=$2 AND event_id=$3`,
-		tenant,generation,"late-"+suffix).Scan(&occurredAt,&ingestedAt,&late,&included); err != nil { t.Fatal(err) }
-	if !occurredAt.Equal(lateOccurredAt) || !late || included || !ingestedAt.After(occurredAt) {
+		tenant,generation,"late-"+suffix).Scan(&occurredAt,&ingestedAt,&late,&included,&ingestionTrusted); err != nil { t.Fatal(err) }
+	if !occurredAt.Equal(lateOccurredAt) || !late || included || !ingestionTrusted || !ingestedAt.After(occurredAt) {
 		t.Fatalf("late fact must preserve source time and remain excluded pending correction: occurred=%s ingested=%s late=%v included=%v", occurredAt, ingestedAt, late, included)
 	}
 	var skewQuarantine int
 	if err = pool.QueryRow(ctx, "SELECT count(*) FROM analytics_event_quarantine WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id=$3 AND reason_code='occurred_at_after_ingestion_time'", tenant,generation,skewEvent.ID).Scan(&skewQuarantine); err != nil { t.Fatal(err) }
 	if skewQuarantine != 1 { t.Fatalf("future source timestamp must be quarantined, got %d", skewQuarantine) }
-	var quarantinedEventID, quarantinedMarket string
+	var quarantinedEventID, quarantinedMarket, quarantinedIngestionSource string
 	var quarantinedVersion int
 	var quarantinedOccurred, quarantinedIngested time.Time
-	if err = pool.QueryRow(ctx, `SELECT event_id,event_version,occurred_at,ingested_at,market_code
+	var quarantinedIngestionTrusted bool
+	if err = pool.QueryRow(ctx, `SELECT event_id,event_version,occurred_at,ingested_at,market_code,ingestion_time_source,ingestion_time_trusted
 		FROM analytics_event_quarantine WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id=$3`,
-		tenant,generation,skewEvent.ID).Scan(&quarantinedEventID,&quarantinedVersion,&quarantinedOccurred,&quarantinedIngested,&quarantinedMarket); err != nil { t.Fatal(err) }
-	if quarantinedEventID!="skew-"+suffix || quarantinedVersion!=1 || !quarantinedOccurred.After(quarantinedIngested) || quarantinedMarket!="OM" {
+		tenant,generation,skewEvent.ID).Scan(&quarantinedEventID,&quarantinedVersion,&quarantinedOccurred,&quarantinedIngested,&quarantinedMarket,&quarantinedIngestionSource,&quarantinedIngestionTrusted); err != nil { t.Fatal(err) }
+	if quarantinedEventID!="skew-"+suffix || quarantinedVersion!=1 || !quarantinedOccurred.After(quarantinedIngested) || quarantinedMarket!="OM" || quarantinedIngestionSource!="insert_clock" || !quarantinedIngestionTrusted {
 		t.Fatalf("quarantine provenance incomplete: event=%q version=%d occurred=%s ingested=%s market=%q",quarantinedEventID,quarantinedVersion,quarantinedOccurred,quarantinedIngested,quarantinedMarket)
 	}
 
