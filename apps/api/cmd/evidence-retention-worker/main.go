@@ -22,6 +22,6 @@ func main(){
  worker:=&marketplace.EvidenceDeletionWorker{DB:pool,Storage:evidence.Storage,BatchSize:envInt("EVIDENCE_RETENTION_BATCH_SIZE",25,1,500),
  Lease:time.Duration(envInt("EVIDENCE_RETENTION_LEASE_SECONDS",60,1,900))*time.Second,WorkerID:"evidence-retention-"+time.Now().UTC().Format("20060102150405.000000000")}
  ticker:=time.NewTicker(interval);defer ticker.Stop()
- for{if _,e=worker.RunOnce(ctx);e!=nil&&ctx.Err()==nil{log.Printf("evidence retention cycle failed (category=worker_failure)")}
+ for{if _,e=worker.RunOnce(ctx);e!=nil&&ctx.Err()==nil{log.Printf("evidence retention cycle failed (category=worker_failure)")};if _,e=worker.ReconcileMissing(ctx,worker.BatchSize);e!=nil&&ctx.Err()==nil{log.Printf("evidence reconciliation failed (category=reconciliation_failure)") }
  select{case<-ctx.Done():return;case<-ticker.C:}}
 }
