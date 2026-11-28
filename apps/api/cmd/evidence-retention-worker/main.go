@@ -14,7 +14,7 @@ import (
 func envInt(name string,def,min,max int)int{raw:=os.Getenv(name);if raw==""{return def};v,e:=strconv.Atoi(raw);if e!=nil||v<min||v>max{log.Fatalf("%s is outside allowed bounds",name)};return v}
 func main(){
  dsn:=os.Getenv("DATABASE_URL");if dsn==""{log.Fatal("DATABASE_URL is required")}
- evidence,e:=marketplace.NewEvidenceServiceFromEnv();if e!=nil{log.Fatalf("configure private evidence storage: %v",e)}
+ evidence,e:=marketplace.NewEvidenceServiceFromEnv();if e!=nil{log.Fatal("configure private evidence storage (category=configuration_failure)")}
  ctx,stop:=signal.NotifyContext(context.Background(),os.Interrupt,syscall.SIGTERM);defer stop()
  pool,e:=pgxpool.New(ctx,dsn);if e!=nil{log.Fatal("configure database connection")};defer pool.Close()
  if e=pool.Ping(ctx);e!=nil{log.Fatal("evidence retention database unavailable")}
