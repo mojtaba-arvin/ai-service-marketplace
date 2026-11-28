@@ -39,6 +39,8 @@ FOR EACH STATEMENT EXECUTE FUNCTION reject_analytics_projection_mutation();
 
 -- Quarantine is also a provenance outcome, not a payload discard. Nullable
 -- fields preserve compatibility with historical non-canonical rows.
+DROP TRIGGER IF EXISTS analytics_event_quarantine_immutable ON analytics_event_quarantine;
+
 ALTER TABLE analytics_event_quarantine
     ADD COLUMN IF NOT EXISTS event_id text,
     ADD COLUMN IF NOT EXISTS event_version integer,
@@ -69,6 +71,9 @@ WHERE e.id=q.outbox_event_id AND q.ingested_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS analytics_event_quarantine_time_idx
     ON analytics_event_quarantine(tenant_id,generation_id,occurred_at,event_time_family);
+
+CREATE TRIGGER analytics_event_quarantine_immutable BEFORE UPDATE OR DELETE ON analytics_event_quarantine
+FOR EACH ROW EXECUTE FUNCTION reject_analytics_projection_mutation();
 
 COMMENT ON COLUMN analytics_event_facts.occurred_at IS 'Producer-supplied canonical event time; immutable source timestamp.';
 COMMENT ON COLUMN analytics_event_facts.ingested_at IS 'Durable outbox row created_at; ingestion provenance, not event time or commit-order cursor.';
