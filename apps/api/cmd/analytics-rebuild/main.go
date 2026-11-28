@@ -44,7 +44,7 @@ func loadPending(ctx context.Context,db *pgxpool.Pool,tenant,consumer string,lim
  return events,rows.Err()
 }
 
-type validation struct { Source,Processed,Facts,Quarantined,Duplicates,Pending int64; Checksum string }
+type validation struct { Source,Processed,Facts,Quarantined,Duplicates,DuplicateReorderConflicts,Pending int64; Checksum string }
 
 func validateGeneration(ctx context.Context,db *pgxpool.Pool,tenant,generation,consumer string)(validation,error) {
  var v validation
@@ -54,12 +54,13 @@ func validateGeneration(ctx context.Context,db *pgxpool.Pool,tenant,generation,c
  (SELECT count(*) FROM analytics_event_facts WHERE tenant_id=$1 AND generation_id=$2),
  (SELECT count(*) FROM analytics_event_quarantine WHERE tenant_id=$1 AND generation_id=$2),
  (SELECT count(*) FROM analytics_event_duplicates WHERE tenant_id=$1 AND generation_id=$2),
+ (SELECT count(*) FROM analytics_event_duplicates WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id < canonical_outbox_event_id),
  (SELECT count(*) FROM outbox_events e WHERE e.payload->>'tenant_id'=$1
   AND NOT EXISTS(SELECT 1 FROM processed_events p WHERE p.consumer_name=$3 AND p.event_id=e.id))`,
- tenant,generation,consumer).Scan(&v.Source,&v.Processed,&v.Facts,&v.Quarantined,&v.Duplicates,&v.Pending)
+ tenant,generation,consumer).Scan(&v.Source,&v.Processed,&v.Facts,&v.Quarantined,&v.Duplicates,&v.DuplicateReorderConflicts,&v.Pending)
  if err!=nil{return v,err}
- if v.Pending!=0||v.Source!=v.Processed||v.Processed!=v.Facts+v.Quarantined+v.Duplicates {
-  return v,fmt.Errorf("generation validation failed: source=%d processed=%d facts=%d quarantined=%d duplicates=%d pending=%d",v.Source,v.Processed,v.Facts,v.Quarantined,v.Duplicates,v.Pending)
+ if v.Pending!=0||v.DuplicateReorderConflicts!=0||v.Source!=v.Processed||v.Processed!=v.Facts+v.Quarantined+v.Duplicates {
+  return v,fmt.Errorf("generation validation failed: source=%d processed=%d facts=%d quarantined=%d duplicates=%d duplicate_reorder_conflicts=%d pending=%d",v.Source,v.Processed,v.Facts,v.Quarantined,v.Duplicates,v.DuplicateReorderConflicts,v.Pending)
  }
  // Every source row must have exactly one durable outcome (fact, quarantine, or idempotent duplicate).
  var missing int64
