@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
   schedule:
     - cron: "23 4 * * 1"
   workflow_dispatch:
@@ -14,15 +17,11 @@ on:
         default: main
         type: string
 
-# The workflow itself gets no write permissions. Each analysis job receives
-# only the permissions required for its own GitHub API surface.
 permissions:
   contents: read
 
-# Cancel superseded runs only for the same workflow/ref. Different PR branches
-# keep isolated checks and never cancel one another.
 concurrency:
-  group: security-${{ github.workflow }}-${{ github.ref }}
+  group: security-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -58,9 +57,6 @@ jobs:
           printf 'languages=[%s]\n' "$(IFS=,; echo "${languages[*]}")" >> "$GITHUB_OUTPUT"
 
   codeql:
-    # Preserve the exact required-check context configured in the main ruleset:
-    # Go is historically "CodeQL (go)", while the other language contexts are
-    # lowercase "codeql (<language>)". Do not rename these contexts casually.
     name: ${{ matrix.language == 'go' && 'CodeQL' || 'codeql' }} (${{ matrix.language }})
     needs: detect
     runs-on: ubuntu-latest
@@ -83,8 +79,7 @@ jobs:
       - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066
 
   dependency-review:
-    # Run on PRs and on explicitly dispatched rebased heads using exact base/head refs.
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -96,6 +91,6 @@ jobs:
           persist-credentials: false
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294
         with:
-          base-ref: ${{ github.event.pull_request.base.sha || inputs.base_ref }}
-          head-ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          base-ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || inputs.base_ref }}
+          head-ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
           comment-summary-in-pr: never

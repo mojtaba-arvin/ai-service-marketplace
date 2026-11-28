@@ -27,7 +27,7 @@ python3 scripts/check_openapi.py
 echo "==> Checking feature-list invariants"
 python3 scripts/check_feature_list.py
 
-if [[ -f apps/api/go.mod ]]; then
+if [[ -f apps/api/go.mod && "${VERIFY_SKIP_GO_TESTS:-0}" != "1" ]]; then
   echo "==> Running Go tests"
   (cd apps/api && go test ./...)
 fi

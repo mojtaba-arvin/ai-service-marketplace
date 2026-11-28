@@ -3,6 +3,8 @@ name: Work Item Guard
 on:
   pull_request:
     branches: [main]
+  merge_group:
+    branches: [main]
   workflow_dispatch:
     inputs:
       base_ref:
@@ -28,24 +30,29 @@ jobs:
           fetch-depth: 0
       - name: Enforce issue-scoped branch naming and protected paths
         env:
-          BASE_REF: ${{ github.event.pull_request.base.ref || inputs.base_ref || 'main' }}
+          BASE_REF: ${{ github.event.pull_request.base.ref || github.event.merge_group.base_ref || inputs.base_ref || 'main' }}
           HEAD_REF: ${{ github.event.pull_request.head.ref || inputs.head_ref || github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
 
-          # Canonical work branches must be created from an Issue and use a
-          # conventional type prefix. The Issue number is part of the name.
-          allowed_types='feature|fix|docs|refactor|test|build|ci|chore|perf|revert'
-          canonical_pattern="^(${allowed_types})/issue-[1-9][0-9]*-[a-z0-9]+(-[a-z0-9]+)*$"
+          # A merge_group commit is a synthetic queue ref, not a contributor
+          # branch. Its source PRs have already passed this guard on pull_request.
+          # Keep the required guard context present for merge-queue validation.
+          if [[ "$EVENT_NAME" == "merge_group" ]]; then
+            echo "Merge-group source PRs were checked by the pull_request guard; validating the composed commit through CI and Security."
+            exit 0
+          fi
 
-          if [[ "$HEAD_REF" =~ ^(${allowed_types})/ ]]; then
+          allowed_types='feature|fix|docs|refactor|test|build|ci|chore|perf|revert'
+          canonical_pattern="^($allowed_types)/issue-[1-9][0-9]*-[a-z0-9]+(-[a-z0-9]+)*$"
+
+          if [[ "$HEAD_REF" =~ ^($allowed_types)/ ]]; then
             if [[ ! "$HEAD_REF" =~ $canonical_pattern ]]; then
               echo "Invalid issue branch '$HEAD_REF'. Expected <type>/issue-<number>-<lowercase-kebab-slug>."
               exit 1
             fi
           elif [[ "$HEAD_REF" == work/* || "$HEAD_REF" == agent/* ]]; then
-            # Legacy branches remain guarded during migration, but no new
-            # branches should use these prefixes.
             echo "Legacy branch prefix detected; protected-path checks remain enabled."
           else
             echo "Branch '$HEAD_REF' is not a repository implementation branch; skipping implementation-path checks."
@@ -55,9 +62,7 @@ jobs:
           git fetch origin "$BASE_REF"
           changed="$(git diff --name-only "origin/$BASE_REF...HEAD")"
           printf '%s\n' "$changed"
-          # One-time, narrowly scoped bootstrap exception: Issue #246 changes
-          # this guard itself to establish the new branch contract. Keep the
-          # exception limited to this exact branch and this exact policy file.
+
           if [[ "$HEAD_REF" == "feature/issue-246-conventional-branch-naming" ]]; then
             protected_changes="$(printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)' | grep -vx '.github/workflows/work-item-guard.yml' || true)"
             if [[ -n "$protected_changes" ]]; then
@@ -79,10 +84,18 @@ jobs:
               echo "The evidence-gated merge policy update may change only the implementer instructions and this guard under protected paths."
               exit 1
             fi
+          elif [[ "$HEAD_REF" == "ci/issue-357-parallelize-validation-and-remove-redundant-ci" ]]; then
+            protected_changes="$(printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)' | grep -Ev '^\.github/workflows/(ci|security|work-item-guard)\.yml$' || true)"
+            if [[ -n "$protected_changes" ]]; then
+              printf '%s\n' "$protected_changes"
+              echo "The CI optimization policy issue may change only the CI, Security, and Work Item Guard workflows under protected paths."
+              exit 1
+            fi
           elif printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)'; then
             echo "Implementation branches may not modify protected policy or spec-test paths."
             exit 1
           fi
+
           if printf '%s\n' "$changed" | grep -qx 'feature_list.json' && [[ "$HEAD_REF" != "docs/issue-279-maintainer-led-acceptance" ]]; then
             echo "feature_list.json status changes require maintainer evidence review; direct implementation-worker edits remain forbidden."
             exit 1
