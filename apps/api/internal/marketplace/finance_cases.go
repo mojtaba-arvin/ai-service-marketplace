@@ -228,6 +228,8 @@ func (s *Store) CreateFinanceCase(ctx context.Context, actor Actor, in FinanceCa
 	return c,created,nil
 }
 
+func mustNewID() string { id, _ := newID(); return id }
+
 func (c FinanceCase) ReversalOfCaseIDValue() string {
 	if c.ReversalOfCaseID == nil { return "" }
 	return *c.ReversalOfCaseID
@@ -354,8 +356,14 @@ func (s *Store) ReconcileFinanceCase(ctx context.Context, actor Actor, caseID, j
 	if currency != c.Currency || debits != c.AmountMinor || credits != c.AmountMinor {
 		return FinanceCase{},ErrFinanceCaseConflict
 	}
-	if c.CaseType == FinanceCasePayoutReversal && (reversalOf == nil || *reversalOf != c.SourceJournalID) {
-		return FinanceCase{},ErrFinanceCaseConflict
+	if c.CaseType == FinanceCasePayoutReversal {
+		var originalJournal string
+		err = tx.QueryRow(ctx,`SELECT reconciled_journal_id FROM finance_cases
+			WHERE id=$1 AND tenant_id=$2 AND case_type='payout' AND status='reconciled'`,
+			c.ReversalOfCaseIDValue(),c.TenantID).Scan(&originalJournal)
+		if err != nil || reversalOf == nil || *reversalOf != originalJournal {
+			return FinanceCase{},ErrFinanceCaseConflict
+		}
 	}
 	linkID,err := newID()
 	if err != nil { return FinanceCase{},err }
