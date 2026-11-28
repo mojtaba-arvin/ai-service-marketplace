@@ -29,12 +29,12 @@ ALTER TABLE payment_operations
 
 DO $do$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='payment_operations_order_tenant_fk') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='payment_operations_order_tenant_fk' AND conrelid='payment_operations'::regclass) THEN
         ALTER TABLE payment_operations
             ADD CONSTRAINT payment_operations_order_tenant_fk
             FOREIGN KEY(order_id,tenant_id) REFERENCES orders(id,tenant_id) ON DELETE RESTRICT;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='payment_operations_order_tenant_pair') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='payment_operations_order_tenant_pair' AND conrelid='payment_operations'::regclass) THEN
         ALTER TABLE payment_operations
             ADD CONSTRAINT payment_operations_order_tenant_pair
             CHECK ((tenant_id IS NULL AND order_id IS NULL) OR
