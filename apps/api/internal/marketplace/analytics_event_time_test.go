@@ -67,11 +67,14 @@ func TestAnalyticsEventTimeLateClockSkewAndCorrectionReplayPostgres(t *testing.T
 	reorderedLowID := appendEvent("reordered-"+suffix, lateOccurredAt)
 	reorderedHighID := appendEvent("reordered-"+suffix, lateOccurredAt)
 	skewEvent := appendEvent("skew-"+suffix, time.Now().UTC().Add(time.Minute))
+	legacyIngestionEvent := appendEvent("legacy-ingestion-"+suffix, time.Now().UTC())
+	if _, err = pool.Exec(ctx, "UPDATE outbox_events SET ingested_at_source='legacy_transaction_timestamp' WHERE id=$1", legacyIngestionEvent.ID); err != nil { t.Fatal(err) }
 	liveProjector := analytics.Projector{DB:pool,ConsumerName:consumerName,GenerationID:generation,TenantID:tenant}
 	liveConsumer := liveProjector.Consumer()
 
 	// Deliberately process in the reverse of source insertion order.
 	if applied, processErr := liveConsumer.Process(ctx, skewEvent); processErr != nil || !applied { t.Fatalf("process clock-skew event: applied=%v err=%v", applied, processErr) }
+	if applied, processErr := liveConsumer.Process(ctx, legacyIngestionEvent); processErr != nil || !applied { t.Fatalf("process legacy-ingestion event: applied=%v err=%v", applied, processErr) }
 	if applied, processErr := liveConsumer.Process(ctx, lateEvent); processErr != nil || !applied { t.Fatalf("process late event: applied=%v err=%v", applied, processErr) }
 	if applied, processErr := liveConsumer.Process(ctx, duplicateEvent); processErr != nil || !applied { t.Fatalf("process duplicate logical event: applied=%v err=%v", applied, processErr) }
 	if applied, processErr := liveConsumer.Process(ctx, conflictingEvent); processErr != nil || !applied { t.Fatalf("process conflicting event ID: applied=%v err=%v", applied, processErr) }
@@ -89,6 +92,11 @@ func TestAnalyticsEventTimeLateClockSkewAndCorrectionReplayPostgres(t *testing.T
 	var conflictCount int
 	if err = pool.QueryRow(ctx, "SELECT count(*) FROM analytics_event_quarantine WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id=$3 AND reason_code='event_id_payload_conflict'", tenant,generation,conflictingEvent.ID).Scan(&conflictCount); err != nil { t.Fatal(err) }
 	if conflictCount != 1 { t.Fatalf("conflicting payload for same event ID must quarantine, got %d", conflictCount) }
+	var legacyReason string
+	var legacyTrusted bool
+	if err = pool.QueryRow(ctx, `SELECT reason_code,ingestion_time_trusted FROM analytics_event_quarantine
+		WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id=$3`,tenant,generation,legacyIngestionEvent.ID).Scan(&legacyReason,&legacyTrusted); err != nil { t.Fatal(err) }
+	if legacyReason!="ingestion_time_untrusted" || legacyTrusted { t.Fatalf("legacy transaction-start timestamp must remain untrusted: reason=%q trusted=%v",legacyReason,legacyTrusted) }
 
 	var occurredAt, ingestedAt time.Time
 	var late, included, ingestionTrusted bool
