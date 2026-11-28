@@ -30,6 +30,7 @@ ALTER TABLE analytics_event_facts
 
 UPDATE analytics_event_facts f
 SET ingested_at = (SELECT e.created_at FROM outbox_events e WHERE e.id=f.outbox_event_id),
+    ingestion_time_trusted = COALESCE((SELECT e.ingested_at_source='insert_clock' FROM outbox_events e WHERE e.id=f.outbox_event_id),false),
     event_time_family = CASE
         WHEN f.event_type LIKE 'provider.%' THEN 'provider_supply'
         WHEN f.event_type LIKE 'review.%' OR f.event_type LIKE 'trust.%' THEN 'service_quality'
