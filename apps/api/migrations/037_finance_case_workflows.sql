@@ -19,12 +19,70 @@ ALTER TABLE operator_permission_events
 CREATE UNIQUE INDEX IF NOT EXISTS payment_ledger_links_operation_journal_unique
     ON payment_ledger_links(operation_id,journal_id);
 
+-- ADR 0006: bind order-linked payment operations explicitly. Legacy operations
+-- remain unattributed; no customer/amount/time heuristic backfills this relation.
+ALTER TABLE payment_operations
+    ADD COLUMN IF NOT EXISTS tenant_id text,
+    ADD COLUMN IF NOT EXISTS order_id text;
+DO $
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='payment_operations_order_tenant_fk') THEN
+        ALTER TABLE payment_operations
+            ADD CONSTRAINT payment_operations_order_tenant_fk
+            FOREIGN KEY(order_id,tenant_id) REFERENCES orders(id,tenant_id) ON DELETE RESTRICT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='payment_operations_order_tenant_pair') THEN
+        ALTER TABLE payment_operations
+            ADD CONSTRAINT payment_operations_order_tenant_pair
+            CHECK ((tenant_id IS NULL AND order_id IS NULL) OR
+                   (tenant_id IS NOT NULL AND order_id IS NOT NULL));
+    END IF;
+END $;
+CREATE UNIQUE INDEX IF NOT EXISTS payment_operations_id_tenant_order_unique
+    ON payment_operations(id,tenant_id,order_id);
+
+CREATE TABLE IF NOT EXISTS payment_operation_order_bindings (
+    id text PRIMARY KEY,
+    operation_id text NOT NULL UNIQUE REFERENCES payment_operations(id) ON DELETE RESTRICT,
+    tenant_id text NOT NULL,
+    order_id text NOT NULL,
+    journal_id text NOT NULL REFERENCES ledger_journals(id) ON DELETE RESTRICT,
+    actor_identity_id text NOT NULL REFERENCES phone_identities(id) ON DELETE RESTRICT,
+    reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 1 AND 500),
+    transaction_id bigint NOT NULL DEFAULT txid_current(),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY(order_id,tenant_id) REFERENCES orders(id,tenant_id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS payment_operation_order_bindings_tenant_idx
+    ON payment_operation_order_bindings(tenant_id,order_id,created_at);
+
+CREATE OR REPLACE FUNCTION guard_payment_operation_order_binding() RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN
+    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.order_id IS DISTINCT FROM OLD.order_id THEN
+        IF OLD.tenant_id IS NOT NULL OR OLD.order_id IS NOT NULL OR
+           NEW.tenant_id IS NULL OR NEW.order_id IS NULL OR NOT EXISTS (
+              SELECT 1 FROM payment_operation_order_bindings b
+              WHERE b.operation_id=OLD.id AND b.tenant_id=NEW.tenant_id
+                AND b.order_id=NEW.order_id AND b.transaction_id=txid_current()
+           ) THEN
+            RAISE EXCEPTION 'payment operation order attribution requires one immutable audited binding';
+        END IF;
+    END IF;
+    RETURN NEW;
+END $;
+DROP TRIGGER IF EXISTS payment_operation_order_binding_guard ON payment_operations;
+CREATE TRIGGER payment_operation_order_binding_guard BEFORE UPDATE ON payment_operations
+FOR EACH ROW EXECUTE FUNCTION guard_payment_operation_order_binding();
+DROP TRIGGER IF EXISTS payment_operation_order_bindings_immutable ON payment_operation_order_bindings;
+CREATE TRIGGER payment_operation_order_bindings_immutable BEFORE UPDATE OR DELETE ON payment_operation_order_bindings
+FOR EACH ROW EXECUTE FUNCTION reject_payment_event_mutation();
+
 CREATE TABLE IF NOT EXISTS finance_cases (
     id text PRIMARY KEY,
     tenant_id text NOT NULL CHECK (length(btrim(tenant_id)) BETWEEN 1 AND 120),
     case_type text NOT NULL CHECK (case_type IN ('payout','refund','chargeback','payout_reversal')),
     order_id text NOT NULL,
-    source_payment_operation_id text NOT NULL REFERENCES payment_operations(id) ON DELETE RESTRICT,
+    source_payment_operation_id text NOT NULL,
     source_journal_id text NOT NULL REFERENCES ledger_journals(id) ON DELETE RESTRICT,
     provider_code text NOT NULL CHECK (provider_code ~ '^[a-z][a-z0-9_-]{1,40}$'),
     provider_idempotency_key text NOT NULL CHECK (length(btrim(provider_idempotency_key)) BETWEEN 1 AND 200),
@@ -44,6 +102,7 @@ CREATE TABLE IF NOT EXISTS finance_cases (
     UNIQUE(provider_code,provider_idempotency_key),
     UNIQUE(id,tenant_id),
     FOREIGN KEY(order_id,tenant_id) REFERENCES orders(id,tenant_id) ON DELETE RESTRICT,
+    FOREIGN KEY(source_payment_operation_id,tenant_id,order_id) REFERENCES payment_operations(id,tenant_id,order_id) ON DELETE RESTRICT,
     FOREIGN KEY(reversal_of_case_id,tenant_id) REFERENCES finance_cases(id,tenant_id) ON DELETE RESTRICT,
     CHECK ((case_type='payout_reversal' AND reversal_of_case_id IS NOT NULL) OR
            (case_type<>'payout_reversal' AND reversal_of_case_id IS NULL)),
