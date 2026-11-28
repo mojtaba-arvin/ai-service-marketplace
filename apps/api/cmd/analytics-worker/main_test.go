@@ -23,7 +23,7 @@ func TestAnalyticsWorkerConsumesTenantEventsIdempotentlyPostgres(t *testing.T) {
  pool,err:=pgxpool.New(ctx,dsn)
  if err!=nil { t.Fatal(err) }
  defer pool.Close()
- for _,name:=range []string{"001_walking_skeleton.sql","019_outbox_delivery.sql","030_analytics_event_projection.sql"} {
+ for _,name:=range []string{"001_walking_skeleton.sql","019_outbox_delivery.sql","030_analytics_event_projection.sql","034_analytics_event_time_policy.sql"} {
   raw,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
   if readErr!=nil { t.Fatal(readErr) }
   if _,err=pool.Exec(ctx,string(raw),pgx.QueryExecModeSimpleProtocol);err!=nil { t.Fatalf("apply %s: %v",name,err) }
