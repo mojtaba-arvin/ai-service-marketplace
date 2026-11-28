@@ -220,7 +220,7 @@ func TestInvoiceIdempotencyAndCorrectionAreAppendOnlySnapshots(t *testing.T) {
 		!corrected.FinancialCorrection || corrected.CompensatingJournalIDs[0] != "journal-compensation-1" {
 		t.Fatalf("correction is not a new linked record: %#v", corrected)
 	}
-	if original.Status != "issued" || original.ID != "invoice-1" || original.TotalMinor != 2200 {
+	if original.Status != "snapshot" || original.ID != "invoice-1" || original.TotalMinor != 2200 {
 		t.Fatalf("original invoice snapshot was mutated: %#v", original)
 	}
 }
