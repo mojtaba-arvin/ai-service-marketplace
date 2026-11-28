@@ -14,6 +14,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+func signedFinanceCaseWebhook(t *testing.T, provider *FakePaymentProvider, event PaymentWebhook) ([]byte,string) {
+	t.Helper()
+	payload,err := json.Marshal(event)
+	if err != nil { t.Fatal(err) }
+	return payload,provider.SignWebhook(payload)
+}
+
 func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" { t.Skip("TEST_DATABASE_URL is not configured") }
@@ -127,25 +134,25 @@ func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 		t.Fatalf("unknown must not be failure or confirmation: %+v %v",caseRecord,err)
 	}
 
-	verifier := HMACFinanceCaseWebhookVerifier{Secret:[]byte("offline-fake-webhook-secret-at-least-32-bytes")}
-	event := FinanceCaseWebhook{EventID:"evt-"+orderID,ProviderCode:"fake",
-		ProviderIdempotencyKey:base.ProviderIdempotencyKey,Outcome:"confirmed",
-		ProviderReference:"fake-payout-ref",AmountMinor:1000,Currency:"OMR"}
-	payload,_ := json.Marshal(event)
-	caseRecord,duplicate,err := store.ApplyFinanceCaseWebhook(ctx,verifier,payload,verifier.Sign(payload))
+	fakeProvider := NewFakePaymentProvider(FakeProviderSuccess,[]byte("offline-fake-webhook-secret-at-least-32-bytes"))
+	verifier := PaymentProviderFinanceCaseWebhookVerifier{Provider:fakeProvider,ProviderCode:"fake"}
+	event := PaymentWebhook{EventID:"evt-"+orderID,OperationKey:base.ProviderIdempotencyKey,Status:"succeeded",
+		ExternalReference:"fake-payout-ref",AmountMinor:1000,Currency:"OMR"}
+	payload,signature := signedFinanceCaseWebhook(t,fakeProvider,event)
+	caseRecord,duplicate,err := store.ApplyFinanceCaseWebhook(ctx,verifier,payload,signature)
 	if err != nil || duplicate || caseRecord.Status != FinanceCaseProviderConfirmed {
 		t.Fatalf("authenticated provider confirmation: %+v duplicate=%v err=%v",caseRecord,duplicate,err)
 	}
-	caseRecord,duplicate,err = store.ApplyFinanceCaseWebhook(ctx,verifier,payload,verifier.Sign(payload))
+	caseRecord,duplicate,err = store.ApplyFinanceCaseWebhook(ctx,verifier,payload,signature)
 	if err != nil || !duplicate || caseRecord.Status != FinanceCaseProviderConfirmed {
 		t.Fatalf("duplicate webhook: %+v duplicate=%v err=%v",caseRecord,duplicate,err)
 	}
 	changedEvent := event
-	changedEvent.Outcome = "failed"
-	changedEvent.ProviderReference = ""
+	changedEvent.Status = "failed"
+	changedEvent.ExternalReference = ""
 	changedEvent.FailureCode = "late-failure"
-	changedPayload,_ := json.Marshal(changedEvent)
-	if _,_,err = store.ApplyFinanceCaseWebhook(ctx,verifier,changedPayload,verifier.Sign(changedPayload)); !errors.Is(err,ErrFinanceCaseWebhookConflict) {
+	changedPayload,changedSignature := signedFinanceCaseWebhook(t,fakeProvider,changedEvent)
+	if _,_,err = store.ApplyFinanceCaseWebhook(ctx,verifier,changedPayload,changedSignature); !errors.Is(err,ErrFinanceCaseWebhookConflict) {
 		t.Fatalf("same event id with changed body must conflict: %v",err)
 	}
 
@@ -166,11 +173,10 @@ func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 	if err != nil { t.Fatalf("create payout reversal: %v",err) }
 	reversal,err = store.AcceptFinanceCase(ctx,approver,reversal.ID,"Approve reversal")
 	if err != nil { t.Fatal(err) }
-	reversalEvent := FinanceCaseWebhook{EventID:"evt-reversal-"+orderID,ProviderCode:"fake",
-		ProviderIdempotencyKey:reversalInput.ProviderIdempotencyKey,Outcome:"confirmed",
-		ProviderReference:"fake-reversal-ref",AmountMinor:1000,Currency:"OMR"}
-	reversalPayload,_ := json.Marshal(reversalEvent)
-	reversal,_,err = store.ApplyFinanceCaseWebhook(ctx,verifier,reversalPayload,verifier.Sign(reversalPayload))
+	reversalEvent := PaymentWebhook{EventID:"evt-reversal-"+orderID,OperationKey:reversalInput.ProviderIdempotencyKey,
+		Status:"succeeded",ExternalReference:"fake-reversal-ref",AmountMinor:1000,Currency:"OMR"}
+	reversalPayload,reversalSignature := signedFinanceCaseWebhook(t,fakeProvider,reversalEvent)
+	reversal,_,err = store.ApplyFinanceCaseWebhook(ctx,verifier,reversalPayload,reversalSignature)
 	if err != nil { t.Fatal(err) }
 	compensation,err := store.ReverseJournal(ctx,"reverse-payout-"+orderID,payoutJournal.ID,"Payout reversal")
 	if err != nil { t.Fatal(err) }
@@ -185,11 +191,10 @@ func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	refund,err = store.AcceptFinanceCase(ctx,approver,refund.ID,"Approve refund request")
 	if err != nil { t.Fatal(err) }
-	failedEvent := FinanceCaseWebhook{EventID:"evt-refund-failed-"+orderID,ProviderCode:"fake",
-		ProviderIdempotencyKey:refundInput.ProviderIdempotencyKey,Outcome:"failed",
-		FailureCode:"provider_declined",AmountMinor:250,Currency:"OMR"}
-	failedPayload,_ := json.Marshal(failedEvent)
-	refund,_,err = store.ApplyFinanceCaseWebhook(ctx,verifier,failedPayload,verifier.Sign(failedPayload))
+	failedEvent := PaymentWebhook{EventID:"evt-refund-failed-"+orderID,OperationKey:refundInput.ProviderIdempotencyKey,
+		Status:"failed",FailureCode:"provider_declined",AmountMinor:250,Currency:"OMR"}
+	failedPayload,failedSignature := signedFinanceCaseWebhook(t,fakeProvider,failedEvent)
+	refund,_,err = store.ApplyFinanceCaseWebhook(ctx,verifier,failedPayload,failedSignature)
 	if err != nil || refund.Status != FinanceCaseFailed { t.Fatalf("failed provider operation: %+v %v",refund,err) }
 	var links int
 	if err = pool.QueryRow(ctx,`SELECT count(*) FROM finance_case_ledger_links WHERE case_id=$1`,refund.ID).Scan(&links); err != nil { t.Fatal(err) }
@@ -236,20 +241,20 @@ func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	charge,err = store.AcceptFinanceCase(ctx,approver,charge.ID,"Acknowledge provider dispute case")
 	if err != nil { t.Fatal(err) }
-	events := []FinanceCaseWebhook{
-		{EventID:"charge-confirmed-"+orderID,ProviderCode:"fake",ProviderIdempotencyKey:chargeInput.ProviderIdempotencyKey,
-			Outcome:"confirmed",ProviderReference:"fake-chargeback-ref",AmountMinor:300,Currency:"OMR"},
-		{EventID:"charge-failed-"+orderID,ProviderCode:"fake",ProviderIdempotencyKey:chargeInput.ProviderIdempotencyKey,
-			Outcome:"failed",FailureCode:"provider_closed",AmountMinor:300,Currency:"OMR"},
+	events := []PaymentWebhook{
+		{EventID:"charge-confirmed-"+orderID,OperationKey:chargeInput.ProviderIdempotencyKey,
+			Status:"succeeded",ExternalReference:"fake-chargeback-ref",AmountMinor:300,Currency:"OMR"},
+		{EventID:"charge-failed-"+orderID,OperationKey:chargeInput.ProviderIdempotencyKey,
+			Status:"failed",FailureCode:"provider_closed",AmountMinor:300,Currency:"OMR"},
 	}
 	var wg sync.WaitGroup
 	results := make(chan error,2)
 	for _,e := range events {
 		wg.Add(1)
-		go func(event FinanceCaseWebhook) {
+		go func(event PaymentWebhook) {
 			defer wg.Done()
 			body,_ := json.Marshal(event)
-			_,_,applyErr := store.ApplyFinanceCaseWebhook(ctx,verifier,body,verifier.Sign(body))
+			_,_,applyErr := store.ApplyFinanceCaseWebhook(ctx,verifier,body,fakeProvider.SignWebhook(body))
 			results <- applyErr
 		}(e)
 	}
@@ -266,11 +271,10 @@ func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	mismatch,err = store.AcceptFinanceCase(ctx,approver,mismatch.ID,"Review separate provider dispute")
 	if err != nil { t.Fatal(err) }
-	mismatchEvent := FinanceCaseWebhook{EventID:"evt-chargeback-mismatch-"+orderID,ProviderCode:"fake",
-		ProviderIdempotencyKey:mismatchInput.ProviderIdempotencyKey,Outcome:"confirmed",
-		ProviderReference:"fake-chargeback-mismatch-ref",AmountMinor:300,Currency:"OMR"}
-	mismatchPayload,_ := json.Marshal(mismatchEvent)
-	mismatch,_,err = store.ApplyFinanceCaseWebhook(ctx,verifier,mismatchPayload,verifier.Sign(mismatchPayload))
+	mismatchEvent := PaymentWebhook{EventID:"evt-chargeback-mismatch-"+orderID,OperationKey:mismatchInput.ProviderIdempotencyKey,
+		Status:"succeeded",ExternalReference:"fake-chargeback-mismatch-ref",AmountMinor:300,Currency:"OMR"}
+	mismatchPayload,mismatchSignature := signedFinanceCaseWebhook(t,fakeProvider,mismatchEvent)
+	mismatch,_,err = store.ApplyFinanceCaseWebhook(ctx,verifier,mismatchPayload,mismatchSignature)
 	if err != nil || mismatch.Status != FinanceCaseProviderConfirmed { t.Fatalf("confirm discrepancy case: %+v %v",mismatch,err) }
 
 	// A confirmed chargeback with a mismatched journal is recorded as a durable
