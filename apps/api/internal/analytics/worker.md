@@ -4,7 +4,7 @@ Runs one tenant's active projection generation. Configure DATABASE_URL, ANALYTIC
 
 On first startup it creates/activates the requested generation only if the tenant has no active generation. If another generation is active it fails closed. Legacy outbox payloads without a canonical tenant_id are not consumed.
 
-This worker handles the active live tail. Historical replay and cutover are performed by the separate `/app/analytics-rebuild` command documented below. Do not reuse an active or retired generation ID.
+This worker handles the active live tail and never includes out-of-policy late events in metrics. Historical replay and cutover are performed by the separate `/app/analytics-rebuild` command documented below. Do not reuse an active or retired generation ID.
 
 ## Production Compose
 
@@ -31,6 +31,8 @@ Required environment:
 - `ANALYTICS_REBUILD_CONFIRM`, which must exactly equal `ANALYTICS_TENANT_ID:ANALYTICS_GENERATION_ID`
 
 A failed run can resume the same generation only while its status remains `building` and the consumer identity is unchanged. Do not reuse active or retired generations. The command validates that every tenant-scoped source row is processed and has exactly one fact or quarantine outcome, and refuses cutover while any committed source event visible to the cutover transaction is pending. Generation status and the tenant active pointer switch in one transaction.
+
+By default, events older than the metric family's 72-hour allowed-lateness boundary are retained as late facts but excluded from metrics. To perform an explicit correction replay, set `ANALYTICS_INCLUDE_LATE_EVENTS=true` for the one-shot command and use a fresh generation ID. This is a metric correction, not retention or financial-close certification. Review the late-event counts and source checksum before cutover; the old generation remains retained for rollback. Never set this flag on the live worker.
 
 After successful cutover, restart the live analytics worker with the same tenant and the new generation ID. It polls all unprocessed events without a monotonic cursor, so commits that become visible after the rebuild's final scan are picked up during live catch-up. Keep the previous generation as a rollback target; do not delete it as part of routine rebuild.
 
