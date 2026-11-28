@@ -86,8 +86,8 @@ CI is authoritative for required repository checks. Report commands actually run
 
 ## Review process
 
-The project maintainer reviews correctness, security, architecture, tests, compatibility and documentation. Required CI checks must pass before merge. No separate independent reviewer or QA operator is part of this project's acceptance process. Do not self-approve or bypass branch protection. Small, independently reviewable PRs are preferred.
+The implementer may review the complete diff and merge their own PR when authorized to act for the maintainer, all exact-head required checks pass, required review threads are resolved, and repository rules permit the merge. GitHub does not allow a PR author to submit a formal approval of their own PR; this repository requires zero approvals, so a separate reviewer is not needed for merge. Never bypass branch protection or required checks. Small, independently reviewable PRs are preferred.
 
 ## Feature acceptance
 
-The project does not require independent QA, a separate QA operator, or external acceptance sign-off. The maintainer may accept a feature after reviewing its implementation, relevant automated tests, exact-head required checks, and documented limitations. This does not waive GitHub branch protection or required PR checks.
+The project does not require a separate QA operator, reviewer identity, or external acceptance sign-off by default. The authorized maintainer may be the implementation author and may accept a feature after reviewing its implementation, relevant automated tests/evaluations, exact-head required checks, and documented limitations. Risk-specific automated evidence and genuine adopter/legal/provider decisions remain required where applicable. A PR merge alone never marks a feature accepted. This does not waive GitHub branch protection or required PR checks.
