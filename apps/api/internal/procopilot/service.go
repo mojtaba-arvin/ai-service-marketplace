@@ -55,7 +55,8 @@ func (s Service) Suggest(ctx context.Context,req Request)(Suggestion,error){
  allowed:=make(map[string]struct{},len(evidence))
  for i:=range evidence{e:=&evidence[i];e.ID=strings.TrimSpace(e.ID);e.Source=strings.TrimSpace(e.Source);if !validMetadata(e.ID)||!validMetadata(e.Source)||len(e.Text)==0||len(e.Text)>4000{return Suggestion{},ErrInvalidRequest};if _,ok:=allowed[e.ID];ok{return Suggestion{},ErrInvalidRequest};allowed[e.ID]=struct{}{};e.Text,err=redactBounded(ctx,s.Redactor,e.Text,4000);if err!=nil{return Suggestion{},fmt.Errorf("redact retrieved evidence: %w",err)}}
  modelCtx,cancel:=context.WithTimeout(ctx,s.Timeout);defer cancel()
- output,err:=s.Model.Generate(modelCtx,ModelInput{Market:req.Market,Locale:req.Locale,ServiceCode:req.ServiceCode,Description:description,EquipmentContext:equipment,Evidence:evidence})
+ modelInput:=ModelInput{Market:req.Market,Locale:req.Locale,ServiceCode:req.ServiceCode,Description:description,EquipmentContext:equipment,Evidence:evidence}
+ output,err:=s.Model.Generate(modelCtx,modelInput)
  if err!=nil{return Suggestion{},fmt.Errorf("generate professional suggestion: %w",err)};if err=modelCtx.Err();err!=nil{return Suggestion{},err}
  if len(output.JSON)==0||len(output.JSON)>32*1024||!validMetadata(output.Name)||!validMetadata(output.Version){return Suggestion{},ErrInvalidSuggestion}
  decoder:=json.NewDecoder(bytes.NewReader(output.JSON));decoder.DisallowUnknownFields();var candidate modelSuggestion
@@ -66,7 +67,8 @@ func (s Service) Suggest(ctx context.Context,req Request)(Suggestion,error){
  if err=validateUniqueText(*candidate.SafetyWarnings,240);err!=nil{return Suggestion{},err};if err=validateUniqueText(*candidate.Steps,400);err!=nil{return Suggestion{},err};if err=validateUniqueText(*candidate.Checklist,240);err!=nil{return Suggestion{},err}
  seen:=map[string]struct{}{};citations:=make([]EvidenceReference,0,len(*candidate.Citations))
  for _,citation:=range *candidate.Citations{if _,ok:=allowed[citation.ID];!ok{return Suggestion{},ErrInvalidSuggestion};if _,ok:=seen[citation.ID];ok{return Suggestion{},ErrInvalidSuggestion};seen[citation.ID]=struct{}{};citations=append(citations,citation)}
- fingerprint:=sha256.Sum256([]byte(req.Market+"\n"+req.Locale+"\n"+req.ServiceCode+"\n"+description+"\n"+equipment));evidenceIDs:=make([]string,0,len(citations));for _,c:=range citations{evidenceIDs=append(evidenceIDs,c.ID)}
+ fingerprintInput,err:=json.Marshal(modelInput);if err!=nil{return Suggestion{},fmt.Errorf("fingerprint redacted professional input: %w",err)}
+ fingerprint:=sha256.Sum256(fingerprintInput);evidenceIDs:=make([]string,0,len(citations));for _,c:=range citations{evidenceIDs=append(evidenceIDs,c.ID)}
  now:=time.Now;if s.Now!=nil{now=s.Now}
  return Suggestion{DiagnosisSummary:strings.TrimSpace(*candidate.DiagnosisSummary),SafetyWarnings:*candidate.SafetyWarnings,Steps:*candidate.Steps,Checklist:*candidate.Checklist,QuoteScopeDraft:strings.TrimSpace(*candidate.QuoteScopeDraft),Confidence:*candidate.Confidence,Citations:citations,RequiresProfessionalReview:true,Provenance:Provenance{Model:output.Name,ModelVersion:output.Version,InputSHA256:hex.EncodeToString(fingerprint[:]),EvidenceIDs:evidenceIDs,GeneratedAt:now().UTC()}},nil
 }

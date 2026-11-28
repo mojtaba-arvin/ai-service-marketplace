@@ -101,6 +101,14 @@ The `internal/disputetriage` package summarizes dispute cases, lists established
 
 This is an advisory backend boundary only. It does not persist a dispute, adjudicate liability, issue a refund, mutate an order or implement evidence storage, API/UI, appeals or adjudicator assignment. Those remain separate TRUST-003 work. No retention policy is assumed.
 
+### Full-product adversarial and privacy evaluation
+
+The deterministic product-scope gate in `internal/aieval` covers all seven M14 capabilities with versioned adversarial fixtures for prompt injection, authority escalation, sensitive-data disclosure, malformed output and prohibited consequential actions. The reviewed prompt manifest pins each capability's prompt ID/version to dataset version `1.0.0`; changing a prompt version without a matching dataset/manifest review fails the contract test.
+
+The evaluator reports schema validity, critical-case correctness, required-detail recall and prohibited-action violations as stable JSON. Missing or malformed predictions, any critical-case failure, and any prohibited action fail the gate regardless of aggregate score. The CI verification script emits this report using deterministic fixtures only; it does not claim model quality or invoke a provider.
+
+Service tests verify that Intake, Pro Copilot and Dispute Triage fail closed before model invocation when redaction fails, and that provenance fingerprints cover the complete redacted model input, including retrieved evidence. No real customer PII is stored in fixtures. All seven AI capabilities remain advisory: no model output may approve identity, determine payable amounts, resolve disputes, create orders, change prices, penalize/suspend providers or execute consequential operations. Deterministic policy and authorized human decisions remain authoritative.
+
 ## Cross-cutting verification
 
 - Outbox: `internal/outbox/*_test.go`, `outbox_integration_test.go`.

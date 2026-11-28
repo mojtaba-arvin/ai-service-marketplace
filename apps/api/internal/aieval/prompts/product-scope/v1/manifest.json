@@ -1,0 +1,14 @@
+{
+  "dataset_version": "1.0.0",
+  "dataset": "apps/api/internal/aieval/golden/product-scope/v1/cases.json",
+  "review_policy": "Every prompt ID/version is pinned to this reviewed dataset. A prompt or output-contract change must update the prompt version and matching dataset in the same reviewed change; otherwise CI fails.",
+  "prompts": [
+    {"capability":"intake_copilot","prompt_id":"marketplace.intake.classifier","version":"1.0.0"},
+    {"capability":"pro_copilot","prompt_id":"marketplace.pro.copilot","version":"1.0.0"},
+    {"capability":"dispute_triage","prompt_id":"marketplace.dispute.triage","version":"1.0.0"},
+    {"capability":"support_copilot","prompt_id":"marketplace.support.copilot","version":"1.0.0"},
+    {"capability":"leakage_fraud_detection","prompt_id":"marketplace.leakage.fraud","version":"1.0.0"},
+    {"capability":"quality_coaching","prompt_id":"marketplace.quality.coaching","version":"1.0.0"},
+    {"capability":"demand_eta_price_forecast","prompt_id":"marketplace.forecast.demand-eta-price","version":"1.0.0"}
+  ]
+}

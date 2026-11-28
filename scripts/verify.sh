@@ -30,6 +30,8 @@ python3 scripts/check_feature_list.py
 if [[ -f apps/api/go.mod ]]; then
   echo "==> Running Go tests"
   (cd apps/api && go test ./...)
+  echo "==> Emitting deterministic M14 AI evaluation report (offline fixtures only)"
+  (cd apps/api && go run ./cmd/ai-eval)
 fi
 
 echo "==> Checking shell syntax"
