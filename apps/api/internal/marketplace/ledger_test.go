@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -21,7 +22,7 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 	pool,err:=pgxpool.New(ctx,dsn)
 	if err!=nil { t.Fatal(err) }
 	defer pool.Close()
-	for _,name:=range []string{"001_walking_skeleton.sql","009_ledger_accounts.sql","010_ledger_idempotency_reversal.sql"} {
+	for _,name:=range []string{"001_walking_skeleton.sql","009_ledger_accounts.sql","010_ledger_idempotency_reversal.sql", "036_ledger_truncate_guard.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
 		if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("apply %s: %v",name,err) }
@@ -108,6 +109,48 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 		t.Fatalf("concurrent journal idempotency must persist one journal/two entries: journals=%d entries=%d", raceJournals, raceEntries)
 	}
 
+	// Concurrent requests with one key but different canonical payloads must
+	// converge to one posting and one typed conflict.
+	conflictRaceKey := "ledger-conflict-race-" + suffix
+	conflictStart := make(chan struct{})
+	conflictResults := make(chan error, 2)
+	conflictingLines := []JournalLine{
+		{AccountCode: cash.Code, Side: "debit", AmountMinor: 4300, Currency: "OMR"},
+		{AccountCode: payable.Code, Side: "credit", AmountMinor: 4300, Currency: "OMR"},
+	}
+	for _, payload := range [][]JournalLine{lines, conflictingLines} {
+		wg.Add(1)
+		go func(payload []JournalLine) {
+			defer wg.Done()
+			<-conflictStart
+			_, postErr := store.PostJournal(ctx, conflictRaceKey, "OMR", "Concurrent payload conflict", payload)
+			conflictResults <- postErr
+		}(payload)
+	}
+	close(conflictStart)
+	wg.Wait()
+	close(conflictResults)
+	var conflictSuccesses, payloadConflicts int
+	for postErr := range conflictResults {
+		switch {
+		case postErr == nil:
+			conflictSuccesses++
+		case errors.Is(postErr, ErrLedgerIdempotencyConflict):
+			payloadConflicts++
+		default:
+			t.Fatalf("unexpected concurrent payload conflict result: %v", postErr)
+		}
+	}
+	if conflictSuccesses != 1 || payloadConflicts != 1 {
+		t.Fatalf("concurrent same-key payloads must yield one success and one conflict: successes=%d conflicts=%d", conflictSuccesses, payloadConflicts)
+	}
+
+	if _,err=store.PostJournal(ctx,"overflow-"+suffix,"OMR","Overflow",[]JournalLine{
+		{AccountCode:cash.Code,Side:"debit",AmountMinor:math.MaxInt64,Currency:"OMR"},
+		{AccountCode:cash.Code,Side:"debit",AmountMinor:1,Currency:"OMR"},
+		{AccountCode:payable.Code,Side:"credit",AmountMinor:math.MaxInt64,Currency:"OMR"},
+	}); !errors.Is(err,ErrLedgerInvalidJournal) { t.Fatalf("overflowing journal totals must fail: %v",err) }
+
 	if _,err=store.PostJournal(ctx,"unbalanced-"+suffix,"OMR","Unbalanced",[]JournalLine{
 		{AccountCode:cash.Code,Side:"debit",AmountMinor:100,Currency:"OMR"},
 		{AccountCode:payable.Code,Side:"credit",AmountMinor:99,Currency:"OMR"},
@@ -134,6 +177,12 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 	}
 	if _,err=pool.Exec(ctx,`UPDATE ledger_journals SET description='tampered' WHERE id=$1`,journal.ID); err==nil {
 		t.Fatal("posted ledger journals must be immutable")
+	}
+	if _,err=pool.Exec(ctx,`TRUNCATE TABLE ledger_entries`); err==nil {
+		t.Fatal("posted ledger entries must not be truncatable")
+	}
+	if _,err=pool.Exec(ctx,`TRUNCATE TABLE ledger_journals CASCADE`); err==nil {
+		t.Fatal("posted ledger journals must not be truncatable")
 	}
 
 	// Concurrent reversal requests with distinct idempotency keys must still
@@ -200,6 +249,46 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 	}
 	if reversalCount != 1 {
 		t.Fatalf("concurrent reversal must persist exactly one compensating journal: got %d", reversalCount)
+	}
+
+	// A shared idempotency key used concurrently for different originals must
+	// return one result and a typed payload conflict, not a raw unique violation.
+	firstSharedOriginal, err := store.PostJournal(ctx, "ledger-reversal-shared-key-first-"+suffix, "OMR", "First shared-key reversal original", reversalLines)
+	if err != nil {
+		t.Fatalf("post first original for shared-key reversal race: %v", err)
+	}
+	secondOriginal, err := store.PostJournal(ctx, "ledger-reversal-shared-key-second-"+suffix, "OMR", "Second shared-key reversal original", reversalLines)
+	if err != nil {
+		t.Fatalf("post second original for shared-key reversal race: %v", err)
+	}
+	sharedReversalKey := "ledger-reversal-shared-key-" + suffix
+	sharedStart := make(chan struct{})
+	sharedResults := make(chan error, 2)
+	for _, originalID := range []string{firstSharedOriginal.ID, secondOriginal.ID} {
+		reversalWG.Add(1)
+		go func(originalID string) {
+			defer reversalWG.Done()
+			<-sharedStart
+			_, reverseErr := store.ReverseJournal(ctx, sharedReversalKey, originalID, "Shared-key correction")
+			sharedResults <- reverseErr
+		}(originalID)
+	}
+	close(sharedStart)
+	reversalWG.Wait()
+	close(sharedResults)
+	var sharedSuccesses, sharedConflicts int
+	for reverseErr := range sharedResults {
+		switch {
+		case reverseErr == nil:
+			sharedSuccesses++
+		case errors.Is(reverseErr, ErrLedgerIdempotencyConflict):
+			sharedConflicts++
+		default:
+			t.Fatalf("unexpected shared-key reversal result: %v", reverseErr)
+		}
+	}
+	if sharedSuccesses != 1 || sharedConflicts != 1 {
+		t.Fatalf("shared reversal key must yield one success and one payload conflict: successes=%d conflicts=%d", sharedSuccesses, sharedConflicts)
 	}
 
 }
