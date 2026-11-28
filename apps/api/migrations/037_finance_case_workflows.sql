@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS finance_case_events (
     from_status text,
     to_status text NOT NULL,
     actor_identity_id text REFERENCES phone_identities(id) ON DELETE RESTRICT,
-    reason text NOT NULL DEFAULT '',
+    reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 1 AND 500),
     details jsonb NOT NULL DEFAULT '{}'::jsonb,
     created_at timestamptz NOT NULL DEFAULT now(),
     FOREIGN KEY(case_id,tenant_id) REFERENCES finance_cases(id,tenant_id) ON DELETE RESTRICT
@@ -272,6 +272,12 @@ BEGIN
        OR NEW.reversal_of_case_id IS DISTINCT FROM OLD.reversal_of_case_id
        OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
         RAISE EXCEPTION 'finance case request provenance is immutable';
+    END IF;
+    IF OLD.provider_outcome IN ('unknown','confirmed','failed') AND NEW.provider_outcome='not_submitted' THEN
+        RAISE EXCEPTION 'provider outcome provenance cannot be reset';
+    END IF;
+    IF OLD.provider_outcome IN ('confirmed','failed') AND NEW.provider_outcome IS DISTINCT FROM OLD.provider_outcome THEN
+        RAISE EXCEPTION 'provider-confirmed and failed outcomes are terminal';
     END IF;
     IF NEW.status IN ('accepted','provider_confirmed','reconciled')
        AND (NEW.accepted_by_identity_id IS NULL OR length(btrim(NEW.acceptance_reason)) NOT BETWEEN 1 AND 500) THEN
