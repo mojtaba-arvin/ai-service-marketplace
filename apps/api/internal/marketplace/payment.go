@@ -42,6 +42,9 @@ type PaymentWebhook struct {
 	OperationKey string `json:"operation_key"`
 	Status string `json:"status"`
 	ExternalReference string `json:"external_reference"`
+	AmountMinor int64 `json:"amount_minor,omitempty"`
+	Currency string `json:"currency,omitempty"`
+	FailureCode string `json:"failure_code,omitempty"`
 }
 
 type PaymentProvider interface {

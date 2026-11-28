@@ -1,0 +1,293 @@
+-- FIN-006: tenant-scoped provider-neutral payout/refund/chargeback case records.
+-- This migration records approval and evidence only; it never submits a money operation.
+
+ALTER TABLE operator_action_grants
+    DROP CONSTRAINT IF EXISTS operator_action_grants_action_check;
+ALTER TABLE operator_action_grants
+    ADD CONSTRAINT operator_action_grants_action_check CHECK (action IN (
+        'order:read','order:assign','provider:verify','case:read','market:configure',
+        'catalog:manage','policy:manage','analytics:read','operator:permissions:manage',
+        'incident:review','finance:case:manage'
+    ));
+ALTER TABLE operator_permission_events
+    DROP CONSTRAINT IF EXISTS operator_permission_events_action_check;
+ALTER TABLE operator_permission_events
+    ADD CONSTRAINT operator_permission_events_action_check CHECK (action IN (
+        'order:read','order:assign','provider:verify','case:read','market:configure',
+        'catalog:manage','policy:manage','analytics:read','operator:permissions:manage',
+        'incident:review','finance:case:manage'
+    ));
+
+CREATE UNIQUE INDEX IF NOT EXISTS payment_ledger_links_operation_journal_unique
+    ON payment_ledger_links(operation_id,journal_id);
+
+-- ADR 0006: explicit order/payment attribution. Legacy payment operations remain
+-- unattributed; this migration does not infer a tenant or order for historical rows.
+ALTER TABLE payment_operations
+    ADD COLUMN IF NOT EXISTS tenant_id text,
+    ADD COLUMN IF NOT EXISTS order_id text;
+
+DO $do$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='payment_operations_order_tenant_fk' AND conrelid='payment_operations'::regclass) THEN
+        ALTER TABLE payment_operations
+            ADD CONSTRAINT payment_operations_order_tenant_fk
+            FOREIGN KEY(order_id,tenant_id) REFERENCES orders(id,tenant_id) ON DELETE RESTRICT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='payment_operations_order_tenant_pair' AND conrelid='payment_operations'::regclass) THEN
+        ALTER TABLE payment_operations
+            ADD CONSTRAINT payment_operations_order_tenant_pair
+            CHECK ((tenant_id IS NULL AND order_id IS NULL) OR
+                   (tenant_id IS NOT NULL AND order_id IS NOT NULL));
+    END IF;
+END $do$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS payment_operations_id_tenant_order_unique
+    ON payment_operations(id,tenant_id,order_id);
+
+CREATE TABLE IF NOT EXISTS payment_operation_order_bindings (
+    id text PRIMARY KEY,
+    operation_id text NOT NULL UNIQUE REFERENCES payment_operations(id) ON DELETE RESTRICT,
+    tenant_id text NOT NULL,
+    order_id text NOT NULL,
+    journal_id text NOT NULL REFERENCES ledger_journals(id) ON DELETE RESTRICT,
+    actor_identity_id text NOT NULL REFERENCES phone_identities(id) ON DELETE RESTRICT,
+    reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 1 AND 500),
+    transaction_id bigint NOT NULL DEFAULT txid_current(),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY(order_id,tenant_id) REFERENCES orders(id,tenant_id) ON DELETE RESTRICT,
+    FOREIGN KEY(operation_id,tenant_id,order_id)
+        REFERENCES payment_operations(id,tenant_id,order_id)
+        ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+    FOREIGN KEY(operation_id,journal_id)
+        REFERENCES payment_ledger_links(operation_id,journal_id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS payment_operation_order_bindings_tenant_idx
+    ON payment_operation_order_bindings(tenant_id,order_id,created_at);
+
+CREATE OR REPLACE FUNCTION guard_payment_operation_order_binding()
+RETURNS trigger LANGUAGE plpgsql AS $fn$
+BEGIN
+    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.order_id IS DISTINCT FROM OLD.order_id THEN
+        IF OLD.tenant_id IS NOT NULL OR OLD.order_id IS NOT NULL
+           OR NEW.tenant_id IS NULL OR NEW.order_id IS NULL
+           OR NOT EXISTS (
+               SELECT 1 FROM payment_operation_order_bindings b
+               WHERE b.operation_id=OLD.id AND b.tenant_id=NEW.tenant_id
+                 AND b.order_id=NEW.order_id AND b.transaction_id=txid_current()
+           ) THEN
+            RAISE EXCEPTION 'payment operation order attribution requires one immutable audited binding';
+        END IF;
+    END IF;
+    RETURN NEW;
+END $fn$;
+DROP TRIGGER IF EXISTS payment_operation_order_binding_guard ON payment_operations;
+CREATE TRIGGER payment_operation_order_binding_guard
+BEFORE UPDATE ON payment_operations
+FOR EACH ROW EXECUTE FUNCTION guard_payment_operation_order_binding();
+
+-- Allow the one audited, one-time attribution update without weakening the
+-- existing payment request-field or provider-outcome transition guards.
+CREATE OR REPLACE FUNCTION enforce_payment_operation_transition()
+RETURNS trigger LANGUAGE plpgsql AS $fn$
+BEGIN
+    IF NEW.id IS DISTINCT FROM OLD.id
+       OR NEW.provider_code IS DISTINCT FROM OLD.provider_code
+       OR NEW.operation_type IS DISTINCT FROM OLD.operation_type
+       OR NEW.idempotency_key IS DISTINCT FROM OLD.idempotency_key
+       OR NEW.amount_minor IS DISTINCT FROM OLD.amount_minor
+       OR NEW.currency IS DISTINCT FROM OLD.currency
+       OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+        RAISE EXCEPTION 'payment operation request fields are immutable';
+    END IF;
+    IF NEW.status=OLD.status
+       AND NEW.external_reference IS NOT DISTINCT FROM OLD.external_reference
+       AND NEW.failure_code IS NOT DISTINCT FROM OLD.failure_code THEN
+        RETURN NEW;
+    END IF;
+    IF OLD.status='pending' AND NEW.status IN ('pending','succeeded','failed','unknown') THEN
+        RETURN NEW;
+    END IF;
+    IF OLD.status='unknown' AND NEW.status IN ('succeeded','failed') THEN
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'invalid payment operation status transition';
+END $fn$;
+
+DROP TRIGGER IF EXISTS payment_operation_order_bindings_immutable ON payment_operation_order_bindings;
+CREATE TRIGGER payment_operation_order_bindings_immutable
+BEFORE UPDATE OR DELETE ON payment_operation_order_bindings
+FOR EACH ROW EXECUTE FUNCTION reject_payment_event_mutation();
+
+CREATE TABLE IF NOT EXISTS finance_cases (
+    id text PRIMARY KEY,
+    tenant_id text NOT NULL CHECK (length(btrim(tenant_id)) BETWEEN 1 AND 120),
+    case_type text NOT NULL CHECK (case_type IN ('payout','refund','chargeback','payout_reversal')),
+    order_id text NOT NULL,
+    source_payment_operation_id text NOT NULL,
+    source_journal_id text NOT NULL REFERENCES ledger_journals(id) ON DELETE RESTRICT,
+    provider_code text NOT NULL CHECK (provider_code ~ '^[a-z][a-z0-9_-]{1,40}$'),
+    provider_idempotency_key text NOT NULL CHECK (length(btrim(provider_idempotency_key)) BETWEEN 1 AND 200),
+    amount_minor bigint NOT NULL CHECK (amount_minor > 0),
+    currency char(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+    status text NOT NULL DEFAULT 'requested'
+        CHECK (status IN ('requested','accepted','provider_confirmed','failed','reconciled')),
+    provider_outcome text NOT NULL DEFAULT 'not_submitted'
+        CHECK (provider_outcome IN ('not_submitted','unknown','confirmed','failed')),
+    requested_by_identity_id text NOT NULL REFERENCES phone_identities(id) ON DELETE RESTRICT,
+    request_reason text NOT NULL CHECK (length(btrim(request_reason)) BETWEEN 1 AND 500),
+    accepted_by_identity_id text REFERENCES phone_identities(id) ON DELETE RESTRICT,
+    acceptance_reason text NOT NULL DEFAULT '',
+    failure_code text NOT NULL DEFAULT '',
+    reversal_of_case_id text,
+    reconciled_journal_id text REFERENCES ledger_journals(id) ON DELETE RESTRICT,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE(provider_code,provider_idempotency_key),
+    UNIQUE(id,tenant_id),
+    FOREIGN KEY(order_id,tenant_id) REFERENCES orders(id,tenant_id) ON DELETE RESTRICT,
+    FOREIGN KEY(source_payment_operation_id,tenant_id,order_id)
+        REFERENCES payment_operations(id,tenant_id,order_id) ON DELETE RESTRICT,
+    FOREIGN KEY(source_payment_operation_id,source_journal_id)
+        REFERENCES payment_ledger_links(operation_id,journal_id) ON DELETE RESTRICT,
+    FOREIGN KEY(reversal_of_case_id,tenant_id)
+        REFERENCES finance_cases(id,tenant_id) ON DELETE RESTRICT,
+    CHECK ((case_type='payout_reversal' AND reversal_of_case_id IS NOT NULL) OR
+           (case_type<>'payout_reversal' AND reversal_of_case_id IS NULL)),
+    CHECK ((status='reconciled' AND reconciled_journal_id IS NOT NULL) OR
+           (status<>'reconciled' AND reconciled_journal_id IS NULL)),
+    CHECK ((accepted_by_identity_id IS NULL AND acceptance_reason='') OR
+           (accepted_by_identity_id IS NOT NULL AND length(btrim(acceptance_reason)) BETWEEN 1 AND 500)),
+    CHECK ((status='failed' AND length(btrim(failure_code)) BETWEEN 1 AND 200) OR
+           (status<>'failed' AND failure_code='')),
+    CHECK ((status IN ('provider_confirmed','reconciled') AND provider_outcome='confirmed') OR
+           (status='failed' AND provider_outcome='failed') OR
+           (status IN ('requested','accepted') AND provider_outcome IN ('not_submitted','unknown')))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS finance_cases_one_reversal_per_case
+    ON finance_cases(reversal_of_case_id) WHERE reversal_of_case_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS finance_cases_tenant_status_idx
+    ON finance_cases(tenant_id,status,created_at DESC);
+CREATE INDEX IF NOT EXISTS finance_cases_order_idx
+    ON finance_cases(tenant_id,order_id,created_at);
+
+CREATE TABLE IF NOT EXISTS finance_case_events (
+    id text PRIMARY KEY,
+    case_id text NOT NULL REFERENCES finance_cases(id) ON DELETE RESTRICT,
+    tenant_id text NOT NULL,
+    event_type text NOT NULL CHECK (event_type IN
+        ('requested','accepted','provider_unknown','provider_confirmed','failed','reconciled')),
+    from_status text,
+    to_status text NOT NULL,
+    actor_identity_id text REFERENCES phone_identities(id) ON DELETE RESTRICT,
+    reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 1 AND 500),
+    details jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY(case_id,tenant_id) REFERENCES finance_cases(id,tenant_id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS finance_case_events_case_idx
+    ON finance_case_events(tenant_id,case_id,created_at,id);
+
+CREATE TABLE IF NOT EXISTS finance_case_webhook_receipts (
+    id text PRIMARY KEY,
+    provider_code text NOT NULL,
+    event_id text NOT NULL,
+    case_id text NOT NULL REFERENCES finance_cases(id) ON DELETE RESTRICT,
+    tenant_id text NOT NULL,
+    payload_hash bytea NOT NULL CHECK (octet_length(payload_hash)=32),
+    received_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE(provider_code,event_id),
+    FOREIGN KEY(case_id,tenant_id) REFERENCES finance_cases(id,tenant_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS finance_case_reconciliation_checks (
+    id text PRIMARY KEY,
+    case_id text NOT NULL,
+    tenant_id text NOT NULL,
+    journal_id text,
+    outcome text NOT NULL CHECK (outcome IN
+        ('matched','missing_journal','amount_mismatch','currency_mismatch','reversal_mismatch')),
+    expected_amount_minor bigint NOT NULL CHECK (expected_amount_minor > 0),
+    expected_currency char(3) NOT NULL CHECK (expected_currency ~ '^[A-Z]{3}$'),
+    actual_debit_minor bigint NOT NULL CHECK (actual_debit_minor >= 0),
+    actual_credit_minor bigint NOT NULL CHECK (actual_credit_minor >= 0),
+    actual_currency char(3),
+    actor_identity_id text NOT NULL REFERENCES phone_identities(id) ON DELETE RESTRICT,
+    reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 1 AND 500),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY(case_id,tenant_id) REFERENCES finance_cases(id,tenant_id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS finance_case_reconciliation_case_idx
+    ON finance_case_reconciliation_checks(tenant_id,case_id,created_at DESC);
+
+CREATE TABLE IF NOT EXISTS finance_case_ledger_links (
+    id text PRIMARY KEY,
+    case_id text NOT NULL UNIQUE REFERENCES finance_cases(id) ON DELETE RESTRICT,
+    journal_id text NOT NULL UNIQUE REFERENCES ledger_journals(id) ON DELETE RESTRICT,
+    tenant_id text NOT NULL,
+    amount_minor bigint NOT NULL CHECK (amount_minor > 0),
+    currency char(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY(case_id,tenant_id) REFERENCES finance_cases(id,tenant_id) ON DELETE RESTRICT
+);
+
+CREATE OR REPLACE FUNCTION reject_finance_case_evidence_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $fn$
+BEGIN
+    RAISE EXCEPTION 'finance case events, webhook receipts, reconciliation checks and ledger links are append-only';
+END $fn$;
+
+DROP TRIGGER IF EXISTS finance_case_events_immutable ON finance_case_events;
+CREATE TRIGGER finance_case_events_immutable
+BEFORE UPDATE OR DELETE ON finance_case_events
+FOR EACH ROW EXECUTE FUNCTION reject_finance_case_evidence_mutation();
+DROP TRIGGER IF EXISTS finance_case_webhook_receipts_immutable ON finance_case_webhook_receipts;
+CREATE TRIGGER finance_case_webhook_receipts_immutable
+BEFORE UPDATE OR DELETE ON finance_case_webhook_receipts
+FOR EACH ROW EXECUTE FUNCTION reject_finance_case_evidence_mutation();
+DROP TRIGGER IF EXISTS finance_case_reconciliation_checks_immutable ON finance_case_reconciliation_checks;
+CREATE TRIGGER finance_case_reconciliation_checks_immutable
+BEFORE UPDATE OR DELETE ON finance_case_reconciliation_checks
+FOR EACH ROW EXECUTE FUNCTION reject_finance_case_evidence_mutation();
+DROP TRIGGER IF EXISTS finance_case_ledger_links_immutable ON finance_case_ledger_links;
+CREATE TRIGGER finance_case_ledger_links_immutable
+BEFORE UPDATE OR DELETE ON finance_case_ledger_links
+FOR EACH ROW EXECUTE FUNCTION reject_finance_case_evidence_mutation();
+
+CREATE OR REPLACE FUNCTION guard_finance_case_transition()
+RETURNS trigger LANGUAGE plpgsql AS $fn$
+BEGIN
+    IF NEW.id IS DISTINCT FROM OLD.id OR NEW.tenant_id IS DISTINCT FROM OLD.tenant_id
+       OR NEW.case_type IS DISTINCT FROM OLD.case_type OR NEW.order_id IS DISTINCT FROM OLD.order_id
+       OR NEW.source_payment_operation_id IS DISTINCT FROM OLD.source_payment_operation_id
+       OR NEW.source_journal_id IS DISTINCT FROM OLD.source_journal_id
+       OR NEW.provider_code IS DISTINCT FROM OLD.provider_code
+       OR NEW.provider_idempotency_key IS DISTINCT FROM OLD.provider_idempotency_key
+       OR NEW.amount_minor IS DISTINCT FROM OLD.amount_minor OR NEW.currency IS DISTINCT FROM OLD.currency
+       OR NEW.requested_by_identity_id IS DISTINCT FROM OLD.requested_by_identity_id
+       OR NEW.request_reason IS DISTINCT FROM OLD.request_reason
+       OR (OLD.accepted_by_identity_id IS NOT NULL AND
+           (NEW.accepted_by_identity_id IS DISTINCT FROM OLD.accepted_by_identity_id OR
+            NEW.acceptance_reason IS DISTINCT FROM OLD.acceptance_reason))
+       OR NEW.reversal_of_case_id IS DISTINCT FROM OLD.reversal_of_case_id
+       OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+        RAISE EXCEPTION 'finance case request provenance is immutable';
+    END IF;
+    IF OLD.provider_outcome IN ('unknown','confirmed','failed') AND NEW.provider_outcome='not_submitted' THEN
+        RAISE EXCEPTION 'provider outcome provenance cannot be reset';
+    END IF;
+    IF OLD.provider_outcome IN ('confirmed','failed') AND NEW.provider_outcome IS DISTINCT FROM OLD.provider_outcome THEN
+        RAISE EXCEPTION 'provider-confirmed and failed outcomes are terminal';
+    END IF;
+    IF NEW.status IN ('accepted','provider_confirmed','reconciled')
+       AND (NEW.accepted_by_identity_id IS NULL OR length(btrim(NEW.acceptance_reason)) NOT BETWEEN 1 AND 500) THEN
+        RAISE EXCEPTION 'financial case requires explicit human acceptance';
+    END IF;
+    IF OLD.status='requested' AND NEW.status IN ('requested','accepted','failed') THEN RETURN NEW; END IF;
+    IF OLD.status='accepted' AND NEW.status IN ('accepted','provider_confirmed','failed') THEN RETURN NEW; END IF;
+    IF OLD.status='provider_confirmed' AND NEW.status IN ('provider_confirmed','reconciled') THEN RETURN NEW; END IF;
+    RAISE EXCEPTION 'invalid finance case state transition';
+END $fn$;
+DROP TRIGGER IF EXISTS finance_case_state_guard ON finance_cases;
+CREATE TRIGGER finance_case_state_guard BEFORE UPDATE ON finance_cases
+FOR EACH ROW EXECUTE FUNCTION guard_finance_case_transition();

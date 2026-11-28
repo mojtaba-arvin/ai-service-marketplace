@@ -41,6 +41,7 @@ var operatorGrantableActions = map[Action]struct{}{
 	ActionPolicyManage:               {},
 	ActionAnalyticsRead:              {},
 	ActionOperatorPermissionsManage:  {},
+	ActionFinanceCaseManage:           {},
 }
 
 func validOperatorGrantAction(action Action) bool {
