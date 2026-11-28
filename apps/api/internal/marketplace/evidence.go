@@ -709,7 +709,7 @@ func (h *Handler) downloadIncidentEvidence(w http.ResponseWriter, r *http.Reques
 		SELECT e.tenant_id,e.media_type,e.retention_expires_at,e.legal_hold
 		FROM incident_evidence e
 		JOIN incident_reports r ON r.id=e.report_id AND r.tenant_id=e.tenant_id
-		WHERE e.id=$1 AND e.report_id=$2 AND e.tenant_id=$3
+		WHERE e.id=$1 AND e.report_id=$2 AND e.tenant_id=$3 AND e.deletion_state='active'
 		FOR SHARE OF e,r
 	`, evidenceID, reportID, tenantID).Scan(&tenantID, &mediaType, &expiry, &legalHold)
 	if errors.Is(err, pgx.ErrNoRows) {
