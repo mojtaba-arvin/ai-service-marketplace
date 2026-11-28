@@ -17,6 +17,97 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Classify changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      integration: ${{ steps.paths.outputs.integration }}
+      api_image: ${{ steps.paths.outputs.api_image }}
+      web_image: ${{ steps.paths.outputs.web_image }}
+      images: ${{ steps.paths.outputs.images }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: paths
+        name: Determine affected validation lanes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MERGE_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          MERGE_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          integration=true
+          api_image=true
+          web_image=true
+          if [[ "$EVENT_NAME" != "workflow_dispatch" ]]; then
+            case "$EVENT_NAME" in
+              pull_request)
+                base="$PR_BASE_SHA"
+                head="$PR_HEAD_SHA"
+                if ! git cat-file -e "$head^{commit}" 2>/dev/null; then
+                  git fetch --no-tags origin "refs/pull/$PR_NUMBER/head"
+                  head=FETCH_HEAD
+                fi
+                ;;
+              merge_group)
+                base="$MERGE_BASE_SHA"
+                head="$MERGE_HEAD_SHA"
+                ;;
+              push)
+                base="$PUSH_BEFORE"
+                head="$PUSH_AFTER"
+                if [[ "$base" =~ ^0+$ ]]; then
+                  base=""
+                fi
+                ;;
+              *)
+                base=""
+                head=""
+                ;;
+            esac
+
+            if [[ -n "$base" && -n "$head" ]] && git cat-file -e "$base^{commit}" 2>/dev/null && git cat-file -e "$head^{commit}" 2>/dev/null; then
+              changed="$(git diff --name-only "$base" "$head")"
+              integration=false
+              api_image=false
+              web_image=false
+              while IFS= read -r path; do
+                [[ -z "$path" ]] && continue
+                case "$path" in
+                  apps/api/*|apps/web/*|infra/*|packages/contracts/*|packages/domain-*/*|scripts/e2e-*.sh)
+                    integration=true
+                    ;;
+                esac
+                case "$path" in
+                  apps/api/*|.dockerignore)
+                    api_image=true
+                    ;;
+                esac
+                case "$path" in
+                  apps/web/*|.dockerignore)
+                    web_image=true
+                    ;;
+                esac
+              done <<< "$changed"
+            fi
+          fi
+
+          images=false
+          if [[ "$api_image" == "true" || "$web_image" == "true" ]]; then
+            images=true
+          fi
+          printf 'integration=%s\napi_image=%s\nweb_image=%s\nimages=%s\n' \
+            "$integration" "$api_image" "$web_image" "$images" >> "$GITHUB_OUTPUT"
+          printf 'Integration: %s\nAPI image: %s\nWeb image: %s\n' \
+            "$integration" "$api_image" "$web_image"
+
   repository:
     name: Repository verification
     runs-on: ubuntu-latest
@@ -86,6 +177,8 @@ jobs:
 
   integration:
     name: PostgreSQL and browser integration
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -113,58 +206,68 @@ jobs:
       - name: Run walking-skeleton, browser, and backup/restore E2E
         run: bash scripts/e2e-walking-skeleton.sh
 
-  api-image:
-    name: Build production API image
+  images:
+    name: Production container image builds
+    needs: changes
+    if: needs.changes.outputs.images == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: Build API image with persistent GitHub Actions layer cache
-        run: |
-          docker buildx build --load --progress plain \
-            --file apps/api/Dockerfile \
-            --tag ai-service-marketplace-api:ci \
-            --cache-from type=gha,scope=api-image \
-            --cache-to type=gha,scope=api-image,mode=max .
-
-  web-image:
-    name: Build production Web image
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build Web image with persistent GitHub Actions layer cache
-        run: |
-          docker buildx build --load --progress plain \
-            --file apps/web/Dockerfile \
-            --tag ai-service-marketplace-web:ci \
-            --cache-from type=gha,scope=web-image \
-            --cache-to type=gha,scope=web-image,mode=max .
+      - name: Build production API image
+        if: needs.changes.outputs.api_image == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          tags: ai-service-marketplace-api:ci
+          load: true
+          cache-from: type=gha,scope=api-image
+          cache-to: type=gha,scope=api-image,mode=max
+      - name: Build production Web image
+        if: needs.changes.outputs.web_image == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          tags: ai-service-marketplace-web:ci
+          load: true
+          cache-from: type=gha,scope=web-image
+          cache-to: type=gha,scope=web-image,mode=max
 
   verify:
     name: verify
     if: always()
-    needs: [repository, integration, api-image, web-image]
+    needs: [changes, repository, integration, images]
     runs-on: ubuntu-latest
     steps:
-      - name: Require every verification lane
+      - name: Require all applicable verification lanes
         env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
           REPOSITORY_RESULT: ${{ needs.repository.result }}
           INTEGRATION_RESULT: ${{ needs.integration.result }}
-          API_IMAGE_RESULT: ${{ needs.api-image.result }}
-          WEB_IMAGE_RESULT: ${{ needs.web-image.result }}
+          INTEGRATION_REQUIRED: ${{ needs.changes.outputs.integration }}
+          IMAGES_RESULT: ${{ needs.images.result }}
+          IMAGES_REQUIRED: ${{ needs.changes.outputs.images }}
         shell: bash
         run: |
           set -euo pipefail
+          printf 'Path classification: %s\n' "$CHANGES_RESULT"
           printf 'Repository verification: %s\n' "$REPOSITORY_RESULT"
-          printf 'PostgreSQL/browser integration: %s\n' "$INTEGRATION_RESULT"
-          printf 'API image build: %s\n' "$API_IMAGE_RESULT"
-          printf 'Web image build: %s\n' "$WEB_IMAGE_RESULT"
-          for result in "$REPOSITORY_RESULT" "$INTEGRATION_RESULT" "$API_IMAGE_RESULT" "$WEB_IMAGE_RESULT"; do
-            if [[ "$result" != "success" ]]; then
-              echo "A required verification lane did not succeed."
-              exit 1
-            fi
-          done
+          printf 'PostgreSQL/browser integration: %s (required=%s)\n' "$INTEGRATION_RESULT" "$INTEGRATION_REQUIRED"
+          printf 'Production image builds: %s (required=%s)\n' "$IMAGES_RESULT" "$IMAGES_REQUIRED"
+          [[ "$CHANGES_RESULT" == "success" ]]
+          [[ "$REPOSITORY_RESULT" == "success" ]]
+          if [[ "$INTEGRATION_REQUIRED" == "true" ]]; then
+            [[ "$INTEGRATION_RESULT" == "success" ]]
+          else
+            [[ "$INTEGRATION_RESULT" == "skipped" ]]
+            echo "Integration E2E explicitly skipped: no API, Web, infrastructure, contract, or E2E-script paths changed."
+          fi
+          if [[ "$IMAGES_REQUIRED" == "true" ]]; then
+            [[ "$IMAGES_RESULT" == "success" ]]
+          else
+            [[ "$IMAGES_RESULT" == "skipped" ]]
+            echo "Container builds explicitly skipped: no image inputs changed."
+          fi
