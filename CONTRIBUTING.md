@@ -86,7 +86,7 @@ CI is authoritative for required repository checks. Report commands actually run
 
 ## Review process
 
-The implementer may review the complete diff and merge their own PR when authorized to act for the maintainer, all exact-head required checks pass, required review threads are resolved, and repository rules permit the merge. GitHub does not allow a PR author to submit a formal approval of their own PR; this repository requires zero approvals, so a separate reviewer is not needed for merge. Never bypass branch protection or required checks. Small, independently reviewable PRs are preferred.
+The implementer may review the complete diff and merge their own PR when authorized to act for the maintainer, all exact-head required checks pass, required review threads are resolved, and repository rules permit the merge. Follow the [evidence-gated PR review and merge playbook](docs/playbooks/evidence-gated-pr-merge.md). GitHub does not allow a PR author to submit a formal approval of their own PR; this repository requires zero approvals, so a separate reviewer is not needed for merge. Never bypass branch protection or required checks. Small, independently reviewable PRs are preferred.
 
 ## Feature acceptance
 
