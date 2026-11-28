@@ -46,3 +46,14 @@ FIN-008 adds versioned market-scoped commission, reward, penalty, coupon and cus
 ## Project acceptance policy
 
 No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.
+
+
+## Invoice and market tax record boundary (FIN-007)
+
+Invoice snapshots preserve the source order, immutable price-version reference, explicit currency, source line ordering and amounts, classified billable-ledger semantics, journal/payment references, and each tax component's exact market/jurisdiction/category/configuration revision, effective interval, rational rate, rounding method, approval provenance and calculated result. Monetary calculations use integer minor units and overflow-safe integer arithmetic only.
+
+Tax resolution is exact on market, jurisdiction, category, component, currency and effective time. Missing or overlapping active rules fail closed. There is no inferred rate, tax category, jurisdiction, legal entity, currency conversion, fallback market, compounding order, invoice wording/numbering rule, filing rule or retention period. Taxable bases must be supplied explicitly by the reviewed policy boundary. Approval metadata in a tax-rule snapshot is evidence, not authorization; the persistence/application boundary must verify the authorized tax-config revision before the domain calculator receives it.
+
+Issued snapshots are append-only. A correction is a new linked snapshot with a reason; a financial correction must reference compensating journal postings. Existing invoices, source price snapshots, tax rule revisions and ledger postings are never rewritten. Same-key/same-content requests replay; changed content conflicts.
+
+The current module-private domain implementation in `internal/marketplace/invoices.go` supplies deterministic tax arithmetic and snapshot validation only. Durable invoice/tax tables, immutable database triggers, tenant-scoped read/issue/correction/export authorization, source Order→Payment→Journal attribution, HTTP/OpenAPI and PostgreSQL concurrency/immutability tests remain shared integration work coordinated by #232. Do not issue invoices from sources lacking explicit validated attribution. No real invoice, production tax submission or funds movement is enabled.
