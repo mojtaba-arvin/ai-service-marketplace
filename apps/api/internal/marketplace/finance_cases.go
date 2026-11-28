@@ -284,6 +284,8 @@ func (s *Store) ApplyFinanceCaseWebhook(ctx context.Context, verifier FinanceCas
 	if event.ProviderCode == "" || event.EventID == "" || event.ProviderIdempotencyKey == "" ||
 		(event.Outcome != "confirmed" && event.Outcome != "failed") ||
 		(event.Outcome == "confirmed" && strings.TrimSpace(event.ProviderReference) == "") ||
+		(event.Outcome == "failed" && strings.TrimSpace(event.FailureCode) == "") ||
+		len(event.ProviderReference) > 200 || len(event.FailureCode) > 200 ||
 		ValidateAmount(event.AmountMinor,event.Currency) != nil { return FinanceCase{},false,ErrFinanceCaseInput }
 	hash := sha256.Sum256(payload)
 	tx,err := s.DB.BeginTx(ctx,pgx.TxOptions{})
