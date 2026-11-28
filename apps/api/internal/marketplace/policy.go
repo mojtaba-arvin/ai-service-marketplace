@@ -31,6 +31,7 @@ const (
 	ActionSupportCaseRead   Action = "support:case:read"
 	ActionSupportCaseComment Action = "support:case:comment"
 	ActionLedgerPost        Action = "ledger:post"
+	ActionFinanceCaseManage Action = "finance:case:manage"
 	ActionIdentityRead      Action = "identity:read_sensitive"
 	ActionMarketConfigure Action = "market:configure"
 	ActionCatalogManage Action = "catalog:manage"
