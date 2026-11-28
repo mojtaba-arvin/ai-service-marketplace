@@ -84,7 +84,7 @@ func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 
 	orderID := "order-"+fmt.Sprint(time.Now().UnixNano())
 	if _,err = pool.Exec(ctx,`INSERT INTO orders(id,customer_id,idempotency_key,amount_minor,currency,status,tenant_id)
-		VALUES($1,$2,$3,1000,'OMR','requested',$4)`,orderID,customerID,"order-key-"+orderID,1000,tenant); err != nil { t.Fatal(err) }
+		VALUES($1,$2,$3,1000,'OMR','requested',$4)`,orderID,customerID,"order-key-"+orderID,tenant); err != nil { t.Fatal(err) }
 	if _,err = store.CreateLedgerAccount(ctx,"customer_funds","OMR","debit"); err != nil { t.Fatal(err) }
 	if _,err = store.CreateLedgerAccount(ctx,"provider_payable","OMR","credit"); err != nil { t.Fatal(err) }
 	sourceJournal,err := store.PostJournal(ctx,"source-"+orderID,"OMR","source payment",
