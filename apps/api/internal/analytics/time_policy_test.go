@@ -61,4 +61,10 @@ func TestEventTimeReplayIsDeterministicAndWatermarkUsesIngestionClock(t *testing
 	if !watermark.Equal(ingested.Add(-72*time.Hour)) {
 		t.Fatalf("watermark=%s", watermark)
 	}
+	if !IsPeriodMature(watermark, watermark) {
+		t.Fatal("period ending exactly at watermark must be finalizable")
+	}
+	if IsPeriodMature(watermark.Add(time.Nanosecond), watermark) {
+		t.Fatal("period ending after watermark must remain provisional")
+	}
 }
