@@ -251,8 +251,19 @@ func (s *Store) ReverseJournal(ctx context.Context,idempotencyKey,originalJourna
 	journal,_,err:=scanJournal(tx.QueryRow(ctx,`
 		INSERT INTO ledger_journals(id,idempotency_key,currency,description,request_hash,reversal_of_id)
 		VALUES($1,$2,$3,$4,$5,$6)
+		ON CONFLICT(idempotency_key) DO NOTHING
 		RETURNING id,idempotency_key,currency,description,reversal_of_id,created_at,request_hash
 	`,id,idempotencyKey,currency,description,hash,originalJournalID))
+	if errors.Is(err,pgx.ErrNoRows) {
+		existing,found,lookupErr:=s.existingJournalByKey(ctx,tx,idempotencyKey,hash)
+		if lookupErr!=nil { return LedgerJournal{},lookupErr }
+		if !found { return LedgerJournal{},ErrLedgerIdempotencyConflict }
+		if existing.ReversalOfID==nil || *existing.ReversalOfID!=originalJournalID {
+			return LedgerJournal{},ErrLedgerIdempotencyConflict
+		}
+		if err=tx.Commit(ctx); err!=nil { return LedgerJournal{},err }
+		return existing,nil
+	}
 	if err!=nil { return LedgerJournal{},fmt.Errorf("create reversal journal: %w",err) }
 	for _,line:=range lines {
 		if _,err=tx.Exec(ctx,`
