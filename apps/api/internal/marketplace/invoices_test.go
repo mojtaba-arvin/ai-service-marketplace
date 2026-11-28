@@ -133,6 +133,12 @@ func TestInvoiceTaxRejectsMissingAmbiguousAndUnapprovedRules(t *testing.T) {
 	if _, err := BuildInvoiceRecord(input); !errors.Is(err, ErrInvoiceTaxConfigurationInvalid) {
 		t.Fatalf("expected missing approval provenance rejection, got %v", err)
 	}
+
+	input = invoiceTestInput()
+	input.TaxRules[0].ApprovedAt = input.IssuedAt.Add(time.Hour)
+	if _, err := BuildInvoiceRecord(input); !errors.Is(err, ErrInvoiceTaxConfigurationInvalid) {
+		t.Fatalf("expected future approval rejection, got %v", err)
+	}
 }
 
 func TestInvoiceRejectsOrderPriceLedgerAndCurrencyMismatch(t *testing.T) {
