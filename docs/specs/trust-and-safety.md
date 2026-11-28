@@ -59,3 +59,37 @@ Every result sets `requires_human_adjudication=true`. AI cannot determine liabil
 ## Project acceptance policy
 
 No separate independent QA operator, acceptance worker, or external sign-off is required. The project maintainer accepts work after reviewing implementation, automated tests/evaluations, exact-head required CI/security checks, and recorded evidence. Technical gates remain mandatory; merge alone is not acceptance.
+
+
+## Full-product support backlog
+
+The existing support case lifecycle (SUP-001) and append-only action audit (SUP-002) are implementation-present but remain unaccepted until maintainer review of PostgreSQL behavior, negative-path tests and exact-head CI/security evidence. Preserve the existing `support_case_events` append-only trigger and same-transaction event writes.
+
+### SUP-003 — Approved tenant-scoped knowledge base
+
+Tracking: [#305](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/305).
+
+- Article lifecycle is draft → review → publish → retire. Published revisions are immutable; corrections create a new revision.
+- Platform-managed articles require a dedicated platform content-management grant. Tenant-authored articles and retrieval results are visible only within their owning tenant.
+- Author, reviewer and publisher capabilities are explicit; support role alone does not grant publication authority.
+- Retrieval exposes only approved active revisions matching authenticated tenant scope, market and locale, with immutable revision provenance.
+- Every revision/review/publication/retirement mutation appends actor, scope, reason and before/after revision references atomically. Read/export auditing follows the approved privacy policy.
+- Unknown scope, missing grant, stale revision, unpublished content or retrieval outage fails closed. Never fall back to drafts or another tenant's content.
+- Acceptance tests cover cross-tenant isolation, role grants, publication races, immutability, provenance, search failure and transaction rollback.
+
+### SUP-004 — Operator-approved escalation
+
+Tracking: [#307](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/307).
+
+- Escalation policies are tenant-scoped, versioned and effective-dated. Thresholds are adopter-configured; the persisted case `sla_due_at` is authoritative.
+- SLA monitoring may create deduplicated candidate alerts only. Assignment, priority, escalation level, case state and external notification require explicit approval by an authorized same-tenant operator.
+- Policy administration, candidate visibility and approval use separate least-privilege grants; target agents must be active in the same tenant.
+- Approval, case mutation, immutable escalation/case audit and transactional outbox intent commit atomically with stable idempotency keys.
+- Duplicate workers, stale case versions, revoked grants, missing policies and notification failures fail safely and remain observable/retryable.
+- Acceptance tests cover exact SLA boundaries/time zones, scheduler replay, concurrent approval, cross-tenant denial, same-transaction audit/outbox, and fake notification adapter failure semantics.
+
+### AI-007 — Support Copilot
+
+Tracking: [#309](https://github.com/mojtaba-arvin/ai-service-marketplace/issues/309); feature record remains owned by the M14 AI backlog and Issue #18.
+
+Support Copilot is advisory only. It may read an authorized case through the support module boundary and retrieve approved SUP-003 revisions for the authenticated tenant/market/locale. It must redact PII/secrets before model invocation, validate citations against exact retrieved revisions, and record redacted-input provenance. It has no write tools and cannot resolve/close cases, assign agents, alter priority/SLA, publish knowledge, trigger escalation or notify customers. Every consequential action remains a separate operator-approved domain command with its own authorization, reason and immutable audit. Redaction/retrieval/model/schema/citation failure returns abstain/unavailable rather than ungrounded text. Golden evaluations cover prompt injection, authority escalation, sensitive data leakage, unsupported claims, stale citations and malformed output.

@@ -2006,5 +2006,60 @@
     "passes": false,
     "verified_by": null,
     "notes": "Added during full-product gap decomposition on 2026-11-23. not implemented or maintainer-accepted; dashboards depend on canonical analytics projections."
+  },
+  {
+    "id": "SUP-003",
+    "module": "M8 Communications — support",
+    "title": "Approved tenant-scoped support knowledge base",
+    "description": "Manage versioned support knowledge articles with explicit review/publication authority and expose only approved, market/locale-matched revisions through a tenant-safe retrieval boundary.",
+    "acceptance": [
+      "Authors, reviewers and publishers require distinct explicit capabilities; tenant articles are visible only within their owning tenant, while platform articles require a dedicated platform content-management grant.",
+      "Draft, review, publish and retire transitions are guarded and append-only audited; published revisions are immutable and corrections create a new revision.",
+      "Retrieval returns only approved, active revisions matching the authenticated tenant scope, market and locale, with article/revision/policy provenance; cross-tenant and unpublished content never appears.",
+      "Publication, revision mutation and audit append are atomic; concurrent publication cannot overwrite a newer revision or publish the same revision twice.",
+      "Missing authorization, invalid state, retrieval outage or ambiguous scope fails closed without falling back to drafts or another tenant's content."
+    ],
+    "depends_on": [
+      "SUP-001",
+      "SUP-002",
+      "PLAT-001"
+    ],
+    "size": "M",
+    "nature": [
+      "WF",
+      "SEC",
+      "CRUD"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Decomposed from Issue #13 into implementation task #305. Specification/backlog record only; no knowledge-base implementation or maintainer acceptance is claimed."
+  },
+  {
+    "id": "SUP-004",
+    "module": "M8 Communications — support",
+    "title": "Operator-approved support case escalation",
+    "description": "Provide tenant-scoped escalation policy and SLA-risk queues with explicitly approved, auditable case escalation and notification intents.",
+    "acceptance": [
+      "Escalation policies are tenant-scoped, versioned and effective-dated; SLA candidates derive only from persisted case deadlines and configured thresholds.",
+      "Candidate generation creates alerts only; assignment, priority, escalation level, case state and customer notification change only after an authorized operator approves with a reason.",
+      "Policy administration, candidate reads and approval require separate explicit tenant-scoped grants and active same-tenant support-agent membership; cross-tenant actors, cases and targets fail closed.",
+      "Approval, case mutation, append-only audit and transactional outbox intent commit atomically with idempotency; duplicate scheduler/approval attempts cannot duplicate consequential effects.",
+      "Stale case versions, revoked grants, inactive targets, ambiguous policies, worker/clock failures and notification-provider failures remain visible and fail safely without autonomous escalation."
+    ],
+    "depends_on": [
+      "SUP-001",
+      "SUP-002",
+      "MSG-001",
+      "PLAT-001"
+    ],
+    "size": "M",
+    "nature": [
+      "WF",
+      "SEC",
+      "INT"
+    ],
+    "passes": false,
+    "verified_by": null,
+    "notes": "Decomposed from Issue #13 into implementation task #307. Specification/backlog record only; no escalation implementation or maintainer acceptance is claimed."
   }
 ]
