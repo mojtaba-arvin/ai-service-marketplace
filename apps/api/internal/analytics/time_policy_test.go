@@ -16,11 +16,20 @@ func TestEventTimePolicyFamilies(t *testing.T) {
 			t.Fatalf("unexpected policy for %s: %+v ok=%v", eventType, policy, ok)
 		}
 	}
-	for _, eventType := range []string{"review.published", "trust.dispute_finalized", "finance.journal_posted", "ledger.reversed", "unknown.event"} {
+	for eventType, family := range map[string]string{
+		"review.published":"service_quality",
+		"trust.dispute_finalized":"service_quality",
+		"finance.journal_posted":"finance",
+		"ledger.reversed":"finance",
+	} {
+		if got:=MetricFamilyForEventType(eventType); got!=family {
+			t.Fatalf("%s mapped to %q, want %q",eventType,got,family)
+		}
 		if _, ok := EventTimePolicyFor(eventType); ok {
 			t.Fatalf("%s must fail closed until its family-specific lateness/maturity policy is defined", eventType)
 		}
 	}
+	if MetricFamilyForEventType("unknown.event")!="" { t.Fatal("unknown event must not acquire a metric family") }
 }
 
 func TestClassifyEventTimeBoundariesAndClockSkew(t *testing.T) {
