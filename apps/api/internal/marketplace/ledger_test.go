@@ -21,7 +21,7 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 	pool,err:=pgxpool.New(ctx,dsn)
 	if err!=nil { t.Fatal(err) }
 	defer pool.Close()
-	for _,name:=range []string{"001_walking_skeleton.sql","009_ledger_accounts.sql","010_ledger_idempotency_reversal.sql"} {
+	for _,name:=range []string{"001_walking_skeleton.sql","009_ledger_accounts.sql","010_ledger_idempotency_reversal.sql", "036_ledger_truncate_guard.sql"} {
 		migration,readErr:=os.ReadFile(filepath.Join("..","..","migrations",name))
 		if readErr!=nil { t.Fatal(readErr) }
 		if _,err=execMigrationScript(ctx, pool, migration); err!=nil { t.Fatalf("apply %s: %v",name,err) }
@@ -134,6 +134,12 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 	}
 	if _,err=pool.Exec(ctx,`UPDATE ledger_journals SET description='tampered' WHERE id=$1`,journal.ID); err==nil {
 		t.Fatal("posted ledger journals must be immutable")
+	}
+	if _,err=pool.Exec(ctx,`TRUNCATE TABLE ledger_entries`); err==nil {
+		t.Fatal("posted ledger entries must not be truncatable")
+	}
+	if _,err=pool.Exec(ctx,`TRUNCATE TABLE ledger_journals CASCADE`); err==nil {
+		t.Fatal("posted ledger journals must not be truncatable")
 	}
 
 	// Concurrent reversal requests with distinct idempotency keys must still
