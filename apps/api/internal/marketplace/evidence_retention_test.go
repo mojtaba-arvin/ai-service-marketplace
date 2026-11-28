@@ -12,10 +12,10 @@ import (
  "github.com/jackc/pgx/v5/pgxpool"
 )
 
-type deletionTestStorage struct{ mu sync.Mutex; objects map[string]bool; fail bool; calls map[string]int }
+type deletionTestStorage struct{ mu sync.Mutex; objects map[string]bool; failIDs map[string]bool; calls map[string]int }
 func(s *deletionTestStorage)Put(context.Context,string,[]byte)error{return nil}
 func(s *deletionTestStorage)Get(_ context.Context,id string,_ int64)([]byte,error){s.mu.Lock();defer s.mu.Unlock();if !s.objects[id]{return nil,os.ErrNotExist};return []byte("ciphertext"),nil}
-func(s *deletionTestStorage)Delete(_ context.Context,id string)error{s.mu.Lock();defer s.mu.Unlock();s.calls[id]++;if s.fail{return errors.New("provider response contains secret and must not be persisted")};if !s.objects[id]{return os.ErrNotExist};delete(s.objects,id);return nil}
+func(s *deletionTestStorage)Delete(_ context.Context,id string)error{s.mu.Lock();defer s.mu.Unlock();s.calls[id]++;if s.failIDs[id]{return errors.New("provider response contains secret and must not be persisted")};if !s.objects[id]{return os.ErrNotExist};delete(s.objects,id);return nil}
 
 func TestEvidenceDeletionWorkerPostgresRetryHoldMissingAndConcurrency(t *testing.T){
  dsn:=os.Getenv("TEST_DATABASE_URL");if dsn==""{t.Skip("TEST_DATABASE_URL is not configured")}
@@ -41,7 +41,7 @@ func TestEvidenceDeletionWorkerPostgresRetryHoldMissingAndConcurrency(t *testing
   if i==1{hold=true};if i==2{expiry=nil};if i==3{state="deletion_pending";expiry=now.Add(-time.Hour)}
   _,err=db.Exec(ctx,`INSERT INTO incident_evidence(id,tenant_id,report_id,retention_expires_at,legal_hold,deletion_state) VALUES($1,'tenant-a','report-a',$2,$3,$4)`,id,expiry,hold,state);if err!=nil{t.Fatal(err)}
  }
- storage:=&deletionTestStorage{objects:map[string]bool{ids[0]:true,ids[1]:true,ids[3]:true},fail:true,calls:map[string]int{}}
+ storage:=&deletionTestStorage{objects:map[string]bool{ids[0]:true,ids[1]:true,ids[3]:true},failIDs:map[string]bool{ids[0]:true},calls:map[string]int{}}
  w:=&EvidenceDeletionWorker{DB:db,Storage:storage,BatchSize:10,Lease:time.Minute,WorkerID:"worker-a",Now:func()time.Time{return now}}
  n,err:=w.RunOnce(ctx);if err!=nil{t.Fatal(err)};if n!=3{t.Fatalf("first pass processed=%d, want 3 eligible non-held records",n)}
  var state string;var attempts int
@@ -50,8 +50,8 @@ func TestEvidenceDeletionWorkerPostgresRetryHoldMissingAndConcurrency(t *testing
  var leaked int
  if err=db.QueryRow(ctx,"SELECT count(*) FROM incident_evidence_access_events WHERE reason_category LIKE '%secret%'").Scan(&leaked);err!=nil{t.Fatal(err)}
  if leaked!=0{t.Fatal("provider error details leaked into audit")}
- storage.mu.Lock();storage.fail=false;storage.mu.Unlock()
- n,err=w.RunOnce(ctx);if err!=nil{t.Fatal(err)};if n!=3{t.Fatalf("retry pass processed=%d, want 3",n)}
+ storage.mu.Lock();delete(storage.failIDs,ids[0]);storage.mu.Unlock()
+ n,err=w.RunOnce(ctx);if err!=nil{t.Fatal(err)};if n!=1{t.Fatalf("retry pass processed=%d, want 1",n)}
  if err=db.QueryRow(ctx,"SELECT deletion_state FROM incident_evidence WHERE id=$1",ids[0]).Scan(&state);err!=nil{t.Fatal(err)}
  if state!="deleted"{t.Fatalf("retried deletion state=%s",state)}
  if err=db.QueryRow(ctx,"SELECT deletion_state FROM incident_evidence WHERE id=$1",ids[1]).Scan(&state);err!=nil{t.Fatal(err)}
@@ -60,9 +60,9 @@ func TestEvidenceDeletionWorkerPostgresRetryHoldMissingAndConcurrency(t *testing
  if state!="active"{t.Fatalf("missing expiry must remain active, state=%s",state)}
  var audit int
  if err=db.QueryRow(ctx,"SELECT count(*) FROM incident_evidence_access_events WHERE action='deletion_failed' AND outcome='failure'").Scan(&audit);err!=nil{t.Fatal(err)}
- if audit!=3{t.Fatalf("failure audit count=%d, want 3",audit)}
+ if audit!=1{t.Fatalf("failure audit count=%d, want 1",audit)}
  if err=db.QueryRow(ctx,"SELECT count(*) FROM incident_evidence_access_events WHERE action='deletion_succeeded' AND outcome='success'").Scan(&audit);err!=nil{t.Fatal(err)}
- if audit!=3{t.Fatalf("success audit count=%d, want 3 (including absent object)",audit)}
+ if audit!=3{t.Fatalf("success audit count=%d, want 3 (including already absent object and retry)",audit)}
  // Two independent workers race on one pending row; SKIP LOCKED/claim tokens
  // ensure only one storage deletion is needed for the same lease window.
  _,err=db.Exec(ctx,`INSERT INTO incident_evidence(id,tenant_id,report_id,retention_expires_at,legal_hold,deletion_state) VALUES($1,'tenant-a','report-a',$2,false,'active')`, "55555555555555555555555555555555",now.Add(-time.Hour));if err!=nil{t.Fatal(err)}
