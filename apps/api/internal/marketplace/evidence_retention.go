@@ -54,20 +54,23 @@ func (w *EvidenceDeletionWorker) RunOnce(ctx context.Context)(int,error) {
   deleteErr:=w.Storage.Delete(ctx,c.id)
   missing:=errors.Is(deleteErr,os.ErrNotExist)
   if deleteErr==nil||missing{
-   tag,e:=w.DB.Exec(ctx,`UPDATE incident_evidence SET deletion_state='deleted',deleted_at=COALESCE(deleted_at,now()),
+   finalTx,e:=w.DB.BeginTx(ctx,pgx.TxOptions{});if e!=nil{return done,e}
+   tag,e:=finalTx.Exec(ctx,`UPDATE incident_evidence SET deletion_state='deleted',deleted_at=COALESCE(deleted_at,now()),
     deletion_claim_token=NULL,deletion_claimed_until=NULL,deletion_error_category=''
     WHERE id=$1 AND deletion_state='deletion_pending' AND deletion_claim_token=$2 AND legal_hold=false`,c.id,c.token)
-   if e!=nil{return done,e};if tag.RowsAffected()!=1{return done,errors.New("evidence deletion claim lost")}
+   if e==nil&&tag.RowsAffected()!=1{e=errors.New("evidence deletion claim lost")}
    reason:="retention_expired";if missing{reason="missing_object"}
-   _,e=w.DB.Exec(ctx,`INSERT INTO incident_evidence_access_events(tenant_id,report_id,evidence_id,actor_identity_id,action,outcome,reason_category)
-    VALUES($1,$2,$3,'system:evidence-retention','deletion_succeeded','success',$4)`,c.tenant,c.report,c.id,reason);if e!=nil{return done,e}
+   if e==nil{_,e=finalTx.Exec(ctx,`INSERT INTO incident_evidence_access_events(tenant_id,report_id,evidence_id,actor_identity_id,action,outcome,reason_category)
+    VALUES($1,$2,$3,'system:evidence-retention','deletion_succeeded','success',$4)`,c.tenant,c.report,c.id,reason)}
+   if e!=nil{_ = finalTx.Rollback(ctx);return done,e};if e=finalTx.Commit(ctx);e!=nil{return done,e}
   }else{
-   _,e:=w.DB.Exec(ctx,`UPDATE incident_evidence SET deletion_attempts=LEAST(deletion_attempts+1,2147483647),
+   failTx,e:=w.DB.BeginTx(ctx,pgx.TxOptions{});if e!=nil{return done,e}
+   _,e=failTx.Exec(ctx,`UPDATE incident_evidence SET deletion_attempts=LEAST(deletion_attempts+1,2147483647),
     deletion_claim_token=NULL,deletion_claimed_until=NULL,deletion_error_category='storage_failure'
     WHERE id=$1 AND deletion_state='deletion_pending' AND deletion_claim_token=$2`,c.id,c.token)
-   if e!=nil{return done,e}
-   _,e=w.DB.Exec(ctx,`INSERT INTO incident_evidence_access_events(tenant_id,report_id,evidence_id,actor_identity_id,action,outcome,reason_category)
-    VALUES($1,$2,$3,'system:evidence-retention','deletion_failed','failure','deletion_retry')`,c.tenant,c.report,c.id);if e!=nil{return done,e}
+   if e==nil{_,e=failTx.Exec(ctx,`INSERT INTO incident_evidence_access_events(tenant_id,report_id,evidence_id,actor_identity_id,action,outcome,reason_category)
+    VALUES($1,$2,$3,'system:evidence-retention','deletion_failed','failure','deletion_retry')`,c.tenant,c.report,c.id)}
+   if e!=nil{_ = failTx.Rollback(ctx);return done,e};if e=failTx.Commit(ctx);e!=nil{return done,e}
   }
   done++
  }
