@@ -152,6 +152,8 @@ SELECT
     result.AllowedLatenessSeconds=latenessSeconds
     result.EventTimeWatermark=result.EventTimeWatermark.UTC()
     switch {
+    case result.PendingEvents>0:
+        result.EventTimeCompleteness="incomplete"
     case result.QuarantinedEvents>0:
         result.EventTimeCompleteness="incomplete"
     case result.LateEvents>result.LateEventsIncluded:
