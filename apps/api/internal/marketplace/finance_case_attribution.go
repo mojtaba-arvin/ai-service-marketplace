@@ -32,10 +32,10 @@ func (s *Store) BindPaymentOperationToOrder(ctx context.Context, actor Actor, op
 	if errors.Is(err,pgx.ErrNoRows) || orderTenant != actor.TenantID { return false,ErrForbidden }
 	if err != nil { return false,err }
 
-	var provider,status,currency string
+	var status,currency string
 	var amount int64
 	var tenantID,existingOrder *string
-	err = tx.QueryRow(ctx,`SELECT provider_code,status,currency,amount_minor,tenant_id,order_id
+	err = tx.QueryRow(ctx,`SELECT status,currency,amount_minor,tenant_id,order_id
 		FROM payment_operations WHERE id=$1 FOR UPDATE`,operationID).
 		Scan(&provider,&status,&currency,&amount,&tenantID,&existingOrder)
 	if errors.Is(err,pgx.ErrNoRows) { return false,ErrFinanceCaseInput }
