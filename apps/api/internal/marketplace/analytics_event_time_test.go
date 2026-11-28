@@ -62,6 +62,8 @@ func TestAnalyticsEventTimeLateClockSkewAndCorrectionReplayPostgres(t *testing.T
 
 	lateOccurredAt := time.Now().UTC().Add(-73*time.Hour)
 	lateEvent := appendEvent("late-"+suffix, lateOccurredAt)
+	duplicateEvent := appendEvent("late-"+suffix, lateOccurredAt)
+	conflictingEvent := appendEvent("late-"+suffix, lateOccurredAt.Add(time.Second))
 	skewEvent := appendEvent("skew-"+suffix, time.Now().UTC().Add(time.Minute))
 	liveProjector := analytics.Projector{DB:pool,ConsumerName:consumerName,GenerationID:generation,TenantID:tenant}
 	liveConsumer := liveProjector.Consumer()
@@ -69,7 +71,15 @@ func TestAnalyticsEventTimeLateClockSkewAndCorrectionReplayPostgres(t *testing.T
 	// Deliberately process in the reverse of source insertion order.
 	if applied, processErr := liveConsumer.Process(ctx, skewEvent); processErr != nil || !applied { t.Fatalf("process clock-skew event: applied=%v err=%v", applied, processErr) }
 	if applied, processErr := liveConsumer.Process(ctx, lateEvent); processErr != nil || !applied { t.Fatalf("process late event: applied=%v err=%v", applied, processErr) }
-	if applied, processErr := liveConsumer.Process(ctx, lateEvent); processErr != nil || applied { t.Fatalf("duplicate delivery must be a no-op: applied=%v err=%v", applied, processErr) }
+	if applied, processErr := liveConsumer.Process(ctx, duplicateEvent); processErr != nil || !applied { t.Fatalf("process duplicate logical event: applied=%v err=%v", applied, processErr) }
+	if applied, processErr := liveConsumer.Process(ctx, conflictingEvent); processErr != nil || !applied { t.Fatalf("process conflicting event ID: applied=%v err=%v", applied, processErr) }
+	if applied, processErr := liveConsumer.Process(ctx, lateEvent); processErr != nil || applied { t.Fatalf("same outbox delivery must be a no-op: applied=%v err=%v", applied, processErr) }
+	var duplicateCount int
+	if err = pool.QueryRow(ctx, "SELECT count(*) FROM analytics_event_duplicates WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id=$3", tenant,generation,duplicateEvent.ID).Scan(&duplicateCount); err != nil { t.Fatal(err) }
+	if duplicateCount != 1 { t.Fatalf("identical logical event must have one duplicate outcome, got %d", duplicateCount) }
+	var conflictCount int
+	if err = pool.QueryRow(ctx, "SELECT count(*) FROM analytics_event_quarantine WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id=$3 AND reason_code='event_id_payload_conflict'", tenant,generation,conflictingEvent.ID).Scan(&conflictCount); err != nil { t.Fatal(err) }
+	if conflictCount != 1 { t.Fatalf("conflicting payload for same event ID must quarantine, got %d", conflictCount) }
 
 	var occurredAt, ingestedAt time.Time
 	var late, included bool
