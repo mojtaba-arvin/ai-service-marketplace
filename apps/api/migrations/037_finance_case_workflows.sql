@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS payment_operation_order_bindings (
     created_at timestamptz NOT NULL DEFAULT now(),
     FOREIGN KEY(order_id,tenant_id) REFERENCES orders(id,tenant_id) ON DELETE RESTRICT,
     FOREIGN KEY(operation_id,tenant_id,order_id) REFERENCES payment_operations(id,tenant_id,order_id)
-        ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED
+        ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+    FOREIGN KEY(operation_id,journal_id) REFERENCES payment_ledger_links(operation_id,journal_id) ON DELETE RESTRICT
 );
 CREATE INDEX IF NOT EXISTS payment_operation_order_bindings_tenant_idx
     ON payment_operation_order_bindings(tenant_id,order_id,created_at);
@@ -105,6 +106,7 @@ CREATE TABLE IF NOT EXISTS finance_cases (
     UNIQUE(id,tenant_id),
     FOREIGN KEY(order_id,tenant_id) REFERENCES orders(id,tenant_id) ON DELETE RESTRICT,
     FOREIGN KEY(source_payment_operation_id,tenant_id,order_id) REFERENCES payment_operations(id,tenant_id,order_id) ON DELETE RESTRICT,
+    FOREIGN KEY(source_payment_operation_id,source_journal_id) REFERENCES payment_ledger_links(operation_id,journal_id) ON DELETE RESTRICT,
     FOREIGN KEY(reversal_of_case_id,tenant_id) REFERENCES finance_cases(id,tenant_id) ON DELETE RESTRICT,
     CHECK ((case_type='payout_reversal' AND reversal_of_case_id IS NOT NULL) OR
            (case_type<>'payout_reversal' AND reversal_of_case_id IS NULL)),
