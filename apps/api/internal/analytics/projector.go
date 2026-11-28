@@ -151,14 +151,26 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
 	if err!=nil { return err }
 	if tag.RowsAffected()==0 {
 		var existingHash string
-		lookupErr:=tx.QueryRow(ctx,`SELECT payload_sha256 FROM analytics_event_facts WHERE tenant_id=$1 AND generation_id=$2 AND event_id=$3`,
-			domain.TenantID,p.GenerationID,domain.ID).Scan(&existingHash)
+		var canonicalOutboxID int64
+		lookupErr:=tx.QueryRow(ctx,`SELECT payload_sha256,outbox_event_id FROM analytics_event_facts
+			WHERE tenant_id=$1 AND generation_id=$2 AND event_id=$3`,
+			domain.TenantID,p.GenerationID,domain.ID).Scan(&existingHash,&canonicalOutboxID)
 		if errors.Is(lookupErr,pgx.ErrNoRows) {
 			return p.quarantine(ctx,tx,event,"event_identity_conflict")
 		}
 		if lookupErr!=nil { return lookupErr }
 		if existingHash!=digestHex {
 			return p.quarantine(ctx,tx,event,"event_id_payload_conflict")
+		}
+		if canonicalOutboxID!=event.ID {
+			_,err=tx.Exec(ctx,`INSERT INTO analytics_event_duplicates
+				(tenant_id,generation_id,outbox_event_id,canonical_outbox_event_id,event_id,event_version,
+				 occurred_at,ingested_at,market_code,event_time_family,payload_sha256)
+				VALUES($1,$2,$3,$4,$5,$6,$7,$8,NULLIF($9,''),$10,$11)
+				ON CONFLICT(tenant_id,generation_id,outbox_event_id) DO NOTHING`,
+				domain.TenantID,p.GenerationID,event.ID,canonicalOutboxID,domain.ID,domain.Version,
+				domain.OccurredAt.UTC(),ingestedAt.UTC(),marketCode,policy.MetricFamily,digestHex)
+			if err!=nil { return err }
 		}
 	}
 	return nil
