@@ -25,8 +25,9 @@ type EventTimeClassification struct {
 }
 
 // EventTimePolicyFor maps supported canonical producer families to an explicit
-// lateness policy. The 72-hour value is a configurable starting policy, not a
-// retention, legal, contractual, or financial-close rule.
+// lateness policy. The 72-hour value applies only to order-funnel and provider
+// supply; it is not a retention, legal, contractual, quality-maturity, or
+// financial-close rule.
 func EventTimePolicyFor(eventType string) (EventTimePolicy, bool) {
 	family := ""
 	switch {
