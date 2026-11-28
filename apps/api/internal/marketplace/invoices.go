@@ -81,6 +81,7 @@ type InvoiceTaxComponent struct {
 	ApprovalReference string    `json:"approval_reference"`
 	ApprovedAt        time.Time `json:"approved_at"`
 	TaxMinor          int64     `json:"tax_minor"`
+	CalculatedAt      time.Time `json:"calculated_at"`
 }
 
 type InvoiceLineInput struct {
@@ -257,7 +258,7 @@ func calculateInvoiceTax(input InvoiceTaxInput, rule InvoiceTaxRule) (InvoiceTax
 		RateDenominator: rule.RateDenominator, RoundingMode: rule.RoundingMode,
 		EffectiveFrom: rule.EffectiveFrom, EffectiveUntil: cloneInvoiceTime(rule.EffectiveUntil),
 		ApprovedBy: rule.ApprovedBy, ApprovalReference: rule.ApprovalReference,
-		ApprovedAt: rule.ApprovedAt, TaxMinor: tax.Int64(),
+		ApprovedAt: rule.ApprovedAt, TaxMinor: tax.Int64(), CalculatedAt: input.CalculatedAt.UTC(),
 	}, nil
 }
 
