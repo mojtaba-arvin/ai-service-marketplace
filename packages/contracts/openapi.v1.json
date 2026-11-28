@@ -5112,7 +5112,8 @@
           "quarantined_events",
           "ingestion_backlog_status",
           "source_coverage_status",
-          "missing_ingestion_timestamps"
+          "missing_ingestion_timestamps",
+          "duplicate_reorder_conflicts"
         ],
         "properties": {
           "window_from": {
@@ -5259,6 +5260,12 @@
             "format": "int64",
             "minimum": 0,
             "description": "Facts with no recoverable persisted outbox ingestion timestamp; these prevent event-time completeness."
+          },
+          "duplicate_reorder_conflicts": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Identical event IDs whose lower outbox ID arrived after a higher-ID canonical fact; requires deterministic correction replay."
           }
         }
       },
