@@ -31,6 +31,7 @@ type Summary struct {
     LateEventsIncluded int64 `json:"late_events_included"`
     QuarantinedEvents int64 `json:"quarantined_events"`
     MissingIngestionTimestamps int64 `json:"missing_ingestion_timestamps"`
+    DuplicateReorderConflicts int64 `json:"duplicate_reorder_conflicts"`
     IngestionBacklogStatus string `json:"ingestion_backlog_status"`
     SourceCoverageStatus string `json:"source_coverage_status"`
     ExcludedEvents int64 `json:"excluded_events"`
@@ -143,12 +144,15 @@ SELECT
        WHERE q.tenant_id=$1 AND (q.occurred_at IS NULL OR (q.occurred_at >= $2 AND q.occurred_at < $3))
          AND ($4='' OR q.market_code=$4 OR q.market_code IS NULL)),
     (SELECT count(*) FROM active_analytics_event_facts WHERE tenant_id=$1 AND occurred_at >= $2 AND occurred_at < $3 AND ingested_at IS NULL),
+    (SELECT count(*) FROM analytics_event_duplicates d JOIN active_generation ag ON ag.tenant_id=d.tenant_id AND ag.generation_id=d.generation_id
+       WHERE d.tenant_id=$1 AND d.outbox_event_id < d.canonical_outbox_event_id
+         AND d.occurred_at >= $2 AND d.occurred_at < $3 AND ($4='' OR d.market_code=$4 OR d.market_code IS NULL)),
     clock_timestamp() - ($5 * interval '1 second')
 `,tenantID,from,to,filter.MarketCode,latenessSeconds).Scan(
         &result.OrdersCreated,&result.OffersCreated,&result.OffersAccepted,
         &result.OrdersCancelled,&result.OrdersCompleted,
         &result.MedianAssignmentSeconds,&result.P90AssignmentSeconds,
-        &result.EligibleEvents,&result.ExcludedEvents,&result.PendingEvents,&result.LateEvents,&result.LateEventsIncluded,&result.QuarantinedEvents,&result.MissingIngestionTimestamps,&result.EventTimeWatermark)
+        &result.EligibleEvents,&result.ExcludedEvents,&result.PendingEvents,&result.LateEvents,&result.LateEventsIncluded,&result.QuarantinedEvents,&result.MissingIngestionTimestamps,&result.DuplicateReorderConflicts,&result.EventTimeWatermark)
     if err!=nil { return Summary{},err }
     result.DataReady=result.EligibleEvents>0 && result.PendingEvents==0
     result.AllowedLatenessSeconds=latenessSeconds
@@ -158,6 +162,8 @@ SELECT
         result.EventTimeCompleteness="incomplete"
     case result.QuarantinedEvents>0 || result.MissingIngestionTimestamps>0:
         result.EventTimeCompleteness="incomplete"
+    case result.DuplicateReorderConflicts>0:
+        result.EventTimeCompleteness="correction_required"
     case result.LateEvents>result.LateEventsIncluded:
         result.EventTimeCompleteness="correction_required"
     case result.ExcludedEvents>0:
