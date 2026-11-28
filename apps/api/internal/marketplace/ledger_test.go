@@ -203,3 +203,91 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 	}
 
 }
+
+
+// TestLedgerConcurrencyConflictingPayloadAndCommitFailurePostgres exercises
+// the two failure windows that cannot be covered by sequential replay tests:
+// a same-key payload race and a deferred PostgreSQL failure at COMMIT.
+func TestLedgerConcurrencyConflictingPayloadAndCommitFailurePostgres(t *testing.T) {
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" { t.Skip("TEST_DATABASE_URL is not configured") }
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil { t.Fatal(err) }
+	defer pool.Close()
+	for _, name := range []string{"001_walking_skeleton.sql", "009_ledger_accounts.sql", "010_ledger_idempotency_reversal.sql"} {
+		migration, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
+		if readErr != nil { t.Fatal(readErr) }
+		if _, err = execMigrationScript(ctx, pool, migration); err != nil { t.Fatalf("apply %s: %v", name, err) }
+	}
+	store := &Store{DB: pool}
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	debit, err := store.CreateLedgerAccount(ctx, "race_debit_"+suffix, "OMR", "debit")
+	if err != nil { t.Fatal(err) }
+	credit, err := store.CreateLedgerAccount(ctx, "race_credit_"+suffix, "OMR", "credit")
+	if err != nil { t.Fatal(err) }
+
+	key := "ledger-conflicting-race-" + suffix
+	payloads := [][]JournalLine{
+		{{AccountCode: debit.Code, Side: "debit", AmountMinor: 700, Currency: "OMR"}, {AccountCode: credit.Code, Side: "credit", AmountMinor: 700, Currency: "OMR"}},
+		{{AccountCode: debit.Code, Side: "debit", AmountMinor: 900, Currency: "OMR"}, {AccountCode: credit.Code, Side: "credit", AmountMinor: 900, Currency: "OMR"}},
+	}
+	start := make(chan struct{})
+	type result struct { journal LedgerJournal; err error }
+	results := make(chan result, len(payloads))
+	var wg sync.WaitGroup
+	for i := range payloads {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			journal, postErr := store.PostJournal(ctx, key, "OMR", "Conflicting concurrent request", payloads[i])
+			results <- result{journal: journal, err: postErr}
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	successes, conflicts := 0, 0
+	var winningID string
+	for r := range results {
+		if r.err == nil { successes++; winningID = r.journal.ID
+		} else if errors.Is(r.err, ErrLedgerIdempotencyConflict) { conflicts++
+		} else { t.Fatalf("unexpected same-key race result: %v", r.err) }
+	}
+	if successes != 1 || conflicts != 1 { t.Fatalf("same key with different payloads must have one winner and one conflict: success=%d conflicts=%d", successes, conflicts) }
+	var journalCount, entryCount int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM ledger_journals WHERE idempotency_key=$1`, key).Scan(&journalCount); err != nil { t.Fatal(err) }
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM ledger_entries WHERE journal_id=$1`, winningID).Scan(&entryCount); err != nil { t.Fatal(err) }
+	if journalCount != 1 || entryCount != 2 { t.Fatalf("conflicting race left partial/duplicate postings: journals=%d entries=%d", journalCount, entryCount) }
+	var debitTotal, creditTotal int64
+	if err = pool.QueryRow(ctx, `SELECT COALESCE(sum(amount_minor) FILTER (WHERE side='debit'),0), COALESCE(sum(amount_minor) FILTER (WHERE side='credit'),0) FROM ledger_entries WHERE journal_id=$1`, winningID).Scan(&debitTotal, &creditTotal); err != nil { t.Fatal(err) }
+	if debitTotal == 0 || debitTotal != creditTotal { t.Fatalf("winning journal is not balanced: debit=%d credit=%d", debitTotal, creditTotal) }
+
+	// A deferred constraint trigger fails only when COMMIT is attempted. This
+	// proves a commit-time error cannot leave a journal or any of its entries.
+	_, err = pool.Exec(ctx, `
+		CREATE OR REPLACE FUNCTION test_ledger_commit_failure_326() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN
+			IF NEW.idempotency_key LIKE 'commit-fail-326-%' THEN
+				RAISE EXCEPTION 'injected deferred commit failure';
+			END IF;
+			RETURN NEW;
+		END $$;
+		DROP TRIGGER IF EXISTS test_ledger_commit_failure_326 ON ledger_journals;
+		CREATE CONSTRAINT TRIGGER test_ledger_commit_failure_326
+		AFTER INSERT ON ledger_journals DEFERRABLE INITIALLY DEFERRED
+		FOR EACH ROW EXECUTE FUNCTION test_ledger_commit_failure_326();
+	`)
+	if err != nil { t.Fatalf("install deferred commit failure: %v", err) }
+	defer func() {
+		_, _ = pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS test_ledger_commit_failure_326 ON ledger_journals; DROP FUNCTION IF EXISTS test_ledger_commit_failure_326()`)
+	}()
+	failedKey := "commit-fail-326-" + suffix
+	if _, err = store.PostJournal(ctx, failedKey, "OMR", "Commit failure injection", payloads[0]); err == nil {
+		t.Fatal("deferred database failure must be returned from COMMIT")
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM ledger_journals WHERE idempotency_key=$1`, failedKey).Scan(&journalCount); err != nil { t.Fatal(err) }
+	if journalCount != 0 { t.Fatalf("commit failure persisted %d journal(s)", journalCount) }
+}
