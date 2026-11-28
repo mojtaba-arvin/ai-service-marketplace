@@ -129,9 +129,9 @@ SELECT
     COALESCE((SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY seconds) FROM assignment_durations),0),
     COALESCE((SELECT percentile_cont(0.9) WITHIN GROUP (ORDER BY seconds) FROM assignment_durations),0),
     (SELECT count(*) FROM active_analytics_event_facts WHERE tenant_id=$1 AND occurred_at >= $2 AND occurred_at < $3
-       AND traffic_class='production' AND market_code IS NOT NULL AND included_in_metrics=true AND ($4='' OR market_code=$4)),
+       AND event_time_family='order_funnel' AND traffic_class='production' AND market_code IS NOT NULL AND included_in_metrics=true AND ($4='' OR market_code=$4)),
     (SELECT count(*) FROM active_analytics_event_facts WHERE tenant_id=$1 AND occurred_at >= $2 AND occurred_at < $3
-       AND (traffic_class IS DISTINCT FROM 'production' OR market_code IS NULL)
+       AND event_time_family='order_funnel' AND (traffic_class IS DISTINCT FROM 'production' OR market_code IS NULL)
        AND ($4='' OR market_code=$4 OR market_code IS NULL)),
     (SELECT count(*) FROM outbox_events e JOIN active_generation ag ON ag.tenant_id=$1
        WHERE e.payload->>'tenant_id'=$1
@@ -141,11 +141,12 @@ SELECT
     (SELECT count(*) FROM active_analytics_event_facts WHERE tenant_id=$1 AND occurred_at >= $2 AND occurred_at < $3
        AND event_time_family='order_funnel' AND late_arrival=true AND included_in_metrics=true AND ($4='' OR market_code=$4 OR market_code IS NULL)),
     (SELECT count(*) FROM analytics_event_quarantine q JOIN active_generation ag ON ag.tenant_id=q.tenant_id AND ag.generation_id=q.generation_id
-       WHERE q.tenant_id=$1 AND (q.occurred_at IS NULL OR (q.occurred_at >= $2 AND q.occurred_at < $3))
+       WHERE q.tenant_id=$1 AND (q.event_time_family='order_funnel' OR q.event_time_family IS NULL)
+         AND (q.occurred_at IS NULL OR (q.occurred_at >= $2 AND q.occurred_at < $3))
          AND ($4='' OR q.market_code=$4 OR q.market_code IS NULL)),
-    (SELECT count(*) FROM active_analytics_event_facts WHERE tenant_id=$1 AND occurred_at >= $2 AND occurred_at < $3 AND ingested_at IS NULL AND ($4='' OR market_code=$4 OR market_code IS NULL)),
+    (SELECT count(*) FROM active_analytics_event_facts WHERE tenant_id=$1 AND event_time_family='order_funnel' AND occurred_at >= $2 AND occurred_at < $3 AND ingested_at IS NULL AND ($4='' OR market_code=$4 OR market_code IS NULL)),
     (SELECT count(*) FROM analytics_event_duplicates d JOIN active_generation ag ON ag.tenant_id=d.tenant_id AND ag.generation_id=d.generation_id
-       WHERE d.tenant_id=$1 AND d.outbox_event_id < d.canonical_outbox_event_id
+       WHERE d.tenant_id=$1 AND d.event_time_family='order_funnel' AND d.outbox_event_id < d.canonical_outbox_event_id
          AND d.occurred_at >= $2 AND d.occurred_at < $3 AND ($4='' OR d.market_code=$4 OR d.market_code IS NULL)),
     clock_timestamp() - ($5 * interval '1 second')
 `,tenantID,from,to,filter.MarketCode,latenessSeconds).Scan(
