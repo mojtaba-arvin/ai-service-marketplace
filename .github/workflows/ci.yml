@@ -230,7 +230,7 @@ jobs:
           tags: ai-service-marketplace-api:ci
           load: true
           cache-from: type=gha,scope=api-image
-          cache-to: type=gha,scope=api-image,mode=max
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=api-image,mode=max' || '' }}
       - name: Build production Web image
         if: needs.changes.outputs.web_image == 'true'
         uses: docker/build-push-action@v6
@@ -240,7 +240,7 @@ jobs:
           tags: ai-service-marketplace-web:ci
           load: true
           cache-from: type=gha,scope=web-image
-          cache-to: type=gha,scope=web-image,mode=max
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=web-image,mode=max' || '' }}
 
   verify:
     name: verify
