@@ -1,6 +1,6 @@
 # TRUST-002 Private Evidence — Maintainer Verification Matrix
 
-**Scope:** Issue #217 and the private-evidence implementation proposed in PR #219.  
+**Scope:** Issue #217, PR #249 and the retryable deletion lifecycle in Issue #318.  
 **Purpose:** Give the project maintainer a reproducible, evidence-oriented verification plan. This document is a test plan, not a claim that any scenario has passed.
 
 ## Preconditions
@@ -35,8 +35,16 @@
 | EVD-18 | Restore database, encrypted evidence volume and key ring together | Restored evidence decrypts and authorization/audit metadata remains consistent; record restore duration and observed data loss |
 | EVD-19 | Restore without the matching key ring | Retrieval fails closed; document the unrecoverable-data consequence and recovery procedure |
 | EVD-20 | Inspect logs, metrics and error responses | No evidence bytes, original filenames, storage paths, encryption keys or credentials leak |
+| EVD-21 | Expiry worker claims eligible evidence | Only explicit due expiry with no legal hold is claimed under row lock; null expiry remains active |
+| EVD-22 | Storage deletion fails or process crashes after claim | Metadata remains `deletion_pending`; sanitized failure audit and attempt count persist; a later run retries |
+| EVD-23 | Storage deletion succeeds before DB finalization, then worker crashes | Retry sees the absent object and finalizes the permanent tombstone idempotently |
+| EVD-24 | Object is already missing when eligible expiry is processed | Missing object is treated as confirmed absence; tombstone and success audit are committed |
+| EVD-25 | Two workers race for the same eligible row | `SKIP LOCKED` plus claim lease/token permits one active claimant; stale workers cannot finalize another claim |
+| EVD-26 | Manager changes hold/expiry while worker claims | Both serialize on the evidence row; hold/edit is accepted only while active; pending/deleted rows cannot be changed |
+| EVD-27 | Reviewer, support-only, ungranted or cross-tenant actor attempts deletion | No user deletion endpoint exists; only the isolated worker acts on policy-eligible rows, and manager API remains separately authorized |
+| EVD-28 | Reconcile a pending row whose object is absent | Reconciliation appends an audit event and finalizes only the pending tombstone; active rows are never silently removed |
 
-## Required evidence bundle
+## Deletion worker operation\n\nRun `apps/api/cmd/evidence-retention-worker` as a separately deployed process with the same private evidence volume/key ring and database. `EVIDENCE_RETENTION_POLL_SECONDS`, `EVIDENCE_RETENTION_BATCH_SIZE` and `EVIDENCE_RETENTION_LEASE_SECONDS` are bounded operational controls, not retention policy. The worker selects only `retention_expires_at IS NOT NULL AND retention_expires_at <= now()` with `legal_hold=false`, plus retryable pending rows. It never infers an expiry. A storage error leaves a retryable pending tombstone and records only a fixed failure category; raw provider errors are not persisted. A missing object is treated as already absent.\n\nThe reconciliation method finalizes only pending rows whose object is absent. It does not enumerate or purge arbitrary object-store orphans; adapters without a trusted inventory API cannot prove orphan absence. Backup expiry is never performed by this worker.\n\n## Required evidence bundle
 
 1. Exact Git commit SHA and immutable API/Web image digests.
 2. Sanitized test run with scenario IDs, timestamps and pass/fail outcomes.
@@ -50,7 +58,7 @@
 
 - The project maintainer records the exact commit, environment and reproducible scenario outcomes; a separate independent QA operator is not required.
 - A green CI run is necessary but does not satisfy this matrix or set `feature_list.json` `passes: true`.
-- EVD-17's management/API portion can be verified against PR #249; the deletion and backup-expiry portions remain blocked until an explicitly configured, audited, retryable deletion workflow and backup coordination are implemented and tested.
+- PR #249 provides manager authorization and audited policy updates. Issue #318 adds retryable live-object deletion and pending/deleted tombstones. Backup expiry, key re-encryption and coordinated restore remain adopter-operated procedures and require a separate rehearsal; no live-object deletion is proof of backup erasure.
 - TRUST-002 remains open until all required implementation, exact-head checks and maintainer acceptance evidence are complete.
 - Do not use real customer data or production evidence in this test plan.
 
