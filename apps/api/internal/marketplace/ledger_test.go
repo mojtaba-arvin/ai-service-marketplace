@@ -253,14 +253,18 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 
 	// A shared idempotency key used concurrently for different originals must
 	// return one result and a typed payload conflict, not a raw unique violation.
-	secondOriginal, err := store.PostJournal(ctx, "ledger-reversal-shared-key-second-"+suffix, "OMR", "Second reversal original", reversalLines)
+	firstSharedOriginal, err := store.PostJournal(ctx, "ledger-reversal-shared-key-first-"+suffix, "OMR", "First shared-key reversal original", reversalLines)
+	if err != nil {
+		t.Fatalf("post first original for shared-key reversal race: %v", err)
+	}
+	secondOriginal, err := store.PostJournal(ctx, "ledger-reversal-shared-key-second-"+suffix, "OMR", "Second shared-key reversal original", reversalLines)
 	if err != nil {
 		t.Fatalf("post second original for shared-key reversal race: %v", err)
 	}
 	sharedReversalKey := "ledger-reversal-shared-key-" + suffix
 	sharedStart := make(chan struct{})
 	sharedResults := make(chan error, 2)
-	for _, originalID := range []string{reversalRaceOriginal.ID, secondOriginal.ID} {
+	for _, originalID := range []string{firstSharedOriginal.ID, secondOriginal.ID} {
 		reversalWG.Add(1)
 		go func(originalID string) {
 			defer reversalWG.Done()
