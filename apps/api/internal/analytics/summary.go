@@ -164,7 +164,7 @@ SELECT
         result.EventTimeCompleteness="incomplete"
     case result.EligibleEvents==0:
         result.EventTimeCompleteness="unavailable"
-    case result.WindowTo.After(result.EventTimeWatermark):
+    case !IsPeriodMature(result.WindowTo,result.EventTimeWatermark):
         result.EventTimeCompleteness="immature"
     case result.LateEvents>0:
         result.EventTimeCompleteness="corrected"
