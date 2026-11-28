@@ -82,7 +82,7 @@ CI is authoritative for required repository checks. Report commands actually run
 - Include tests for success, validation, authorization and failure paths; add concurrency tests when state can race.
 - Document migration and rollback behavior.
 - Explain security/privacy impact and known limitations.
-- Do not self-attest feature acceptance. The project maintainer may set `passes` and `verified_by` after reviewing implementation, tests, and exact-head CI/security evidence; no separate independent QA operator is required.
+- Do not mark feature acceptance from unsupported self-attestation or PR merge alone. An authorized maintainer, including the implementation author, may set `passes` and `verified_by` after reviewing implementation, relevant tests/evaluations, exact-head CI/security evidence and limitations; no separate independent QA operator is required.
 
 ## Review process
 
