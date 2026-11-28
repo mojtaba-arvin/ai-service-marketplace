@@ -6,10 +6,10 @@ import (
  "fmt"
  "os"
  "path/filepath"
-
- "github.com/jackc/pgx/v5/pgxpool"
  "testing"
  "time"
+
+ "github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestRetryDelayIsCappedAndMonotonic(t *testing.T) {
