@@ -36,7 +36,7 @@ By default, events older than the metric family's 72-hour allowed-lateness bound
 
 After successful cutover, restart the live analytics worker with the same tenant and the new generation ID. It polls all unprocessed events without a monotonic cursor, so commits that become visible after the rebuild's final scan are picked up during live catch-up. Keep the previous generation as a rollback target; do not delete it as part of routine rebuild.
 
-The rebuild is bounded per query (100 rows) but is a full-history operation and may run for a long time. Run one rebuild per tenant at a time and monitor database load. A nonzero quarantine count is visible and included in validation; it does not mean those events contribute to metrics. The command does not claim event-time finality or financial close.
+The rebuild is bounded per query (100 rows) but is a full-history operation and may run for a long time. Run one rebuild per tenant at a time and monitor database load. A nonzero quarantine count is visible and included in validation; it does not mean those events contribute to metrics. The command applies the shared event-time correction policy and preserves prior generations; it does not certify financial close, legal retention, or contractual completion.
 
 
 ### Running rebuild and rollback with production Compose
