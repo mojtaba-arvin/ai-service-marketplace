@@ -47,10 +47,10 @@ func (s *Store) BindPaymentOperationToOrder(ctx context.Context, actor Actor, op
 		if tenantID == nil || existingOrder == nil || *tenantID != actor.TenantID || *existingOrder != orderID {
 			return false,ErrFinanceCaseConflict
 		}
-		var boundJournal string
-		err = tx.QueryRow(ctx,`SELECT journal_id FROM payment_operation_order_bindings WHERE operation_id=$1`,
-			operationID).Scan(&boundJournal)
-		if err != nil || boundJournal != journalID { return false,ErrFinanceCaseConflict }
+		var boundJournal,boundReason string
+		err = tx.QueryRow(ctx,`SELECT journal_id,reason FROM payment_operation_order_bindings WHERE operation_id=$1`,
+			operationID).Scan(&boundJournal,&boundReason)
+		if err != nil || boundJournal != journalID || boundReason != reason { return false,ErrFinanceCaseConflict }
 		if err = tx.Commit(ctx); err != nil { return false,err }
 		return false,nil
 	}
