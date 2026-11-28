@@ -298,7 +298,7 @@ func uniqueInvoiceReferences(values []string, required bool) ([]string, error) {
 	seen := make(map[string]bool, len(result))
 	for _, value := range result {
 		value = strings.TrimSpace(value)
-		if value == "" || len(value) > 200 || seen[value] { return nil, ErrInvoiceSourceMismatch }
+		if value == "" || value != strings.TrimSpace(value) || len(value) > 200 || seen[value] { return nil, ErrInvoiceSourceMismatch }
 		seen[value] = true
 	}
 	return result, nil
@@ -310,7 +310,7 @@ func buildInvoiceLines(inputs []InvoiceLineInput, currency string) ([]InvoiceLin
 	var subtotal int64
 	lastPosition := -1
 	for _, input := range inputs {
-		if strings.TrimSpace(input.SourceLineID) == "" || strings.TrimSpace(input.Description) == "" ||
+		if strings.TrimSpace(input.SourceLineID) == "" || input.SourceLineID != strings.TrimSpace(input.SourceLineID) || strings.TrimSpace(input.Description) == "" ||
 			input.Quantity <= 0 || input.UnitMinor <= 0 || input.Position <= lastPosition ||
 			input.Currency != currency {
 			return nil, 0, ErrInvoiceInvalid
@@ -342,7 +342,7 @@ func invoiceRequestHash(record InvoiceRecord) (string, error) {
 // enforced by the owning transactional Store boundary before this is called.
 func BuildInvoiceRecord(input InvoiceBuildInput) (InvoiceRecord, error) {
 	currency, err := normalizeInvoiceCurrency(input.Source.OrderCurrency)
-	if err != nil || input.ID == "" || strings.TrimSpace(input.IdempotencyKey) == "" ||
+	if err != nil || input.ID == "" || input.ID != strings.TrimSpace(input.ID) || strings.TrimSpace(input.IdempotencyKey) == "" || input.IdempotencyKey != strings.TrimSpace(input.IdempotencyKey) ||
 		len(input.IdempotencyKey) > 200 || input.Version < 1 || input.IssuedAt.IsZero() ||
 		strings.TrimSpace(input.IssuerReference) == "" || strings.TrimSpace(input.Source.TenantID) == "" ||
 		strings.TrimSpace(input.Source.CustomerReference) == "" || strings.TrimSpace(input.Source.OrderID) == "" ||
@@ -375,7 +375,8 @@ func BuildInvoiceRecord(input InvoiceBuildInput) (InvoiceRecord, error) {
 	if err != nil { return InvoiceRecord{}, err }
 	if subtotal > math.MaxInt64-taxTotal { return InvoiceRecord{}, ErrInvoiceTaxOverflow }
 	if (input.CorrectionOfID == "") != (input.CorrectionReason == "") ||
-		(input.CorrectionOfID != "" && input.CorrectionOfID == input.ID) ||
+		(input.CorrectionOfID != "" && (input.CorrectionOfID == input.ID || input.CorrectionOfID != strings.TrimSpace(input.CorrectionOfID))) ||
+		(len(input.CorrectionReason) > 500 || (input.CorrectionReason != "" && input.CorrectionReason != strings.TrimSpace(input.CorrectionReason))) ||
 		(input.FinancialCorrection && (input.CorrectionOfID == "" || len(input.CompensatingJournalIDs) == 0)) {
 		return InvoiceRecord{}, ErrInvoiceInvalid
 	}
