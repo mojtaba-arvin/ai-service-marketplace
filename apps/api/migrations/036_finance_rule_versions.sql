@@ -14,34 +14,29 @@ CREATE TABLE IF NOT EXISTS finance_rule_versions (
     priority integer NOT NULL DEFAULT 0,
     minimum_minor bigint CHECK (minimum_minor >= 0),
     maximum_minor bigint CHECK (maximum_minor >= 0),
-    lifecycle text NOT NULL CHECK (lifecycle IN ('draft','preview','approved','scheduled','active','retired')),
     provenance text NOT NULL CHECK (length(btrim(provenance)) BETWEEN 1 AND 1000),
     created_by_identity_id text NOT NULL REFERENCES phone_identities(id) ON DELETE RESTRICT,
     created_at timestamptz NOT NULL DEFAULT now(),
-    approved_by_identity_id text REFERENCES phone_identities(id) ON DELETE RESTRICT,
-    approval_reason text NOT NULL DEFAULT '',
-    approved_at timestamptz,
     CHECK (effective_until IS NULL OR effective_until > effective_from),
     CHECK (maximum_minor IS NULL OR minimum_minor IS NULL OR maximum_minor >= minimum_minor),
-    CHECK ((lifecycle IN ('approved','scheduled','active','retired') AND approved_by_identity_id IS NOT NULL AND approved_at IS NOT NULL AND length(btrim(approval_reason)) > 0)
-        OR (lifecycle IN ('draft','preview') AND approved_by_identity_id IS NULL AND approved_at IS NULL AND approval_reason='')),
-    UNIQUE(market_code,currency,rule_kind,id,version_no)
+    CHECK (calculation_basis <> 'percentage' OR rate_minor_or_bps <= 10000),
+    UNIQUE(market_code,currency,rule_kind,version_no)
 );
 CREATE INDEX IF NOT EXISTS finance_rule_resolution_idx
- ON finance_rule_versions(market_code,currency,rule_kind,lifecycle,effective_from,effective_until,priority DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS finance_rule_version_number_idx
- ON finance_rule_versions(market_code,currency,rule_kind,version_no);
+ ON finance_rule_versions(market_code,currency,rule_kind,effective_from,effective_until,priority DESC);
 
--- A rule's definition and approval evidence are immutable. Lifecycle transitions
--- are append-only events; no UPDATE can rewrite an approved historical version.
+-- State is a projection of this append-only event stream, never a mutable field
+-- on the immutable rule definition. The first event must be draft.
 CREATE TABLE IF NOT EXISTS finance_rule_lifecycle_events (
     id bigserial PRIMARY KEY,
     rule_id text NOT NULL REFERENCES finance_rule_versions(id) ON DELETE RESTRICT,
     from_state text,
     to_state text NOT NULL CHECK (to_state IN ('draft','preview','approved','scheduled','active','retired')),
     actor_identity_id text NOT NULL REFERENCES phone_identities(id) ON DELETE RESTRICT,
+    approval_reference text NOT NULL DEFAULT '',
     reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 1 AND 1000),
-    created_at timestamptz NOT NULL DEFAULT now()
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CHECK ((to_state='approved' AND length(btrim(approval_reference))>0) OR to_state<>'approved')
 );
 CREATE INDEX IF NOT EXISTS finance_rule_lifecycle_events_rule_idx
  ON finance_rule_lifecycle_events(rule_id,created_at,id);
@@ -60,17 +55,32 @@ CREATE TABLE IF NOT EXISTS finance_rule_applications (
     source_id text NOT NULL CHECK (length(btrim(source_id)) BETWEEN 1 AND 200),
     result_minor bigint NOT NULL CHECK (result_minor >= 0),
     result_kind text NOT NULL CHECK (result_kind IN ('commission','reward','credit')),
-    entitlement_state text CHECK (entitlement_state IN ('available','partially_redeemed','redeemed','expired','reversed')),
     ledger_journal_id text REFERENCES ledger_journals(id) ON DELETE RESTRICT,
     actor_identity_id text NOT NULL REFERENCES phone_identities(id) ON DELETE RESTRICT,
     reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 1 AND 1000),
+    reversal_of_application_id text REFERENCES finance_rule_applications(id) ON DELETE RESTRICT,
     created_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE(source_kind,source_id,rule_id,rule_version),
-    CHECK ((result_kind IN ('reward','credit') AND entitlement_state IS NOT NULL)
-        OR (result_kind='commission' AND entitlement_state IS NULL))
+    CHECK (reversal_of_application_id IS NULL OR reversal_of_application_id <> id)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS finance_rule_application_one_reversal_idx
+ ON finance_rule_applications(reversal_of_application_id) WHERE reversal_of_application_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS finance_rule_applications_source_idx
  ON finance_rule_applications(market_code,source_kind,source_id,created_at);
+
+-- Reward and credit value is a non-cash entitlement. Its state changes only
+-- through append-only events and cannot be mistaken for a cash ledger balance.
+CREATE TABLE IF NOT EXISTS finance_entitlement_events (
+    id bigserial PRIMARY KEY,
+    application_id text NOT NULL REFERENCES finance_rule_applications(id) ON DELETE RESTRICT,
+    event_type text NOT NULL CHECK (event_type IN ('issued','partially_redeemed','redeemed','expired','reversed')),
+    amount_minor bigint NOT NULL CHECK (amount_minor >= 0),
+    actor_identity_id text NOT NULL REFERENCES phone_identities(id) ON DELETE RESTRICT,
+    reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 1 AND 1000),
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS finance_entitlement_events_application_idx
+ ON finance_entitlement_events(application_id,created_at,id);
 
 CREATE OR REPLACE FUNCTION reject_finance_rule_version_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN RAISE EXCEPTION 'finance rule versions are immutable; publish a new version'; END $$;
@@ -78,14 +88,14 @@ DROP TRIGGER IF EXISTS finance_rule_versions_immutable ON finance_rule_versions;
 CREATE TRIGGER finance_rule_versions_immutable
  BEFORE UPDATE OR DELETE ON finance_rule_versions FOR EACH ROW EXECUTE FUNCTION reject_finance_rule_version_mutation();
 
-CREATE OR REPLACE FUNCTION reject_finance_rule_event_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN RAISE EXCEPTION 'finance rule lifecycle events are append-only'; END $$;
+CREATE OR REPLACE FUNCTION reject_finance_append_only_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN RAISE EXCEPTION 'finance evidence is append-only; add a compensating event'; END $$;
 DROP TRIGGER IF EXISTS finance_rule_lifecycle_events_immutable ON finance_rule_lifecycle_events;
 CREATE TRIGGER finance_rule_lifecycle_events_immutable
- BEFORE UPDATE OR DELETE ON finance_rule_lifecycle_events FOR EACH ROW EXECUTE FUNCTION reject_finance_rule_event_mutation();
-
-CREATE OR REPLACE FUNCTION reject_finance_application_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN RAISE EXCEPTION 'finance rule applications are immutable; use compensating records'; END $$;
+ BEFORE UPDATE OR DELETE ON finance_rule_lifecycle_events FOR EACH ROW EXECUTE FUNCTION reject_finance_append_only_mutation();
 DROP TRIGGER IF EXISTS finance_rule_applications_immutable ON finance_rule_applications;
 CREATE TRIGGER finance_rule_applications_immutable
- BEFORE UPDATE OR DELETE ON finance_rule_applications FOR EACH ROW EXECUTE FUNCTION reject_finance_application_mutation();
+ BEFORE UPDATE OR DELETE ON finance_rule_applications FOR EACH ROW EXECUTE FUNCTION reject_finance_append_only_mutation();
+DROP TRIGGER IF EXISTS finance_entitlement_events_immutable ON finance_entitlement_events;
+CREATE TRIGGER finance_entitlement_events_immutable
+ BEFORE UPDATE OR DELETE ON finance_entitlement_events FOR EACH ROW EXECUTE FUNCTION reject_finance_append_only_mutation();
