@@ -75,3 +75,7 @@ Use the applicable guides in `docs/playbooks/`: endpoint, migration, adapter, sp
 ## Project acceptance policy
 
 There is no separate or independent QA role in this project. Acceptance is performed by the project maintainer using implementation review, automated tests, exact-head required CI/security checks, and recorded evidence. Do not leave completed work blocked waiting for an independent operator, independent QA run, or external sign-off. Do not claim acceptance when required evidence is missing or failing. `feature_list.json` status fields may be updated by the authorized maintainer after this evidence review.
+
+## Commit identity and attribution
+
+Read `COMMIT_IDENTITY.md` before commits. Before review, run its manual PR validator; preserve human contributors and do not rewrite history. Do not modify `.github/**` without owner authorization.
