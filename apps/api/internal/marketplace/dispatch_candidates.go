@@ -125,9 +125,7 @@ func (s *Store) FindDispatchCandidatesForOrder(ctx context.Context, actor Actor,
 	}
 	switch actor.Role {
 	case RoleCustomer:
-		if err := Authorize(actor, Resource{TenantID: actor.TenantID, OwnerID: actor.SubjectID}, ActionOrderRead); err != nil {
-			return nil, err
-		}
+		// Customer ownership is checked against the protected order row below.
 	case RoleOperator:
 		// authorizeOperatorTx below verifies the current membership and persisted
 		// order:assign grant, and holds its shared locks until the protected read
@@ -141,10 +139,12 @@ func (s *Store) FindDispatchCandidatesForOrder(ctx context.Context, actor Actor,
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	if actor.Role == RoleOperator {
-		if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: actor.TenantID}, ActionOrderAssign); err != nil {
+	if actor.Role == RoleCustomer {
+		if err = Authorize(actor, Resource{TenantID: actor.TenantID, OwnerID: actor.SubjectID}, ActionOrderRead); err != nil {
 			return nil, err
 		}
+	} else if err = authorizeOperatorTx(ctx, tx, actor, Resource{TenantID: actor.TenantID}, ActionOrderAssign); err != nil {
+		return nil, err
 	}
 
 	var customerID, country, region, city, area, status string
@@ -180,6 +180,7 @@ func (s *Store) FindDispatchCandidatesForOrder(ctx context.Context, actor Actor,
 		FROM service_price_versions v
 		JOIN service_price_menus m ON m.id=v.menu_id
 		WHERE v.id=$1
+		FOR SHARE OF v,m
 	`, *priceVersionID).Scan(&categoryID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProviderUnavailable
