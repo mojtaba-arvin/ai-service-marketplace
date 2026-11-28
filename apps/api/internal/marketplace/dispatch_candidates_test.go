@@ -99,10 +99,46 @@ func TestDispatchCandidatesRequireAllEligibilityAndAvailabilityGatesPostgres(t *
 		t.Fatalf("failed read must not mutate order state: status=%q err=%v",orderStatus,err)
 	}
 
-	// A concurrent state change is observed by the transaction-bound order read.
-	if _,err=pool.Exec(ctx,`UPDATE orders SET status='accepted' WHERE id=$1`,order.ID); err!=nil { t.Fatal(err) }
-	if _,err=store.FindDispatchCandidatesForOrder(ctx,operator,order.ID,start,end); !errors.Is(err,ErrProviderUnavailable) {
-		t.Fatalf("non-requested order state must deny dispatch: %v",err)
+	// Queue a state transition ahead of the protected read while both contend
+	// on the same order row. The dispatch transaction must observe the committed
+	// non-requested state rather than a stale pre-transition snapshot.
+	stateBlocker,err:=pool.Begin(ctx)
+	if err!=nil { t.Fatal(err) }
+	if err=stateBlocker.QueryRow(ctx,`SELECT id FROM orders WHERE id=$1 FOR UPDATE`,order.ID).Scan(&lockedOrderID); err!=nil {
+		_ = stateBlocker.Rollback(ctx); t.Fatal(err)
+	}
+	stateChangeDone:=make(chan error,1)
+	go func() {
+		_,changeErr:=pool.Exec(ctx,`UPDATE orders SET status='accepted' WHERE id=$1`,order.ID)
+		stateChangeDone<-changeErr
+	}()
+	waitForDBLock:=func(pattern string) {
+		t.Helper()
+		deadline:=time.Now().Add(5*time.Second)
+		for time.Now().Before(deadline) {
+			var waiting bool
+			checkErr:=pool.QueryRow(ctx,`
+				SELECT EXISTS(SELECT 1 FROM pg_stat_activity
+				WHERE datname=current_database() AND pid<>pg_backend_pid()
+				AND wait_event_type='Lock' AND query ILIKE $1)
+			`,pattern).Scan(&waiting)
+			if checkErr!=nil { t.Fatal(checkErr) }
+			if waiting { return }
+			time.Sleep(10*time.Millisecond)
+		}
+		t.Fatalf("timed out waiting for PostgreSQL lock: %s",pattern)
+	}
+	waitForDBLock("%UPDATE orders SET status%")
+	stateDispatchDone:=make(chan error,1)
+	go func() {
+		_,callErr:=store.FindDispatchCandidatesForOrder(ctx,operator,order.ID,start,end)
+		stateDispatchDone<-callErr
+	}()
+	waitForDBLock("%FROM orders%")
+	if err=stateBlocker.Commit(ctx); err!=nil { t.Fatal(err) }
+	if err=<-stateChangeDone; err!=nil { t.Fatal(err) }
+	if err=<-stateDispatchDone; !errors.Is(err,ErrProviderUnavailable) {
+		t.Fatalf("dispatch must observe concurrent accepted state: %v",err)
 	}
 	if _,err=pool.Exec(ctx,`UPDATE orders SET status='requested' WHERE id=$1`,order.ID); err!=nil { t.Fatal(err) }
 
