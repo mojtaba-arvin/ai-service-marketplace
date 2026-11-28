@@ -230,8 +230,6 @@ func (s *Store) CreateFinanceCase(ctx context.Context, actor Actor, in FinanceCa
 	return c,created,nil
 }
 
-func mustNewID() string { id, _ := newID(); return id }
-
 func (c FinanceCase) ReversalOfCaseIDValue() string {
 	if c.ReversalOfCaseID == nil { return "" }
 	return *c.ReversalOfCaseID
@@ -254,12 +252,14 @@ func (s *Store) AcceptFinanceCase(ctx context.Context, actor Actor, caseID, reas
 	if errors.Is(err,pgx.ErrNoRows) { return FinanceCase{},ErrFinanceCaseNotFound }
 	if err != nil { return FinanceCase{},err }
 	if c.Status != FinanceCaseRequested || c.RequestedByIdentityID == actor.SubjectID { return FinanceCase{},ErrFinanceCaseConflict }
+	eventID,idErr := newID()
+	if idErr != nil { return FinanceCase{},idErr }
 	_,err = tx.Exec(ctx,`UPDATE finance_cases SET status='accepted',accepted_by_identity_id=$2,
 		acceptance_reason=$3,updated_at=now() WHERE id=$1`,caseID,actor.SubjectID,reason)
 	if err != nil { return FinanceCase{},err }
 	if _,err = tx.Exec(ctx,`INSERT INTO finance_case_events
 		(id,case_id,tenant_id,event_type,from_status,to_status,actor_identity_id,reason)
-		VALUES($1,$2,$3,'accepted','requested','accepted',$4,$5)`,mustNewID(),caseID,actor.TenantID,actor.SubjectID,reason); err != nil {
+		VALUES($1,$2,$3,'accepted','requested','accepted',$4,$5)`,eventID,caseID,actor.TenantID,actor.SubjectID,reason); err != nil {
 		return FinanceCase{},err
 	}
 	if err = tx.Commit(ctx); err != nil { return FinanceCase{},err }
@@ -397,10 +397,12 @@ func (s *Store) ReconcileFinanceCase(ctx context.Context, actor Actor, caseID, j
 	_,err = tx.Exec(ctx,`UPDATE finance_cases SET status='reconciled',reconciled_journal_id=$2,updated_at=now()
 		WHERE id=$1`,c.ID,journalID)
 	if err != nil { return FinanceCase{},err }
+	eventID,err := newID()
+	if err != nil { return FinanceCase{},err }
 	if _,err = tx.Exec(ctx,`INSERT INTO finance_case_events
 		(id,case_id,tenant_id,event_type,from_status,to_status,actor_identity_id,reason)
 		VALUES($1,$2,$3,'reconciled','provider_confirmed','reconciled',$4,$5)`,
-		mustNewID(),c.ID,c.TenantID,actor.SubjectID,reason); err != nil { return FinanceCase{},err }
+		eventID,c.ID,c.TenantID,actor.SubjectID,reason); err != nil { return FinanceCase{},err }
 	if err = tx.Commit(ctx); err != nil { return FinanceCase{},err }
 	c.Status = FinanceCaseReconciled
 	c.ReconciledJournalID = &journalID
