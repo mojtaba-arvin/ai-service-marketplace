@@ -77,3 +77,31 @@ func TestEventTimeReplayIsDeterministicAndWatermarkUsesIngestionClock(t *testing
 		t.Fatal("period ending after watermark must remain provisional")
 	}
 }
+
+func TestEventTimeCompletenessStateMachine(t *testing.T) {
+	watermark:=time.Date(2026,11,28,0,0,0,0,time.UTC)
+	periodEnd:=watermark
+	cases:=[]struct{
+		name string
+		pending,quarantined,untrusted,duplicateConflicts,late,lateIncluded,excluded,eligible int64
+		end time.Time
+		want string
+	}{
+		{name:"finalized at exact watermark",eligible:4,end:periodEnd,want:"finalized"},
+		{name:"period after watermark",eligible:4,end:periodEnd.Add(time.Nanosecond),want:"immature"},
+		{name:"late arrival requires correction",late:1,eligible:4,end:periodEnd,want:"correction_required"},
+		{name:"explicit late correction",late:1,lateIncluded:1,eligible:4,end:periodEnd,want:"corrected"},
+		{name:"duplicate ordering correction",duplicateConflicts:1,eligible:4,end:periodEnd,want:"correction_required"},
+		{name:"pending ingestion",pending:1,eligible:4,end:periodEnd,want:"incomplete"},
+		{name:"quarantine",quarantined:1,eligible:4,end:periodEnd,want:"incomplete"},
+		{name:"untrusted ingestion timestamp",untrusted:1,eligible:4,end:periodEnd,want:"incomplete"},
+		{name:"excluded source metadata",excluded:1,eligible:4,end:periodEnd,want:"incomplete"},
+		{name:"no accepted cohort",end:periodEnd,want:"unavailable"},
+	}
+	for _,tc:=range cases{
+		t.Run(tc.name,func(t *testing.T){
+			got:=EventTimeCompleteness(tc.end,watermark,tc.pending,tc.quarantined,tc.untrusted,tc.duplicateConflicts,tc.late,tc.lateIncluded,tc.excluded,tc.eligible)
+			if got!=tc.want{t.Fatalf("status=%q want %q",got,tc.want)}
+		})
+	}
+}
