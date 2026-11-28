@@ -49,7 +49,6 @@ var migrationFiles = []string{
 	"031_operator_action_grants.sql",
 	"032_operator_permission_event_integrity.sql",
 	"033_incident_report_intake.sql",
-	"036_analytics_event_time_policy.sql",
 	"034_incident_reviewer_workflow.sql",
 	"035_private_incident_evidence.sql",
 	"036_analytics_event_time_policy.sql",
