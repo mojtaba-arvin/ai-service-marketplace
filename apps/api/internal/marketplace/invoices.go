@@ -330,9 +330,45 @@ func buildInvoiceLines(inputs []InvoiceLineInput, currency string) ([]InvoiceLin
 	return lines, subtotal, nil
 }
 
-func invoiceRequestHash(record InvoiceRecord) (string, error) {
-	record.RequestHash = ""
-	payload, err := json.Marshal(record)
+type invoiceTaxRequestInput struct {
+	MarketID string `json:"market_id"`
+	JurisdictionCode string `json:"jurisdiction_code"`
+	TaxCategory string `json:"tax_category"`
+	ComponentCode string `json:"component_code"`
+	Currency string `json:"currency"`
+	TaxableMinor int64 `json:"taxable_minor"`
+}
+
+type invoiceRequestHashPayload struct {
+	IdempotencyKey string `json:"idempotency_key"`
+	IssuerReference string `json:"issuer_reference"`
+	Source InvoiceSourceSnapshot `json:"source"`
+	TaxInputs []invoiceTaxRequestInput `json:"tax_inputs"`
+	CorrectionOfID string `json:"correction_of_id,omitempty"`
+	CorrectionReason string `json:"correction_reason,omitempty"`
+	FinancialCorrection bool `json:"financial_correction,omitempty"`
+	CompensatingJournalIDs []string `json:"compensating_journal_ids,omitempty"`
+}
+
+// Hash the caller's stable issue request, not server-generated invoice IDs,
+// versions, timestamps, or the currently resolved tax-rule revision. A retry
+// must replay the original record even if market tax configuration has changed.
+func invoiceRequestHash(input InvoiceBuildInput) (string, error) {
+	taxInputs := make([]invoiceTaxRequestInput, 0, len(input.TaxInputs))
+	for _, item := range input.TaxInputs {
+		taxInputs = append(taxInputs, invoiceTaxRequestInput{
+			MarketID: item.MarketID, JurisdictionCode: item.JurisdictionCode,
+			TaxCategory: item.TaxCategory, ComponentCode: item.ComponentCode,
+			Currency: item.Currency, TaxableMinor: item.TaxableMinor,
+		})
+	}
+	sort.Slice(taxInputs, func(i, j int) bool { return taxInputs[i].ComponentCode < taxInputs[j].ComponentCode })
+	payload, err := json.Marshal(invoiceRequestHashPayload{
+		IdempotencyKey: input.IdempotencyKey, IssuerReference: input.IssuerReference,
+		Source: input.Source, TaxInputs: taxInputs, CorrectionOfID: input.CorrectionOfID,
+		CorrectionReason: input.CorrectionReason, FinancialCorrection: input.FinancialCorrection,
+		CompensatingJournalIDs: input.CompensatingJournalIDs,
+	})
 	if err != nil { return "", err }
 	hash := sha256.Sum256(payload)
 	return hex.EncodeToString(hash[:]), nil
@@ -395,7 +431,7 @@ func BuildInvoiceRecord(input InvoiceBuildInput) (InvoiceRecord, error) {
 		CorrectionReason: input.CorrectionReason, FinancialCorrection: input.FinancialCorrection,
 		CompensatingJournalIDs: compensations,
 	}
-	record.RequestHash, err = invoiceRequestHash(record)
+	record.RequestHash, err = invoiceRequestHash(input)
 	if err != nil { return InvoiceRecord{}, fmt.Errorf("hash invoice snapshot: %w", err) }
 	return record, nil
 }
