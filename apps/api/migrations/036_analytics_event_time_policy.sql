@@ -80,3 +80,28 @@ COMMENT ON COLUMN analytics_event_quarantine.event_version IS 'Canonical source 
 COMMENT ON COLUMN analytics_event_quarantine.occurred_at IS 'Producer-supplied event time when the envelope can be decoded.';
 COMMENT ON COLUMN analytics_event_quarantine.ingested_at IS 'Persisted outbox created_at ingestion provenance.';
 COMMENT ON COLUMN analytics_event_quarantine.market_code IS 'Canonical market attribution when validated; null remains incomplete.';
+
+-- Identical logical event IDs delivered through distinct outbox rows are
+-- accounted for without double-counting or misclassifying them as quarantine.
+CREATE TABLE IF NOT EXISTS analytics_event_duplicates (
+    tenant_id text NOT NULL,
+    generation_id text NOT NULL,
+    outbox_event_id bigint NOT NULL,
+    canonical_outbox_event_id bigint NOT NULL,
+    event_id text NOT NULL,
+    event_version integer NOT NULL,
+    occurred_at timestamptz NOT NULL,
+    ingested_at timestamptz NOT NULL,
+    market_code char(2),
+    event_time_family text NOT NULL,
+    payload_sha256 char(64) NOT NULL,
+    recorded_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY(tenant_id,generation_id,outbox_event_id),
+    FOREIGN KEY(tenant_id,generation_id) REFERENCES analytics_projection_generations(tenant_id,generation_id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS analytics_event_duplicates_identity_idx
+    ON analytics_event_duplicates(tenant_id,generation_id,event_id);
+CREATE TRIGGER analytics_event_duplicates_immutable BEFORE UPDATE OR DELETE ON analytics_event_duplicates
+FOR EACH ROW EXECUTE FUNCTION reject_analytics_projection_mutation();
+CREATE TRIGGER analytics_event_duplicates_no_truncate BEFORE TRUNCATE ON analytics_event_duplicates
+FOR EACH STATEMENT EXECUTE FUNCTION reject_analytics_projection_mutation();
