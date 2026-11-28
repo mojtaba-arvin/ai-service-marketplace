@@ -275,6 +275,8 @@ func (s *Store) ApplyFinanceCaseWebhook(ctx context.Context, verifier FinanceCas
 	event,err := verifier.VerifyFinanceCaseWebhook(ctx,payload,signature)
 	if err != nil { return FinanceCase{},false,err }
 	event.ProviderCode = strings.ToLower(strings.TrimSpace(event.ProviderCode))
+	event.EventID = strings.TrimSpace(event.EventID)
+	event.ProviderIdempotencyKey = strings.TrimSpace(event.ProviderIdempotencyKey)
 	event.Currency = strings.ToUpper(strings.TrimSpace(event.Currency))
 	if event.ProviderCode == "" || event.EventID == "" || event.ProviderIdempotencyKey == "" ||
 		(event.Outcome == "confirmed" && strings.TrimSpace(event.ProviderReference) == "") ||
