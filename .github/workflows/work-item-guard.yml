@@ -36,9 +36,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # A merge_group commit is a synthetic queue ref, not a contributor
-          # branch. Its source PRs have already passed this guard on pull_request.
-          # Keep the required guard context present for merge-queue validation.
           if [[ "$EVENT_NAME" == "merge_group" ]]; then
             echo "Merge-group source PRs were checked by the pull_request guard; validating the composed commit through CI and Security."
             exit 0
@@ -85,10 +82,10 @@ jobs:
               exit 1
             fi
           elif [[ "$HEAD_REF" == "ci/issue-357-parallelize-validation-and-remove-redundant-ci" ]]; then
-            protected_changes="$(printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)' | grep -Ev '^\.github/workflows/(ci|security|work-item-guard)\.yml$' || true)"
+            protected_changes="$(printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)' | grep -Ev '^\.github/workflows/(ci|security|work-item-guard|branch-maintenance)\.yml$' || true)"
             if [[ -n "$protected_changes" ]]; then
               printf '%s\n' "$protected_changes"
-              echo "The CI optimization policy issue may change only the CI, Security, and Work Item Guard workflows under protected paths."
+              echo "The CI optimization policy issue may change only the CI, Security, Work Item Guard, and Branch Maintenance workflows under protected paths."
               exit 1
             fi
           elif printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)'; then

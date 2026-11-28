@@ -10,9 +10,10 @@ on:
         default: false
   schedule:
     - cron: "41 3 * * *"
-  push:
-    branches: [main]
 
+# Deliberately do not run on every main push. The daily schedule and manual
+# dispatch keep PR branches fresh without launching a full rebase + exact-head
+# CI cycle for every commit merged into main.
 permissions:
   contents: write
   pull-requests: read
@@ -99,7 +100,7 @@ jobs:
             actual_head="$(git rev-parse "$remote_ref")"
 
             if [[ "$actual_head" != "$expected_head" ]]; then
-              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | SKIPPED | Head changed during discovery; observed `%s` |\n' "$number" "$branch" "$number" "$branch" "$expected_head" "$actual_head" >> "$summary"
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | SKIPPED | Head changed during discovery; observed `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$number" "$expected_head" "$actual_head" >> "$summary"
               continue
             fi
 
@@ -125,9 +126,9 @@ jobs:
 
             if [[ "$DRY_RUN" == "true" ]]; then
               if [[ "$already_current" == "true" ]]; then
-                printf '| [#%s](https://github.com/%s/pull/%s) | \`%s\` | \`%s\` | CURRENT | Already based on current main; dry run does not dispatch checks |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
+                printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CURRENT | Already based on current main; dry run does not dispatch checks |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
               else
-                printf '| [#%s](https://github.com/%s/pull/%s) | \`%s\` | \`%s\` | DRY RUN | Would update to \`%s\` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
+                printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | DRY RUN | Would update to `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$new_head" >> "$summary"
               fi
               continue
             fi
@@ -151,8 +152,6 @@ jobs:
                 continue
               fi
 
-              # Re-trigger pull_request workflows on a fresh SHA. A successful
-              # workflow_dispatch run does not satisfy the PR's required checks.
               git commit --allow-empty -m "ci: retrigger required pull request checks"
               new_head="$(git rev-parse HEAD)"
               if ! git push origin "HEAD:refs/heads/$branch" "--force-with-lease=refs/heads/$branch:$expected_head"; then
@@ -161,7 +160,6 @@ jobs:
                 continue
               fi
               processed=$((processed + 1))
-              printf 'Refreshed checks for PR #%s with empty commit %s\n' "$number" "$new_head"
             else
               if ! git push origin "HEAD:refs/heads/$branch" "--force-with-lease=refs/heads/$branch:$expected_head"; then
                 printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | PUSH_REJECTED | Lease or repository protection rejected update; no retry |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" >> "$summary"
@@ -169,11 +167,8 @@ jobs:
                 continue
               fi
               processed=$((processed + 1))
-              printf 'Updated PR #%s: %s -> %s\n' "$number" "$expected_head" "$new_head"
             fi
 
-            # The dedicated PAT push above triggers pull_request workflows.
-            # Only those event runs create checks that satisfy the PR merge gate.
             ci_run=""
             security_run=""
             guard_run=""
@@ -208,12 +203,7 @@ jobs:
             guard_url="$(jq -r '.url' <<< "$guard_run")"
 
             if [[ "$ci_conclusion" == "success" && "$security_conclusion" == "success" && "$guard_conclusion" == "success" ]]; then
-              if [[ "$already_current" == "true" ]]; then
-                result_label="CURRENT + ALL CHECKS PASSED"
-              else
-                result_label="REBASED + ALL CHECKS PASSED"
-              fi
-              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | %s | [CI](%s), [Security](%s), [Work Item Guard](%s) on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$result_label" "$ci_url" "$security_url" "$guard_url" "$new_head" >> "$summary"
+              printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | REBASED + ALL CHECKS PASSED | [CI](%s), [Security](%s), [Work Item Guard](%s) on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$ci_url" "$security_url" "$guard_url" "$new_head" >> "$summary"
             else
               printf '| [#%s](https://github.com/%s/pull/%s) | `%s` | `%s` | CHECK FAILED | CI=%s, Security=%s, Work Item Guard=%s on `%s` |\n' "$number" "$GITHUB_REPOSITORY" "$number" "$branch" "$expected_head" "$ci_conclusion" "$security_conclusion" "$guard_conclusion" "$new_head" >> "$summary"
               failures=$((failures + 1))
