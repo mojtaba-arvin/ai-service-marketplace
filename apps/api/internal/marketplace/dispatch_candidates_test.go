@@ -168,7 +168,6 @@ func TestDispatchCandidatesRequireAllEligibilityAndAvailabilityGatesPostgres(t *
 	// protected read, not merely for an earlier standalone authorization check.
 	blockerTx,err:=pool.Begin(ctx)
 	if err!=nil { t.Fatal(err) }
-	var lockedOrderID string
 	if err=blockerTx.QueryRow(ctx,`SELECT id FROM orders WHERE id=$1 FOR UPDATE`,order.ID).Scan(&lockedOrderID); err!=nil {
 		_ = blockerTx.Rollback(ctx); t.Fatal(err)
 	}
