@@ -109,6 +109,42 @@ func TestDoubleEntryLedgerPostgres(t *testing.T) {
 		t.Fatalf("concurrent journal idempotency must persist one journal/two entries: journals=%d entries=%d", raceJournals, raceEntries)
 	}
 
+	// Concurrent requests with one key but different canonical payloads must
+	// converge to one posting and one typed conflict.
+	conflictRaceKey := "ledger-conflict-race-" + suffix
+	conflictStart := make(chan struct{})
+	conflictResults := make(chan error, 2)
+	conflictingLines := []JournalLine{
+		{AccountCode: cash.Code, Side: "debit", AmountMinor: 4300, Currency: "OMR"},
+		{AccountCode: payable.Code, Side: "credit", AmountMinor: 4300, Currency: "OMR"},
+	}
+	for _, payload := range [][]JournalLine{lines, conflictingLines} {
+		wg.Add(1)
+		go func(payload []JournalLine) {
+			defer wg.Done()
+			<-conflictStart
+			_, postErr := store.PostJournal(ctx, conflictRaceKey, "OMR", "Concurrent payload conflict", payload)
+			conflictResults <- postErr
+		}(payload)
+	}
+	close(conflictStart)
+	wg.Wait()
+	close(conflictResults)
+	var conflictSuccesses, payloadConflicts int
+	for postErr := range conflictResults {
+		switch {
+		case postErr == nil:
+			conflictSuccesses++
+		case errors.Is(postErr, ErrLedgerIdempotencyConflict):
+			payloadConflicts++
+		default:
+			t.Fatalf("unexpected concurrent payload conflict result: %v", postErr)
+		}
+	}
+	if conflictSuccesses != 1 || payloadConflicts != 1 {
+		t.Fatalf("concurrent same-key payloads must yield one success and one conflict: successes=%d conflicts=%d", conflictSuccesses, payloadConflicts)
+	}
+
 	if _,err=store.PostJournal(ctx,"overflow-"+suffix,"OMR","Overflow",[]JournalLine{
 		{AccountCode:cash.Code,Side:"debit",AmountMinor:math.MaxInt64,Currency:"OMR"},
 		{AccountCode:cash.Code,Side:"debit",AmountMinor:1,Currency:"OMR"},
