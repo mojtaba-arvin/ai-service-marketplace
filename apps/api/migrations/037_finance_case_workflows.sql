@@ -51,7 +51,9 @@ CREATE TABLE IF NOT EXISTS payment_operation_order_bindings (
     reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 1 AND 500),
     transaction_id bigint NOT NULL DEFAULT txid_current(),
     created_at timestamptz NOT NULL DEFAULT now(),
-    FOREIGN KEY(order_id,tenant_id) REFERENCES orders(id,tenant_id) ON DELETE RESTRICT
+    FOREIGN KEY(order_id,tenant_id) REFERENCES orders(id,tenant_id) ON DELETE RESTRICT,
+    FOREIGN KEY(operation_id,tenant_id,order_id) REFERENCES payment_operations(id,tenant_id,order_id)
+        ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED
 );
 CREATE INDEX IF NOT EXISTS payment_operation_order_bindings_tenant_idx
     ON payment_operation_order_bindings(tenant_id,order_id,created_at);
