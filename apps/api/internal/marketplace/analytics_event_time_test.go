@@ -26,7 +26,7 @@ func TestAnalyticsEventTimeLateClockSkewAndCorrectionReplayPostgres(t *testing.T
 	if err != nil { t.Fatal(err) }
 	defer pool.Close()
 
-	for _, name := range []string{"001_walking_skeleton.sql", "019_outbox_delivery.sql", "030_analytics_event_projection.sql", "034_analytics_event_time_policy.sql"} {
+	for _, name := range []string{"001_walking_skeleton.sql", "019_outbox_delivery.sql", "030_analytics_event_projection.sql", "036_analytics_event_time_policy.sql"} {
 		raw, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if readErr != nil { t.Fatal(readErr) }
 		if _, err = execMigrationScript(ctx, pool, raw); err != nil { t.Fatalf("apply %s: %v", name, err) }
