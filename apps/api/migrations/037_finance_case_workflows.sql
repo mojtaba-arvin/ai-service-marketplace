@@ -86,6 +86,34 @@ CREATE TRIGGER payment_operation_order_binding_guard
 BEFORE UPDATE ON payment_operations
 FOR EACH ROW EXECUTE FUNCTION guard_payment_operation_order_binding();
 
+-- Allow the one audited, one-time attribution update without weakening the
+-- existing payment request-field or provider-outcome transition guards.
+CREATE OR REPLACE FUNCTION enforce_payment_operation_transition()
+RETURNS trigger LANGUAGE plpgsql AS $fn$
+BEGIN
+    IF NEW.id IS DISTINCT FROM OLD.id
+       OR NEW.provider_code IS DISTINCT FROM OLD.provider_code
+       OR NEW.operation_type IS DISTINCT FROM OLD.operation_type
+       OR NEW.idempotency_key IS DISTINCT FROM OLD.idempotency_key
+       OR NEW.amount_minor IS DISTINCT FROM OLD.amount_minor
+       OR NEW.currency IS DISTINCT FROM OLD.currency
+       OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+        RAISE EXCEPTION 'payment operation request fields are immutable';
+    END IF;
+    IF NEW.status=OLD.status
+       AND NEW.external_reference IS NOT DISTINCT FROM OLD.external_reference
+       AND NEW.failure_code IS NOT DISTINCT FROM OLD.failure_code THEN
+        RETURN NEW;
+    END IF;
+    IF OLD.status='pending' AND NEW.status IN ('pending','succeeded','failed','unknown') THEN
+        RETURN NEW;
+    END IF;
+    IF OLD.status='unknown' AND NEW.status IN ('succeeded','failed') THEN
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'invalid payment operation status transition';
+END $fn$;
+
 DROP TRIGGER IF EXISTS payment_operation_order_bindings_immutable ON payment_operation_order_bindings;
 CREATE TRIGGER payment_operation_order_bindings_immutable
 BEFORE UPDATE OR DELETE ON payment_operation_order_bindings
