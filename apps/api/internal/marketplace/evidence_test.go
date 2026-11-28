@@ -219,3 +219,19 @@ func TestClamAVScannerRejectsMalformedAndInfectedResponses(t *testing.T) {
 		listener.Close()
 	}
 }
+
+
+func TestFilesystemEvidenceDeleteIsIdempotentAndDurable(t *testing.T) {
+	service := testEvidenceService(t)
+	id := "0123456789abcdef0123456789abcdef"
+	if err := service.put(context.Background(), id, []byte("ciphertext")); err != nil {
+		t.Fatal(err)
+	}
+	storage := service.Storage.(*FilesystemEvidenceStorage)
+	if err := storage.Delete(context.Background(), id); err != nil {
+		t.Fatalf("delete private evidence: %v", err)
+	}
+	if err := storage.Delete(context.Background(), id); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("repeat delete = %v, want os.ErrNotExist for confirmed absence", err)
+	}
+}
