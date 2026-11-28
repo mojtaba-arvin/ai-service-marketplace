@@ -45,4 +45,4 @@ The API reads only the append-only `analytics_event_facts` projection. It does n
 
 ### Readiness interpretation
 
-`data_ready` describes ingestion lag at query time only. It does not certify event-time finality: late-arriving events may change historical cohorts, and a deterministic historical rebuild/cutover workflow is not yet implemented. Do not use this flag as a financial or contractual close signal.
+`data_ready` describes ingestion lag at query time only. Use `event_time_completeness`, `event_time_watermark`, `late_events` and `quarantined_events` for event-time status. Out-of-policy late events are excluded from normal reads, so finalized periods do not silently change. An explicit correction generation may include them after source/fact/quarantine validation and atomic cutover. None of these states certifies financial close or contractual completion.
