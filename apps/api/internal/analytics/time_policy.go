@@ -6,10 +6,17 @@ import (
 	"time"
 )
 
-const (
-	DefaultAllowedLateness = 72 * time.Hour
-	EventTimePolicyVersion = "event-time-v1"
-)
+const DefaultAllowedLateness = 72 * time.Hour
+
+var metricFamilyLateness = map[string]time.Duration{
+	"order_funnel": DefaultAllowedLateness,
+	"provider_supply": DefaultAllowedLateness,
+}
+
+var metricFamilyPolicyVersions = map[string]string{
+	"order_funnel": "order-funnel-event-time-v1",
+	"provider_supply": "provider-supply-event-time-v1",
+}
 
 var ErrInvalidEventTime = errors.New("invalid event time or ingestion time")
 
@@ -47,10 +54,12 @@ func MetricFamilyForEventType(eventType string) string {
 // have defined a bounded-lateness contract. Quality and finance fail closed.
 func EventTimePolicyFor(eventType string) (EventTimePolicy, bool) {
 	family := MetricFamilyForEventType(eventType)
-	if family != "order_funnel" && family != "provider_supply" {
+	lateness, enabled := metricFamilyLateness[family]
+	version := metricFamilyPolicyVersions[family]
+	if !enabled || version == "" {
 		return EventTimePolicy{}, false
 	}
-	return EventTimePolicy{MetricFamily: family, Version: EventTimePolicyVersion, AllowedLateness: DefaultAllowedLateness}, true
+	return EventTimePolicy{MetricFamily: family, Version: version, AllowedLateness: lateness}, true
 }
 
 // ClassifyEventTime is deliberately independent of wall-clock time. Replays
