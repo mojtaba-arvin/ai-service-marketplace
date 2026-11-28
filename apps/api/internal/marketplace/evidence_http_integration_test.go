@@ -123,7 +123,7 @@ func TestIncidentEvidenceHTTPPostgres(t *testing.T) {
 		"015_order_schedule.sql", "018_dispatch_offers.sql", "022_identity_memberships.sql",
 		"023_order_tenant_scope.sql", "025_auth_devices.sql", "031_operator_action_grants.sql",
 		"032_operator_permission_event_integrity.sql", "033_incident_report_intake.sql",
-		"034_incident_reviewer_workflow.sql", "035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql",
+		"034_incident_reviewer_workflow.sql", "035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql", "037_incident_evidence_deletion.sql",
 	}
 	for _, name := range migrations {
 		raw, readErr := os.ReadFile(filepath.Join("..", "..", "migrations", name))

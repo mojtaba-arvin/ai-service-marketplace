@@ -26,6 +26,8 @@ import (
 
 var ErrEvidenceUnavailable = errors.New("incident evidence service unavailable")
 
+// PrivateEvidenceStorage adapters must make Delete idempotent. os.ErrNotExist means
+// the object is definitively absent; nil means deletion is durably acknowledged.
 type PrivateEvidenceStorage interface {
 	Put(context.Context, string, []byte) error
 	Get(context.Context, string, int64) ([]byte, error)
@@ -57,6 +59,7 @@ type EvidenceService struct {
 
 type incidentEvidenceMetadata struct {
 	ID             string     `json:"evidence_id"`
+	DeletionState  string     `json:"deletion_state"`
 	MediaType      string     `json:"media_type"`
 	SizeBytes      int64      `json:"size_bytes"`
 	CreatedAt      time.Time  `json:"created_at"`
@@ -217,7 +220,21 @@ func (s *FilesystemEvidenceStorage) Delete(ctx context.Context, id string) error
 	if err != nil {
 		return err
 	}
-	return os.Remove(path)
+	if err = os.Remove(path); err != nil {
+		return err
+	}
+	// Persist the directory entry removal before acknowledging deletion. If the
+	// sync fails, the worker leaves a retryable tombstone and retries idempotently.
+	directory, err := os.Open(s.Root)
+	if err != nil {
+		return err
+	}
+	syncErr := directory.Sync()
+	closeErr := directory.Close()
+	if syncErr != nil {
+		return syncErr
+	}
+	return closeErr
 }
 
 func (s *EvidenceService) put(ctx context.Context, id string, data []byte) error {
@@ -472,7 +489,7 @@ func (h *Handler) listIncidentEvidence(w http.ResponseWriter, r *http.Request, r
 		return
 	}
 	rows, err := tx.Query(r.Context(), `
-		SELECT id,media_type,size_bytes,created_at,retention_expires_at,legal_hold
+		SELECT id,media_type,size_bytes,created_at,retention_expires_at,legal_hold,deletion_state
 		FROM incident_evidence WHERE report_id=$1 AND tenant_id=$2
 		ORDER BY created_at,id
 	`, reportID, tenantID)
@@ -483,7 +500,7 @@ func (h *Handler) listIncidentEvidence(w http.ResponseWriter, r *http.Request, r
 	items := make([]incidentEvidenceMetadata, 0)
 	for rows.Next() {
 		var item incidentEvidenceMetadata
-		if err = rows.Scan(&item.ID, &item.MediaType, &item.SizeBytes, &item.CreatedAt, &item.RetentionUntil, &item.LegalHold); err != nil {
+		if err = rows.Scan(&item.ID, &item.MediaType, &item.SizeBytes, &item.CreatedAt, &item.RetentionUntil, &item.LegalHold, &item.DeletionState); err != nil {
 			rows.Close()
 			writeError(w, http.StatusInternalServerError, "could not list private evidence")
 			return
@@ -708,7 +725,7 @@ func (h *Handler) downloadIncidentEvidence(w http.ResponseWriter, r *http.Reques
 		SELECT e.tenant_id,e.media_type,e.retention_expires_at,e.legal_hold
 		FROM incident_evidence e
 		JOIN incident_reports r ON r.id=e.report_id AND r.tenant_id=e.tenant_id
-		WHERE e.id=$1 AND e.report_id=$2 AND e.tenant_id=$3
+		WHERE e.id=$1 AND e.report_id=$2 AND e.tenant_id=$3 AND e.deletion_state='active'
 		FOR SHARE OF e,r
 	`, evidenceID, reportID, tenantID).Scan(&tenantID, &mediaType, &expiry, &legalHold)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -904,7 +921,7 @@ func (h *Handler) updateIncidentEvidenceLifecycle(w http.ResponseWriter, r *http
 		SELECT e.retention_expires_at,e.legal_hold
 		FROM incident_evidence e
 		JOIN incident_reports r ON r.id=e.report_id AND r.tenant_id=e.tenant_id
-		WHERE e.id=$1 AND e.report_id=$2 AND e.tenant_id=$3
+		WHERE e.id=$1 AND e.report_id=$2 AND e.tenant_id=$3 AND e.deletion_state='active'
 		FOR UPDATE OF e
 	`, evidenceID, reportID, actor.TenantID).Scan(&beforeExpiry, &beforeLegalHold)
 	if errors.Is(err, pgx.ErrNoRows) {

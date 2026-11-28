@@ -3873,7 +3873,8 @@
                           "media_type",
                           "size_bytes",
                           "created_at",
-                          "legal_hold"
+                          "legal_hold",
+                          "deletion_state"
                         ],
                         "properties": {
                           "evidence_id": {
@@ -3897,6 +3898,10 @@
                           },
                           "legal_hold": {
                             "type": "boolean"
+                          },
+                          "deletion_state": {
+                            "type": "string",
+                            "enum": ["active", "deletion_pending", "deleted"]
                           }
                         }
                       }
@@ -4118,7 +4123,8 @@
                           "media_type",
                           "size_bytes",
                           "created_at",
-                          "legal_hold"
+                          "legal_hold",
+                          "deletion_state"
                         ],
                         "properties": {
                           "evidence_id": {
@@ -4142,6 +4148,10 @@
                           },
                           "legal_hold": {
                             "type": "boolean"
+                          },
+                          "deletion_state": {
+                            "type": "string",
+                            "enum": ["active", "deletion_pending", "deleted"]
                           }
                         }
                       }
