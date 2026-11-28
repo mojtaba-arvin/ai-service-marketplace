@@ -226,7 +226,7 @@ func run(ctx context.Context)error {
  if err!=nil{_ = tx.Rollback(ctx);return err}
  if err=tx.Commit(ctx);err!=nil{return err}
 
- consumer:=outbox.Consumer{DB:pool,Name:consumerName,Handler:(analytics.Projector{DB:pool,ConsumerName:consumerName,GenerationID:generation,TenantID:tenant}).Handle}
+ consumer:=outbox.Consumer{DB:pool,Name:consumerName,Handler:(analytics.Projector{DB:pool,ConsumerName:consumerName,GenerationID:generation,TenantID:tenant,IncludeLateEvents:strings.EqualFold(strings.TrimSpace(os.Getenv("ANALYTICS_INCLUDE_LATE_EVENTS")),"true")}).Handle}
  totalApplied:=0
  for {
   if err=ctx.Err();err!=nil{return err}
