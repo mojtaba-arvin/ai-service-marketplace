@@ -152,12 +152,12 @@ SELECT
     switch {
     case result.QuarantinedEvents>0:
         result.EventTimeCompleteness="incomplete"
-    case result.EligibleEvents==0:
-        result.EventTimeCompleteness="unavailable"
-    case result.ExcludedEvents>0:
-        result.EventTimeCompleteness="incomplete"
     case result.LateEvents>result.LateEventsIncluded:
         result.EventTimeCompleteness="correction_required"
+    case result.ExcludedEvents>0:
+        result.EventTimeCompleteness="incomplete"
+    case result.EligibleEvents==0:
+        result.EventTimeCompleteness="unavailable"
     case result.WindowTo.After(result.EventTimeWatermark):
         result.EventTimeCompleteness="immature"
     case result.LateEvents>0:
