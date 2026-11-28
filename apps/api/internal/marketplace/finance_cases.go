@@ -328,6 +328,17 @@ func (s *Store) ApplyFinanceCaseWebhook(ctx context.Context, verifier FinanceCas
 	return c,false,nil
 }
 
+func recordFinanceCaseReconciliation(ctx context.Context, tx pgx.Tx, c FinanceCase, actor Actor, journalID, outcome string, actualAmount int64, actualCurrency, reason string) error {
+	id,err := newID()
+	if err != nil { return err }
+	_,err = tx.Exec(ctx,`INSERT INTO finance_case_reconciliation_checks
+		(id,case_id,tenant_id,journal_id,outcome,expected_amount_minor,expected_currency,
+		 actual_amount_minor,actual_currency,actor_identity_id,reason)
+		VALUES($1,$2,$3,NULLIF($4,''),$5,$6,$7,$8,NULLIF($9,''),$10,$11)`,
+		id,c.ID,c.TenantID,journalID,outcome,c.AmountMinor,c.Currency,actualAmount,actualCurrency,actor.SubjectID,reason)
+	return err
+}
+
 func (s *Store) ReconcileFinanceCase(ctx context.Context, actor Actor, caseID, journalID, reason string) (FinanceCase,error) {
 	caseID = strings.TrimSpace(caseID)
 	journalID = strings.TrimSpace(journalID)
@@ -352,9 +363,17 @@ func (s *Store) ReconcileFinanceCase(ctx context.Context, actor Actor, caseID, j
 		COALESCE(sum(e.amount_minor) FILTER (WHERE e.side='credit'),0)
 		FROM ledger_journals j JOIN ledger_entries e ON e.journal_id=j.id
 		WHERE j.id=$1 GROUP BY j.id,j.currency,j.reversal_of_id`,journalID).Scan(&currency,&reversalOf,&debits,&credits)
-	if errors.Is(err,pgx.ErrNoRows) { return FinanceCase{},ErrFinanceCaseInput }
+	if errors.Is(err,pgx.ErrNoRows) {
+		if recErr := recordFinanceCaseReconciliation(ctx,tx,c,actor,journalID,"missing_journal",0,"",reason); recErr != nil { return FinanceCase{},recErr }
+		if err = tx.Commit(ctx); err != nil { return FinanceCase{},err }
+		return FinanceCase{},ErrFinanceCaseConflict
+	}
 	if err != nil { return FinanceCase{},err }
 	if currency != c.Currency || debits != c.AmountMinor || credits != c.AmountMinor {
+		outcome := "amount_mismatch"
+		if currency != c.Currency { outcome = "currency_mismatch" }
+		if recErr := recordFinanceCaseReconciliation(ctx,tx,c,actor,journalID,outcome,debits,currency,reason); recErr != nil { return FinanceCase{},recErr }
+		if err = tx.Commit(ctx); err != nil { return FinanceCase{},err }
 		return FinanceCase{},ErrFinanceCaseConflict
 	}
 	if c.CaseType == FinanceCasePayoutReversal {
@@ -363,6 +382,8 @@ func (s *Store) ReconcileFinanceCase(ctx context.Context, actor Actor, caseID, j
 			WHERE id=$1 AND tenant_id=$2 AND case_type='payout' AND status='reconciled'`,
 			c.ReversalOfCaseIDValue(),c.TenantID).Scan(&originalJournal)
 		if err != nil || reversalOf == nil || *reversalOf != originalJournal {
+			if recErr := recordFinanceCaseReconciliation(ctx,tx,c,actor,journalID,"reversal_mismatch",debits,currency,reason); recErr != nil { return FinanceCase{},recErr }
+			if err = tx.Commit(ctx); err != nil { return FinanceCase{},err }
 			return FinanceCase{},ErrFinanceCaseConflict
 		}
 	}
@@ -371,6 +392,7 @@ func (s *Store) ReconcileFinanceCase(ctx context.Context, actor Actor, caseID, j
 	if _,err = tx.Exec(ctx,`INSERT INTO finance_case_ledger_links
 		(id,case_id,journal_id,tenant_id,amount_minor,currency) VALUES($1,$2,$3,$4,$5,$6)`,
 		linkID,c.ID,journalID,c.TenantID,c.AmountMinor,c.Currency); err != nil { return FinanceCase{},err }
+	if err = recordFinanceCaseReconciliation(ctx,tx,c,actor,journalID,"matched",debits,currency,reason); err != nil { return FinanceCase{},err }
 	_,err = tx.Exec(ctx,`UPDATE finance_cases SET status='reconciled',reconciled_journal_id=$2,updated_at=now()
 		WHERE id=$1`,c.ID,journalID)
 	if err != nil { return FinanceCase{},err }
