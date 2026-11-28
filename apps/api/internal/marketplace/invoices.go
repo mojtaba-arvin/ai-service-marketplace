@@ -238,7 +238,7 @@ func calculateInvoiceTax(input InvoiceTaxInput, rule InvoiceTaxRule) (InvoiceTax
 	if err != nil || currency != input.Currency || input.TaxableMinor < 0 || input.CalculatedAt.IsZero() ||
 		strings.TrimSpace(input.MarketID) == "" || strings.TrimSpace(input.JurisdictionCode) == "" ||
 		strings.TrimSpace(input.TaxCategory) == "" || strings.TrimSpace(input.ComponentCode) == "" ||
-		!invoiceRuleMatches(rule, input) {
+		!invoiceRuleMatches(rule, input) || rule.ApprovedAt.After(input.CalculatedAt) {
 		return InvoiceTaxComponent{}, ErrInvoiceTaxConfigurationInvalid
 	}
 	product := new(big.Int).Mul(big.NewInt(input.TaxableMinor), big.NewInt(rule.RateNumerator))
