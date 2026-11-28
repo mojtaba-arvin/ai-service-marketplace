@@ -28,12 +28,12 @@ func TestEvidenceDeletionWorkerPostgresRetryHoldMissingAndConcurrency(t *testing
  db,err:=pgxpool.NewWithConfig(ctx,cfg);if err!=nil{t.Fatal(err)};defer db.Close()
  _,err=db.Exec(ctx,`CREATE TABLE incident_evidence(
  id text PRIMARY KEY,tenant_id text NOT NULL,report_id text NOT NULL,retention_expires_at timestamptz,
- legal_hold boolean NOT NULL,deletion_state text NOT NULL,deletion_attempts integer NOT NULL DEFAULT 0,
+ legal_hold boolean NOT NULL,deletion_state text NOT NULL,deletion_attempts integer NOT NULL DEFAULT 0,created_at timestamptz NOT NULL DEFAULT now(),
  deletion_claim_token text,deletion_claimed_until timestamptz,deleted_at timestamptz,deletion_error_category text NOT NULL DEFAULT '')`)
  if err!=nil{t.Fatal(err)}
  _,err=db.Exec(ctx,`CREATE TABLE incident_evidence_access_events(
  id bigserial PRIMARY KEY,tenant_id text,report_id text,evidence_id text,actor_identity_id text,
- action text,outcome text,reason_category text,created_at timestamptz DEFAULT now())`);if err!=nil{t.Fatal(err)}
+ action text,outcome text,reason_category text,attempt integer NOT NULL DEFAULT 0,created_at timestamptz DEFAULT now())`);if err!=nil{t.Fatal(err)}
  now:=time.Now().UTC()
  ids:=[]string{"11111111111111111111111111111111","22222222222222222222222222222222","33333333333333333333333333333333","44444444444444444444444444444444","66666666666666666666666666666666"}
  for i,id:=range ids{
@@ -54,6 +54,9 @@ func TestEvidenceDeletionWorkerPostgresRetryHoldMissingAndConcurrency(t *testing
  n,err=w.RunOnce(ctx);if err!=nil{t.Fatal(err)};if n!=1{t.Fatalf("retry pass processed=%d, want 1",n)}
  if err=db.QueryRow(ctx,"SELECT deletion_state FROM incident_evidence WHERE id=$1",ids[0]).Scan(&state);err!=nil{t.Fatal(err)}
  if state!="deleted"{t.Fatalf("retried deletion state=%s",state)}
+ var attemptsInAudit int
+ if err=db.QueryRow(ctx,"SELECT max(attempt) FROM incident_evidence_access_events WHERE evidence_id=$1",ids[0]).Scan(&attemptsInAudit);err!=nil{t.Fatal(err)}
+ if attemptsInAudit!=2{t.Fatalf("retry audit attempt=%d, want 2",attemptsInAudit)}
  if err=db.QueryRow(ctx,"SELECT deletion_state FROM incident_evidence WHERE id=$1",ids[1]).Scan(&state);err!=nil{t.Fatal(err)}
  if state!="active"{t.Fatalf("legal hold must preserve object, state=%s",state)}
  if err=db.QueryRow(ctx,"SELECT deletion_state FROM incident_evidence WHERE id=$1",ids[2]).Scan(&state);err!=nil{t.Fatal(err)}
