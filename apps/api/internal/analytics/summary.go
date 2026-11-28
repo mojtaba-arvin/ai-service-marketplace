@@ -160,26 +160,10 @@ SELECT
     result.EventTimePolicyVersion=policy.Version
     result.AllowedLatenessSeconds=latenessSeconds
     result.EventTimeWatermark=result.EventTimeWatermark.UTC()
-    switch {
-    case result.PendingEvents>0:
-        result.EventTimeCompleteness="incomplete"
-    case result.QuarantinedEvents>0 || result.UntrustedIngestionTimestamps>0:
-        result.EventTimeCompleteness="incomplete"
-    case result.DuplicateReorderConflicts>0:
-        result.EventTimeCompleteness="correction_required"
-    case result.LateEvents>result.LateEventsIncluded:
-        result.EventTimeCompleteness="correction_required"
-    case result.ExcludedEvents>0:
-        result.EventTimeCompleteness="incomplete"
-    case result.EligibleEvents==0:
-        result.EventTimeCompleteness="unavailable"
-    case !IsPeriodMature(result.WindowTo,result.EventTimeWatermark):
-        result.EventTimeCompleteness="immature"
-    case result.LateEvents>0:
-        result.EventTimeCompleteness="corrected"
-    default:
-        result.EventTimeCompleteness="finalized"
-    }
+    result.EventTimeCompleteness=EventTimeCompleteness(result.WindowTo,result.EventTimeWatermark,
+        result.PendingEvents,result.QuarantinedEvents,result.UntrustedIngestionTimestamps,
+        result.DuplicateReorderConflicts,result.LateEvents,result.LateEventsIncluded,
+        result.ExcludedEvents,result.EligibleEvents)
     if result.PendingEvents==0 { result.IngestionBacklogStatus="drained" } else { result.IngestionBacklogStatus="pending" }
     result.SourceCoverageStatus="unknown"
     if result.QuarantinedEvents>0 || result.UntrustedIngestionTimestamps>0 || result.ExcludedEvents>0 { result.SourceCoverageStatus="incomplete" } else if result.EligibleEvents==0 { result.SourceCoverageStatus="unavailable" }
