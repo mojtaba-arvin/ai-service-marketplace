@@ -51,6 +51,7 @@ type FinanceCase struct {
 	RequestedByIdentityID string `json:"requested_by_identity_id"`
 	AcceptedByIdentityID *string `json:"accepted_by_identity_id,omitempty"`
 	AcceptanceReason string `json:"acceptance_reason,omitempty"`
+	RequestReason string `json:"request_reason"`
 	FailureCode string `json:"failure_code,omitempty"`
 	ReversalOfCaseID *string `json:"reversal_of_case_id,omitempty"`
 	ReconciledJournalID *string `json:"reconciled_journal_id,omitempty"`
@@ -125,14 +126,14 @@ func scanFinanceCase(row pgx.Row) (FinanceCase, error) {
 	err := row.Scan(&c.ID,&c.TenantID,&c.CaseType,&c.OrderID,&c.SourcePaymentOperationID,
 		&c.SourceJournalID,&c.ProviderCode,&c.ProviderIdempotencyKey,&c.AmountMinor,&c.Currency,
 		&c.Status,&c.ProviderOutcome,&c.RequestedByIdentityID,&c.AcceptedByIdentityID,
-		&c.AcceptanceReason,&c.FailureCode,&c.ReversalOfCaseID,&c.ReconciledJournalID,
+		&c.AcceptanceReason,&c.RequestReason,&c.FailureCode,&c.ReversalOfCaseID,&c.ReconciledJournalID,
 		&c.CreatedAt,&c.UpdatedAt)
 	return c, err
 }
 
 const financeCaseColumns = `id,tenant_id,case_type,order_id,source_payment_operation_id,source_journal_id,
 	provider_code,provider_idempotency_key,amount_minor,currency,status,provider_outcome,
-	requested_by_identity_id,accepted_by_identity_id,acceptance_reason,failure_code,
+	requested_by_identity_id,accepted_by_identity_id,acceptance_reason,request_reason,failure_code,
 	reversal_of_case_id,reconciled_journal_id,created_at,updated_at`
 
 func (s *Store) CreateFinanceCase(ctx context.Context, actor Actor, in FinanceCaseInput) (FinanceCase, bool, error) {
@@ -184,26 +185,26 @@ func (s *Store) CreateFinanceCase(ctx context.Context, actor Actor, in FinanceCa
 	if !linked { return FinanceCase{},false,ErrFinanceCaseInput }
 
 	if in.CaseType == FinanceCasePayoutReversal {
-		var originalTenant, originalType, originalStatus, originalOrder, originalJournal string
-		err = tx.QueryRow(ctx,`SELECT tenant_id,case_type,status,order_id,reconciled_journal_id
+		var originalTenant, originalType, originalStatus, originalOrder, originalJournal, originalPayment string
+		err = tx.QueryRow(ctx,`SELECT tenant_id,case_type,status,order_id,source_journal_id,source_payment_operation_id
 			FROM finance_cases WHERE id=$1 FOR SHARE`,in.ReversalOfCaseID).
-			Scan(&originalTenant,&originalType,&originalStatus,&originalOrder,&originalJournal)
+			Scan(&originalTenant,&originalType,&originalStatus,&originalOrder,&originalJournal,&originalPayment)
 		if err != nil { return FinanceCase{},false,ErrFinanceCaseInput }
 		if originalTenant != actor.TenantID || originalType != FinanceCasePayout ||
 			originalStatus != FinanceCaseReconciled || originalOrder != in.OrderID ||
-			originalJournal != in.SourceJournalID { return FinanceCase{},false,ErrFinanceCaseInput }
+			originalJournal != in.SourceJournalID || originalPayment != in.SourcePaymentOperationID { return FinanceCase{},false,ErrFinanceCaseInput }
 	}
 
 	id, err := newID()
 	if err != nil { return FinanceCase{},false,err }
 	c, err := scanFinanceCase(tx.QueryRow(ctx,`INSERT INTO finance_cases
 		(id,tenant_id,case_type,order_id,source_payment_operation_id,source_journal_id,
-		 provider_code,provider_idempotency_key,amount_minor,currency,requested_by_identity_id,reversal_of_case_id)
-		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULLIF($12,''))
+		 provider_code,provider_idempotency_key,amount_minor,currency,requested_by_identity_id,request_reason,reversal_of_case_id)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULLIF($13,''))
 		ON CONFLICT(provider_code,provider_idempotency_key) DO NOTHING
 		RETURNING `+financeCaseColumns,
 		id,actor.TenantID,in.CaseType,in.OrderID,in.SourcePaymentOperationID,in.SourceJournalID,
-		in.ProviderCode,in.ProviderIdempotencyKey,in.AmountMinor,in.Currency,actor.SubjectID,in.ReversalOfCaseID))
+		in.ProviderCode,in.ProviderIdempotencyKey,in.AmountMinor,in.Currency,actor.SubjectID,in.Reason,in.ReversalOfCaseID))
 	created := err == nil
 	if errors.Is(err,pgx.ErrNoRows) {
 		c,err = scanFinanceCase(tx.QueryRow(ctx,`SELECT `+financeCaseColumns+`
@@ -211,7 +212,7 @@ func (s *Store) CreateFinanceCase(ctx context.Context, actor Actor, in FinanceCa
 		if err != nil { return FinanceCase{},false,err }
 		if c.TenantID != actor.TenantID || c.CaseType != in.CaseType || c.OrderID != in.OrderID ||
 			c.SourcePaymentOperationID != in.SourcePaymentOperationID || c.SourceJournalID != in.SourceJournalID ||
-			c.AmountMinor != in.AmountMinor || c.Currency != in.Currency || c.ReversalOfCaseIDValue() != in.ReversalOfCaseID {
+			c.AmountMinor != in.AmountMinor || c.Currency != in.Currency || c.RequestReason != in.Reason || c.ReversalOfCaseIDValue() != in.ReversalOfCaseID {
 			return FinanceCase{},false,ErrPaymentIdempotencyConflict
 		}
 		if err = tx.Commit(ctx); err != nil { return FinanceCase{},false,err }
@@ -264,11 +265,6 @@ func (s *Store) AcceptFinanceCase(ctx context.Context, actor Actor, caseID, reas
 	return c,nil
 }
 
-func mustNewID() string {
-	id,err := newID()
-	if err != nil { return "" }
-	return id
-}
 
 func (s *Store) ApplyFinanceCaseWebhook(ctx context.Context, verifier FinanceCaseWebhookVerifier, payload []byte, signature string) (FinanceCase,bool,error) {
 	if verifier == nil { return FinanceCase{},false,ErrFinanceCaseInput }
@@ -277,6 +273,7 @@ func (s *Store) ApplyFinanceCaseWebhook(ctx context.Context, verifier FinanceCas
 	event.ProviderCode = strings.ToLower(strings.TrimSpace(event.ProviderCode))
 	event.Currency = strings.ToUpper(strings.TrimSpace(event.Currency))
 	if event.ProviderCode == "" || event.EventID == "" || event.ProviderIdempotencyKey == "" ||
+		(event.Outcome == "confirmed" && strings.TrimSpace(event.ProviderReference) == "") ||
 		ValidateAmount(event.AmountMinor,event.Currency) != nil { return FinanceCase{},false,ErrFinanceCaseInput }
 	hash := sha256.Sum256(payload)
 	tx,err := s.DB.BeginTx(ctx,pgx.TxOptions{})
