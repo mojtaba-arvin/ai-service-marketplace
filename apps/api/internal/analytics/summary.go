@@ -146,6 +146,10 @@ SELECT
     result.AllowedLatenessSeconds=int64(policy.AllowedLateness.Seconds())
     result.EventTimeWatermark=EventTimeWatermark(time.Now().UTC(),policy)
     switch {
+    case result.EligibleEvents==0:
+        result.EventTimeCompleteness="unavailable"
+    case result.ExcludedEvents>0:
+        result.EventTimeCompleteness="incomplete"
     case result.LateEvents>result.LateEventsIncluded:
         result.EventTimeCompleteness="correction_required"
     case result.WindowTo.After(result.EventTimeWatermark):
