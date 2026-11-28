@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"path/filepath"
 	"testing"
 	"time"
@@ -242,4 +243,19 @@ func TestPaymentIdempotencyWebhookAndTerminalStateRacesPostgres(t *testing.T) {
 	if finalStatus != "succeeded" && finalStatus != "failed" { t.Fatalf("operation did not reach one terminal state: %s", finalStatus) }
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM payment_operation_events WHERE operation_id=$1 AND event_type='provider_outcome'`, pending.ID).Scan(&count); err != nil { t.Fatal(err) }
 	if count != 1 { t.Fatalf("contradictory terminal race wrote %d outcome audit events", count) }
+	// A stale failure delivered after a committed success is a no-op conflict;
+	// replaying the identical success remains safe and cannot append another event.
+	staleKey := "payment-stale-webhook-" + suffix
+	stale, _, err := store.BeginPaymentOperation(ctx, "fake", "capture", staleKey, 6100, "OMR")
+	if err != nil { t.Fatal(err) }
+	if _, err = store.RecordPaymentOutcome(ctx, stale.ID, "succeeded", "fake-stale-ref-"+suffix, ""); err != nil { t.Fatal(err) }
+	if _, err = store.RecordPaymentOutcome(ctx, stale.ID, "failed", "", "late_failure"); !errors.Is(err, ErrPaymentStateConflict) {
+		t.Fatalf("out-of-order failure must not regress succeeded operation: %v", err)
+	}
+	if _, err = store.RecordPaymentOutcome(ctx, stale.ID, "succeeded", "fake-stale-ref-"+suffix, ""); err != nil {
+		t.Fatalf("identical terminal delivery must replay safely: %v", err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT status FROM payment_operations WHERE id=$1`, stale.ID).Scan(&finalStatus); err != nil { t.Fatal(err) }
+	if finalStatus != "succeeded" { t.Fatalf("stale delivery regressed terminal operation to %s", finalStatus) }
+
 }
