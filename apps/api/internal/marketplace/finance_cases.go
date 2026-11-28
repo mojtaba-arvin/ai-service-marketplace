@@ -187,13 +187,14 @@ func (s *Store) CreateFinanceCase(ctx context.Context, actor Actor, in FinanceCa
 
 	if in.CaseType == FinanceCasePayoutReversal {
 		var originalTenant, originalType, originalStatus, originalOrder, originalJournal, originalPayment string
-		err = tx.QueryRow(ctx,`SELECT tenant_id,case_type,status,order_id,source_journal_id,source_payment_operation_id
+		var originalAmount int64
+		err = tx.QueryRow(ctx,`SELECT tenant_id,case_type,status,order_id,source_journal_id,source_payment_operation_id,amount_minor
 			FROM finance_cases WHERE id=$1 FOR SHARE`,in.ReversalOfCaseID).
-			Scan(&originalTenant,&originalType,&originalStatus,&originalOrder,&originalJournal,&originalPayment)
+			Scan(&originalTenant,&originalType,&originalStatus,&originalOrder,&originalJournal,&originalPayment,&originalAmount)
 		if err != nil { return FinanceCase{},false,ErrFinanceCaseInput }
 		if originalTenant != actor.TenantID || originalType != FinanceCasePayout ||
 			originalStatus != FinanceCaseReconciled || originalOrder != in.OrderID ||
-			originalJournal != in.SourceJournalID || originalPayment != in.SourcePaymentOperationID { return FinanceCase{},false,ErrFinanceCaseInput }
+			originalJournal != in.SourceJournalID || originalPayment != in.SourcePaymentOperationID || in.AmountMinor != originalAmount { return FinanceCase{},false,ErrFinanceCaseInput }
 	}
 
 	id, err := newID()
