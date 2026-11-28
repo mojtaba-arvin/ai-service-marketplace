@@ -5111,7 +5111,8 @@
           "late_events_included",
           "quarantined_events",
           "ingestion_backlog_status",
-          "source_coverage_status"
+          "source_coverage_status",
+          "missing_ingestion_timestamps"
         ],
         "properties": {
           "window_from": {
@@ -5252,6 +5253,12 @@
               "incomplete"
             ],
             "description": "Producer/source coverage; unknown is not a claim of complete source coverage."
+          },
+          "missing_ingestion_timestamps": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Facts with no recoverable persisted outbox ingestion timestamp; these prevent event-time completeness."
           }
         }
       },
