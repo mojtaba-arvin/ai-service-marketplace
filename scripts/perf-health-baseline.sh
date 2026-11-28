@@ -23,9 +23,9 @@ command -v "$CURL" >/dev/null
 command -v xargs >/dev/null
 export BASE_URL CURL
 
-echo "==> Running $REQUESTS read-only /healthz requests at concurrency $CONCURRENCY"
+echo "==> Running $REQUESTS read-only /readyz requests at concurrency $CONCURRENCY"
 seq 1 "$REQUESTS" | xargs -n 1 -P "$CONCURRENCY" sh -c \
-  '"$CURL" --silent --show-error --output /dev/null --connect-timeout 3 --max-time 10 --write-out "%{http_code} %{time_total}\n" "$BASE_URL/healthz"' \
+  '"$CURL" --silent --show-error --output /dev/null --connect-timeout 3 --max-time 10 --write-out "%{http_code} %{time_total}\n" "$BASE_URL/readyz"' \
   >"$TMP_DIR/results"
 
 if ! awk '$1 != "200" { failed++ } END { if (failed > 0) exit 1 }' "$TMP_DIR/results"; then

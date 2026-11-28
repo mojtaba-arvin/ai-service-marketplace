@@ -12,6 +12,9 @@ elif [[ "$#" -gt 0 ]]; then
   exit 2
 fi
 
+echo "==> Testing production deployment configuration validator"
+python3 scripts/validate-deployment-config.py --self-test
+
 echo "==> Checking whitespace errors"
 git diff --check
 

@@ -6,7 +6,7 @@ This matrix maps the release QA scenarios to executable repository evidence. It 
 
 | Area | Scenario | Repository evidence | Remaining acceptance |
 |---|---|---|---|
-| API integration | Health and API contract | `/healthz`, `packages/contracts/openapi.v1.json` | Run against the exact deployed SHA |
+| API integration | Process liveness and PostgreSQL readiness | `/healthz`, `/readyz`, `packages/contracts/openapi.v1.json` | Run both checks against the exact deployed SHA and verify readiness fails when PostgreSQL is unavailable |
 | Browser E2E | Customer booking through professional acceptance | `scripts/e2e-browser.sh`, Playwright configuration and CI | Maintainer-run verification against clean deployment when deployment infrastructure is available |
 | PostgreSQL integration | Migrations, transaction rollback, replay and recovery | `apps/api/migrations`, migration integration tests, CI backup/restore rehearsal | Restore against actual deployment storage |
 | Cross-tenant security | Order, dispatch, identity, organization and analytics isolation | Marketplace PostgreSQL integration tests and negative-path suites | maintainer review of authorization boundaries |

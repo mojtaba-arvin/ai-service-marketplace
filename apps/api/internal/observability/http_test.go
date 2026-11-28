@@ -96,3 +96,9 @@ func TestHTTPLogsPanicAsServerErrorAndPropagatesIt(t *testing.T) {
 		t.Fatalf("panic must be recorded as a server error without swallowing it: %#v", record)
 	}
 }
+
+func TestReadinessRouteUsesHealthTelemetryClass(t *testing.T) {
+	if got := routeClass("/readyz"); got != "health" {
+		t.Fatalf("readiness route class = %q, want health", got)
+	}
+}

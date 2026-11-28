@@ -101,13 +101,47 @@ The publisher sends each event with its database event ID as the `Idempotency-Ke
 Run from the repository root:
 
 ```sh
+python3 scripts/validate-deployment-config.py .env.production
 docker compose --env-file .env.production -f infra/compose.production.yml config --quiet
 docker compose --env-file .env.production -f infra/compose.production.yml up -d --build
 docker compose --env-file .env.production -f infra/compose.production.yml ps
 docker compose --env-file .env.production -f infra/compose.production.yml logs --tail=100 migrate api web caddy dispatch-worker
 ```
 
-Caddy obtains and renews certificates automatically after DNS and firewall configuration are correct. Confirm https://SITE_ADDRESS/healthz returns HTTP 200.
+Caddy obtains and renews certificates automatically after DNS and firewall configuration are correct. Verify both process liveness and database readiness, then run the public smoke check:
+
+```sh
+BASE_URL="https://$(grep '^SITE_ADDRESS=' .env.production | cut -d= -f2-)" \\
+  HTTP_BASE_URL="http://$(grep '^SITE_ADDRESS=' .env.production | cut -d= -f2-)" \\
+  bash scripts/smoke-deployment.sh
+```
+
+- `/healthz` is process liveness: HTTP 200 means the API process can answer requests. It does not assert PostgreSQL availability.
+- `/readyz` is dependency readiness: HTTP 200 with `{"status":"ready"}` means PostgreSQL is reachable; HTTP 503 means the instance must not receive application traffic.
+- Docker's API healthcheck and the deployment smoke test use `/readyz`. Caddy actively probes `/readyz` and removes an unready API upstream from `/v1/*` routing; the liveness and readiness endpoints themselves remain directly observable. Do not use liveness alone as a deployment-success signal.
+
+## Application rollback
+
+Record the currently deployed Git SHA (or immutable release tag), API/Web image IDs, migration version, and a fresh off-host database backup before each release. Keep the previous source revision available locally and do not overwrite or delete its release tag.
+
+For a failed application release whose migrations are backward-compatible with the previous application version:
+
+```sh
+# Run in the deployment checkout. Replace with the exact previously deployed SHA.
+git fetch --tags origin
+git checkout <previous-release-sha>
+python3 scripts/validate-deployment-config.py .env.production
+docker compose --env-file .env.production -f infra/compose.production.yml config --quiet
+docker compose --env-file .env.production -f infra/compose.production.yml build api web
+docker compose --env-file .env.production -f infra/compose.production.yml up -d --no-deps api web dispatch-worker caddy
+docker compose --env-file .env.production -f infra/compose.production.yml ps
+```
+
+Run `scripts/smoke-deployment.sh` again and record the restored SHA. Keep the current database and all migration records: **do not run down migrations or delete migration history**. The migration runner intentionally applies forward-only, transactional migrations; application rollback is safe only while the previous application remains compatible with the expanded schema.
+
+If a migration is not backward-compatible or data was corrupted, stop API and worker writes, preserve the failed database for investigation, and restore the pre-deploy backup into a separately verified database before switching `DATABASE_URL` back to it. Restore the matching encrypted evidence volume and its separately stored evidence key ring as well; a PostgreSQL dump alone cannot restore private evidence objects. Verify the restored database and evidence before restarting API/workers. Never overwrite the only backup or attempt an untested in-place schema downgrade.
+
+After rollback, leave the failed release and its logs available for diagnosis. A rollback is not complete until the HTTPS smoke check, application journey checks, and data-integrity checks pass.
 
 ## Backup and restore
 
@@ -117,13 +151,20 @@ Create a logical backup:
 docker compose --env-file .env.production -f infra/compose.production.yml exec -T postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > marketplace-$(date -u +%Y%m%dT%H%M%SZ).dump
 ```
 
-Restore into a separately created empty database after stopping API/worker writes:
+Restore into a separately created empty database first; do not overwrite the live database as the first recovery step:
 
 ```sh
-cat marketplace.dump | docker compose --env-file .env.production -f infra/compose.production.yml exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists
+docker compose --env-file .env.production -f infra/compose.production.yml exec -T postgres \\
+  createdb -U "$POSTGRES_USER" marketplace_restore
+cat marketplace.dump | docker compose --env-file .env.production -f infra/compose.production.yml exec -T postgres \\
+  pg_restore --exit-on-error --no-owner --no-privileges -U "$POSTGRES_USER" -d marketplace_restore
+docker compose --env-file .env.production -f infra/compose.production.yml exec -T postgres \\
+  psql -U "$POSTGRES_USER" -d marketplace_restore -c "SELECT count(*) FROM schema_migrations"
 ```
 
-Test backup restoration before treating the host as production-ready. Keep encrypted backups off-host.
+Validate application reads and expected migration history against the restored database before scheduling a controlled cutover. For an actual recovery, stop API and worker writes, preserve the failed database, switch the deployment's `DATABASE_URL` to the verified restored database, then recreate the API and workers. Do not drop the failed database until recovery is accepted.
+
+The PostgreSQL dump does not contain encrypted incident-evidence files. Back up the named `evidence_data` volume separately using a Docker volume backup procedure, and store the AES key ring independently in the approved secret manager. Verify that both the evidence archive and every key needed by its objects can be recovered. Keep encrypted backups off-host.
 
 ## Analytics projection operations
 
@@ -165,12 +206,25 @@ Observe that the worker starts with the new generation, pending events drain, an
 
 If the new worker handoff or post-cutover checks fail, stop it. Set `ANALYTICS_GENERATION_ID` to the retained prior generation, set `ANALYTICS_REBUILD_MODE=rollback`, and set the confirmation to the same `tenant-id:generation-id` pair. Run the one-shot command above. It catches up and validates the retained generation before atomically restoring its pointer. Recreate the worker using that restored generation ID, then clear `ANALYTICS_REBUILD_MODE`. Preserve both generations and the backup until recovery is accepted. Never manually update generation tables or the active pointer.
 
+## Owner-only deployment actions
+
+Repository changes cannot provision a host, control DNS, create a provider account, or obtain production secrets. Before requesting a public demonstration deployment, the maintainer/operator must supply and verify:
+
+1. **Host and DNS:** Linux host with Docker Engine and Compose v2; a chosen hostname; A/AAAA records pointing to the host; inbound TCP 80/443 (UDP 443 optional). Confirm DNS propagation from outside the host.
+2. **OTP delivery:** a non-production HTTPS provider endpoint and bearer token implementing the documented idempotent delivery contract. Do not use the loopback E2E OTP capture server or any test OTP adapter.
+3. **Secrets:** independently generated PostgreSQL password, OTP pepper, session pepper, and evidence AES-256 key ring. Keep `.env.production` outside Git with restrictive permissions (for example `chmod 600`); never paste values into an Issue or PR.
+4. **Private evidence scanning:** a reachable private ClamAV `clamd` host:port on a network inaccessible from the public Internet, plus persistent encrypted evidence volume storage.
+5. **Backup destination:** approved off-host encrypted backup storage, access policy, retention owner, and a tested retrieval path for both PostgreSQL dumps and evidence-volume archives. Keep evidence keys in a separately recoverable secret store.
+6. **Optional integrations:** an HTTPS outbox sink and token only if event delivery is required. Leave the outbox profile disabled otherwise.
+
+Once these owner-only prerequisites exist, create `.env.production` from the configuration example above, run the validator and Compose preflight, deploy the reviewed immutable Git SHA, run `scripts/smoke-deployment.sh`, execute the browser journey against the deployed environment, and rehearse database plus evidence restore from the real off-host destination. Record the hostname, deployed SHA, migration history, smoke/E2E outcomes, backup object identifiers, restore result and operator in the deployment change record. Do not record secret values.
+
 ## Known limitations before public use
 
 - Browser sessions use Secure, HttpOnly access/refresh cookies, a same-origin CSRF token, and Origin validation for cookie-authenticated mutations. Production-mode browser/API E2E and the clean-database PostgreSQL backup/restore rehearsal are merged in PR #74; these prove repository/CI behavior, not a public deployment.
 - The customer booking → operator verification/dispatch → professional acceptance → customer status browser journey is covered by the merged production-mode E2E. A public deployed smoke test is still required.
 - CI backup/restore rehearsal against a disposable PostgreSQL service is merged in PR #74; production backup storage, off-host retention and restore must still be rehearsed on the actual host.
-- Independent release QA against a clean deployed environment remains required.
+- Maintainer-led release verification against a clean deployed environment remains required; a separate QA operator or external sign-off is not a project gate.
 - The OTP adapter requires a real provider endpoint and token.
 - The initial service catalog and sample professional must be seeded for the configured market before the UI can create a booking.
 - Payment capture, escrow movement, refunds, and settlement are not enabled.

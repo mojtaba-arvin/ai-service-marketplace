@@ -35,8 +35,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
  if h.serveMVP(w,r) { return }
  switch {
  case r.Method==http.MethodGet&&r.URL.Path=="/healthz":
-  if err:=h.Store.Health(r.Context());err!=nil{writeError(w,http.StatusServiceUnavailable,"database unavailable");return}
+  // Liveness only reports that the API process can serve requests.
   writeJSON(w,http.StatusOK,map[string]string{"status":"ok"})
+ case r.Method==http.MethodGet&&r.URL.Path=="/readyz":
+  // Readiness includes PostgreSQL and fails closed if the dependency is absent.
+  if h.Store==nil || h.Store.DB==nil { writeError(w,http.StatusServiceUnavailable,"database unavailable");return }
+  if err:=h.Store.Health(r.Context());err!=nil{writeError(w,http.StatusServiceUnavailable,"database unavailable");return}
+  writeJSON(w,http.StatusOK,map[string]string{"status":"ready"})
  case r.Method==http.MethodPost&&r.URL.Path=="/v1/test/otp/verify":
   h.verifyTestOTP(w,r)
  case r.Method==http.MethodPost&&r.URL.Path=="/v1/auth/otp/request":
