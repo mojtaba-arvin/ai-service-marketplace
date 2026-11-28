@@ -13,19 +13,16 @@ ALTER TABLE analytics_event_facts
     ADD COLUMN IF NOT EXISTS included_in_metrics boolean NOT NULL DEFAULT true;
 
 UPDATE analytics_event_facts f
-SET ingested_at = COALESCE(
-        (SELECT e.created_at FROM outbox_events e WHERE e.id=f.outbox_event_id),
-        f.projected_at
-    ),
+SET ingested_at = (SELECT e.created_at FROM outbox_events e WHERE e.id=f.outbox_event_id),
     event_time_family = CASE
         WHEN f.event_type LIKE 'provider.%' THEN 'provider_supply'
         WHEN f.event_type LIKE 'review.%' OR f.event_type LIKE 'trust.%' THEN 'service_quality'
         WHEN f.event_type LIKE 'finance.%' OR f.event_type LIKE 'ledger.%' THEN 'finance'
         ELSE 'order_funnel'
     END
-WHERE f.ingested_at IS NULL;
+WHERE f.ingested_at IS NULL
+  AND EXISTS (SELECT 1 FROM outbox_events e WHERE e.id=f.outbox_event_id);
 
-ALTER TABLE analytics_event_facts ALTER COLUMN ingested_at SET NOT NULL;
 CREATE INDEX IF NOT EXISTS analytics_event_facts_ingestion_idx
     ON analytics_event_facts(tenant_id,generation_id,ingested_at,event_time_family);
 CREATE INDEX IF NOT EXISTS analytics_event_facts_late_idx
