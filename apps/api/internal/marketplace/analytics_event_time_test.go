@@ -60,7 +60,7 @@ func TestAnalyticsEventTimeLateClockSkewAndCorrectionReplayPostgres(t *testing.T
 		return event
 	}
 
-	lateOccurredAt := time.Now().UTC().Add(-73*time.Hour)
+	lateOccurredAt := time.Now().UTC().Add(-73*time.Hour).Truncate(time.Microsecond)
 	lateEvent := appendEvent("late-"+suffix, lateOccurredAt)
 	duplicateEvent := appendEvent("late-"+suffix, lateOccurredAt)
 	conflictingEvent := appendEvent("late-"+suffix, lateOccurredAt.Add(time.Second))
