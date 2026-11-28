@@ -26,6 +26,7 @@ type Summary struct {
     PendingEvents int64 `json:"pending_events"`
     EventTimeCompleteness string `json:"event_time_completeness"`
     EventTimeWatermark time.Time `json:"event_time_watermark"`
+    EventTimePolicyVersion string `json:"event_time_policy_version"`
     AllowedLatenessSeconds int64 `json:"allowed_lateness_seconds"`
     LateEvents int64 `json:"late_events"`
     LateEventsIncluded int64 `json:"late_events_included"`
@@ -156,6 +157,7 @@ SELECT
         &result.EligibleEvents,&result.ExcludedEvents,&result.PendingEvents,&result.LateEvents,&result.LateEventsIncluded,&result.QuarantinedEvents,&result.MissingIngestionTimestamps,&result.DuplicateReorderConflicts,&result.EventTimeWatermark)
     if err!=nil { return Summary{},err }
     result.DataReady=result.EligibleEvents>0 && result.PendingEvents==0
+    result.EventTimePolicyVersion=policy.Version
     result.AllowedLatenessSeconds=latenessSeconds
     result.EventTimeWatermark=result.EventTimeWatermark.UTC()
     switch {
