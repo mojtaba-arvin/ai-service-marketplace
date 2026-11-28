@@ -11,7 +11,7 @@ import (
 // FinanceCaseProviderQuery is a read-only provider boundary. It must query the
 // existing provider idempotency key; it must never submit a new money operation.
 type FinanceCaseProviderQuery interface {
-	QueryFinanceCase(context.Context, string) (FinanceCaseProviderResult, error)
+	QueryFinanceCase(context.Context, string, string, string, int64, string) (FinanceCaseProviderResult, error)
 }
 
 type FinanceCaseProviderResult struct {
@@ -48,7 +48,7 @@ func (s *Store) ResolveUnknownFinanceCase(ctx context.Context, actor Actor, case
 	}
 	if err = tx.Commit(ctx); err != nil { return FinanceCase{},err }
 
-	result,err := provider.QueryFinanceCase(ctx,c.ProviderIdempotencyKey)
+	result,err := provider.QueryFinanceCase(ctx,c.ProviderCode,c.CaseType,c.ProviderIdempotencyKey,c.AmountMinor,c.Currency)
 	if err != nil { return c,err }
 	result.ProviderCode = strings.ToLower(strings.TrimSpace(result.ProviderCode))
 	result.ProviderIdempotencyKey = strings.TrimSpace(result.ProviderIdempotencyKey)
