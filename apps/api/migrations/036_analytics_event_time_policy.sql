@@ -9,7 +9,8 @@ BEGIN
     NEW.created_at := clock_timestamp();
     NEW.ingested_at_source := 'insert_clock';
     RETURN NEW;
-END $fn$;
+END;
+$fn$;
 DROP TRIGGER IF EXISTS outbox_events_ingestion_time ON outbox_events;
 CREATE TRIGGER outbox_events_ingestion_time BEFORE INSERT ON outbox_events
 FOR EACH ROW EXECUTE FUNCTION set_outbox_insert_ingestion_time();
