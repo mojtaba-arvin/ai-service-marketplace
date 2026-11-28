@@ -14,16 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type financeCaseQueryFake struct {
-	result FinanceCaseProviderResult
-	keys []string
-	err error
-}
-func (f *financeCaseQueryFake) QueryFinanceCase(ctx context.Context, key string) (FinanceCaseProviderResult,error) {
-	f.keys = append(f.keys,key)
-	return f.result,f.err
-}
-
 func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" { t.Skip("TEST_DATABASE_URL is not configured") }
@@ -216,22 +206,25 @@ func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	queryCase,err = store.MarkFinanceCaseProviderUnknown(ctx,approver,queryCase.ID,"Request timed out after possible provider effect")
 	if err != nil { t.Fatal(err) }
-	fakeQuery := &financeCaseQueryFake{result:FinanceCaseProviderResult{
-		ProviderCode:"fake",ProviderIdempotencyKey:queryInput.ProviderIdempotencyKey,
-		Outcome:"unknown",AmountMinor:200,Currency:"OMR"}}
-	queryCase,err = store.ResolveUnknownFinanceCase(ctx,approver,queryCase.ID,fakeQuery)
-	if err != nil || queryCase.Status != FinanceCaseAccepted || queryCase.ProviderOutcome != "unknown" {
-		t.Fatalf("unknown provider query must preserve unknown state: %+v %v",queryCase,err)
+	queryProvider := NewFakePaymentProvider(FakeProviderTimeoutBefore,[]byte("offline-fake-webhook-secret-at-least-32-bytes"))
+	queryRequest := PaymentRequest{IdempotencyKey:queryInput.ProviderIdempotencyKey,AmountMinor:200,Currency:"OMR",Reference:orderID}
+	if _,err = queryProvider.Refund(ctx,queryRequest); !errors.Is(err,context.DeadlineExceeded) {
+		t.Fatalf("timeout-before-effect fixture: %v",err)
 	}
-	fakeQuery.result.Outcome = "confirmed"
-	fakeQuery.result.ProviderReference = "fake-refund-query-ref"
-	queryCase,err = store.ResolveUnknownFinanceCase(ctx,approver,queryCase.ID,fakeQuery)
+	queryCase,err = store.ResolveUnknownFinanceCase(ctx,approver,queryCase.ID,queryProvider)
+	if err != nil || queryCase.Status != FinanceCaseAccepted || queryCase.ProviderOutcome != "unknown" {
+		t.Fatalf("timeout-before-effect query must preserve unknown state: %+v %v",queryCase,err)
+	}
+	queryProvider.Mode = FakeProviderTimeoutAfter
+	if _,err = queryProvider.Refund(ctx,queryRequest); !errors.Is(err,ErrProviderOutcomeUnknown) {
+		t.Fatalf("timeout-after-effect fixture: %v",err)
+	}
+	queryCase,err = store.ResolveUnknownFinanceCase(ctx,approver,queryCase.ID,queryProvider)
 	if err != nil || queryCase.Status != FinanceCaseProviderConfirmed {
 		t.Fatalf("authoritative query recovery: %+v %v",queryCase,err)
 	}
-	if len(fakeQuery.keys) != 2 || fakeQuery.keys[0] != queryInput.ProviderIdempotencyKey ||
-		fakeQuery.keys[1] != queryInput.ProviderIdempotencyKey {
-		t.Fatalf("provider query must reuse the original key: %#v",fakeQuery.keys)
+	if queryProvider.Calls() != 2 {
+		t.Fatalf("provider query must not submit or retry operations: calls=%d",queryProvider.Calls())
 	}
 
 	// A race between distinct provider outcomes for one chargeback has exactly
