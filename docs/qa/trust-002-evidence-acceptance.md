@@ -46,7 +46,11 @@
 
 ## Deletion worker operation
 
-Run `apps/api/cmd/evidence-retention-worker` as a separately deployed process with the same private evidence volume/key ring and database. `EVIDENCE_RETENTION_POLL_SECONDS`, `EVIDENCE_RETENTION_BATCH_SIZE` and `EVIDENCE_RETENTION_LEASE_SECONDS` are bounded operational controls, not retention policy. The worker selects only `retention_expires_at IS NOT NULL AND retention_expires_at <= now()` with `legal_hold=false`, plus retryable pending rows. It never infers an expiry. A storage error leaves a retryable pending tombstone and records only a fixed failure category; raw provider errors are not persisted. A missing object is treated as already absent.\n\nThe reconciliation method finalizes only pending rows whose object is absent. It does not enumerate or purge arbitrary object-store orphans; adapters without a trusted inventory API cannot prove orphan absence. Backup expiry is never performed by this worker.\n\n## Required evidence bundle
+Run `apps/api/cmd/evidence-retention-worker` as a separately deployed process with the same private evidence volume/key ring and database. `EVIDENCE_RETENTION_POLL_SECONDS`, `EVIDENCE_RETENTION_BATCH_SIZE` and `EVIDENCE_RETENTION_LEASE_SECONDS` are bounded operational controls, not retention policy. The worker selects only `retention_expires_at IS NOT NULL AND retention_expires_at <= now()` with `legal_hold=false`, plus retryable pending rows. It never infers an expiry. A storage error leaves a retryable pending tombstone and records only a fixed failure category; raw provider errors are not persisted. A missing object is treated as already absent.
+
+The reconciliation method finalizes only pending rows whose object is absent. It does not enumerate or purge arbitrary object-store orphans; adapters without a trusted inventory API cannot prove orphan absence. Backup expiry is never performed by this worker.
+
+## Required evidence bundle
 
 1. Exact Git commit SHA and immutable API/Web image digests.
 2. Sanitized test run with scenario IDs, timestamps and pass/fail outcomes.
