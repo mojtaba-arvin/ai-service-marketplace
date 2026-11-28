@@ -44,7 +44,7 @@ func loadPending(ctx context.Context,db *pgxpool.Pool,tenant,consumer string,lim
  return events,rows.Err()
 }
 
-type validation struct { Source,Processed,Facts,Quarantined,Pending int64; Checksum string }
+type validation struct { Source,Processed,Facts,Quarantined,Duplicates,DuplicateReorderConflicts,Pending int64; Checksum string }
 
 func validateGeneration(ctx context.Context,db *pgxpool.Pool,tenant,generation,consumer string)(validation,error) {
  var v validation
@@ -53,35 +53,40 @@ func validateGeneration(ctx context.Context,db *pgxpool.Pool,tenant,generation,c
  (SELECT count(*) FROM processed_events WHERE consumer_name=$3),
  (SELECT count(*) FROM analytics_event_facts WHERE tenant_id=$1 AND generation_id=$2),
  (SELECT count(*) FROM analytics_event_quarantine WHERE tenant_id=$1 AND generation_id=$2),
+ (SELECT count(*) FROM analytics_event_duplicates WHERE tenant_id=$1 AND generation_id=$2),
+ (SELECT count(*) FROM analytics_event_duplicates WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id < canonical_outbox_event_id),
  (SELECT count(*) FROM outbox_events e WHERE e.payload->>'tenant_id'=$1
   AND NOT EXISTS(SELECT 1 FROM processed_events p WHERE p.consumer_name=$3 AND p.event_id=e.id))`,
- tenant,generation,consumer).Scan(&v.Source,&v.Processed,&v.Facts,&v.Quarantined,&v.Pending)
+ tenant,generation,consumer).Scan(&v.Source,&v.Processed,&v.Facts,&v.Quarantined,&v.Duplicates,&v.DuplicateReorderConflicts,&v.Pending)
  if err!=nil{return v,err}
- if v.Pending!=0||v.Source!=v.Processed||v.Processed!=v.Facts+v.Quarantined {
-  return v,fmt.Errorf("generation validation failed: source=%d processed=%d facts=%d quarantined=%d pending=%d",v.Source,v.Processed,v.Facts,v.Quarantined,v.Pending)
+ if v.Pending!=0||v.DuplicateReorderConflicts!=0||v.Source!=v.Processed||v.Processed!=v.Facts+v.Quarantined+v.Duplicates {
+  return v,fmt.Errorf("generation validation failed: source=%d processed=%d facts=%d quarantined=%d duplicates=%d duplicate_reorder_conflicts=%d pending=%d",v.Source,v.Processed,v.Facts,v.Quarantined,v.Duplicates,v.DuplicateReorderConflicts,v.Pending)
  }
- // Every source row must have exactly one durable outcome (fact or quarantine).
+ // Every source row must have exactly one durable outcome (fact, quarantine, or idempotent duplicate).
  var missing int64
  err=db.QueryRow(ctx,`SELECT count(*) FROM outbox_events e
  WHERE e.payload->>'tenant_id'=$1
  AND NOT EXISTS(SELECT 1 FROM analytics_event_facts f WHERE f.tenant_id=$1 AND f.generation_id=$2 AND f.outbox_event_id=e.id)
- AND NOT EXISTS(SELECT 1 FROM analytics_event_quarantine q WHERE q.tenant_id=$1 AND q.generation_id=$2 AND q.outbox_event_id=e.id)`,tenant,generation).Scan(&missing)
+ AND NOT EXISTS(SELECT 1 FROM analytics_event_quarantine q WHERE q.tenant_id=$1 AND q.generation_id=$2 AND q.outbox_event_id=e.id)
+ AND NOT EXISTS(SELECT 1 FROM analytics_event_duplicates d WHERE d.tenant_id=$1 AND d.generation_id=$2 AND d.outbox_event_id=e.id)`,tenant,generation).Scan(&missing)
  if err!=nil{return v,err}
- if missing!=0{return v,fmt.Errorf("generation validation found %d source events without a fact or quarantine record",missing)}
+ if missing!=0{return v,fmt.Errorf("generation validation found %d source events without a fact, quarantine, or duplicate record",missing)}
  var outcomes,distinctOutcomes int64
  err=db.QueryRow(ctx,`SELECT count(*),count(DISTINCT outbox_event_id) FROM (
   SELECT outbox_event_id FROM analytics_event_facts WHERE tenant_id=$1 AND generation_id=$2
   UNION ALL SELECT outbox_event_id FROM analytics_event_quarantine WHERE tenant_id=$1 AND generation_id=$2
+  UNION ALL SELECT outbox_event_id FROM analytics_event_duplicates WHERE tenant_id=$1 AND generation_id=$2
  ) projection_outcomes`,tenant,generation).Scan(&outcomes,&distinctOutcomes)
  if err!=nil{return v,err}
  if outcomes!=v.Source||distinctOutcomes!=v.Source{return v,fmt.Errorf("generation outcome set is not one-to-one with source events: source=%d outcomes=%d distinct_outcomes=%d",v.Source,outcomes,distinctOutcomes)}
- // Recompute each source payload digest and compare it with the immutable fact
- // or quarantine record; also produce a deterministic ordered source checksum.
- rows,err:=db.Query(ctx,`SELECT e.id,e.payload,COALESCE(f.payload_sha256,q.payload_sha256),
-  (f.outbox_event_id IS NOT NULL),(q.outbox_event_id IS NOT NULL)
+ // Recompute each source payload digest and compare it with the immutable fact,
+ // quarantine, or duplicate outcome; also produce a deterministic source checksum.
+ rows,err:=db.Query(ctx,`SELECT e.id,e.payload,COALESCE(f.payload_sha256,q.payload_sha256,d.payload_sha256),
+  (f.outbox_event_id IS NOT NULL),(q.outbox_event_id IS NOT NULL),(d.outbox_event_id IS NOT NULL)
  FROM outbox_events e
  LEFT JOIN analytics_event_facts f ON f.tenant_id=$1 AND f.generation_id=$2 AND f.outbox_event_id=e.id
  LEFT JOIN analytics_event_quarantine q ON q.tenant_id=$1 AND q.generation_id=$2 AND q.outbox_event_id=e.id
+ LEFT JOIN analytics_event_duplicates d ON d.tenant_id=$1 AND d.generation_id=$2 AND d.outbox_event_id=e.id
  WHERE e.payload->>'tenant_id'=$1 ORDER BY e.id`,tenant,generation)
  if err!=nil{return v,err}
  checksum:=sha256.New()
@@ -90,9 +95,11 @@ func validateGeneration(ctx context.Context,db *pgxpool.Pool,tenant,generation,c
   var id int64
   var payload []byte
   var storedHash string
-  var hasFact,hasQuarantine bool
-  if err=rows.Scan(&id,&payload,&storedHash,&hasFact,&hasQuarantine);err!=nil{rows.Close();return v,err}
-  if hasFact==hasQuarantine{rows.Close();return v,fmt.Errorf("source event %d must have exactly one projection outcome",id)}
+  var hasFact,hasQuarantine,hasDuplicate bool
+  if err=rows.Scan(&id,&payload,&storedHash,&hasFact,&hasQuarantine,&hasDuplicate);err!=nil{rows.Close();return v,err}
+  outcomesForSource:=0
+  if hasFact { outcomesForSource++ }; if hasQuarantine { outcomesForSource++ }; if hasDuplicate { outcomesForSource++ }
+  if outcomesForSource!=1 { rows.Close();return v,fmt.Errorf("source event %d must have exactly one projection outcome",id) }
   digest:=sha256.Sum256(payload)
   actualHash:=hex.EncodeToString(digest[:])
   if strings.TrimSpace(storedHash)!=actualHash{rows.Close();return v,fmt.Errorf("source payload digest mismatch for outbox event %d",id)}
@@ -177,7 +184,7 @@ func runRollback(ctx context.Context,pool *pgxpool.Pool,tenant,target string)err
  }
  validated,err:=validateGeneration(ctx,pool,tenant,target,consumerName)
  if err!=nil{return fmt.Errorf("rollback generation validation: %w",err)}
- log.Printf("rollback generation caught up: source=%d facts=%d quarantined=%d",validated.Source,validated.Facts,validated.Quarantined)
+ log.Printf("rollback generation caught up: source=%d facts=%d quarantined=%d duplicates=%d",validated.Source,validated.Facts,validated.Quarantined,validated.Duplicates)
  if err=rollbackCutover(ctx,pool,tenant,target,consumerName);err!=nil{return fmt.Errorf("atomic analytics rollback: %w",err)}
  log.Printf("analytics generation %q restored for tenant %q; restart analytics-worker with the restored generation ID",target,tenant)
  return nil
@@ -226,7 +233,9 @@ func run(ctx context.Context)error {
  if err!=nil{_ = tx.Rollback(ctx);return err}
  if err=tx.Commit(ctx);err!=nil{return err}
 
- consumer:=outbox.Consumer{DB:pool,Name:consumerName,Handler:(analytics.Projector{DB:pool,ConsumerName:consumerName,GenerationID:generation,TenantID:tenant}).Handle}
+ includeLateEvents:=strings.EqualFold(strings.TrimSpace(os.Getenv("ANALYTICS_INCLUDE_LATE_EVENTS")),"true")
+ log.Printf("analytics rebuild policy: include_late_events=%t",includeLateEvents)
+ consumer:=outbox.Consumer{DB:pool,Name:consumerName,Handler:(analytics.Projector{DB:pool,ConsumerName:consumerName,GenerationID:generation,TenantID:tenant,IncludeLateEvents:includeLateEvents}).Handle}
  totalApplied:=0
  for {
   if err=ctx.Err();err!=nil{return err}
@@ -242,7 +251,7 @@ func run(ctx context.Context)error {
  }
  validated,err:=validateGeneration(ctx,pool,tenant,generation,consumerName)
  if err!=nil{return err}
- log.Printf("analytics rebuild validated: source=%d facts=%d quarantined=%d sha256=%s",validated.Source,validated.Facts,validated.Quarantined,validated.Checksum)
+ log.Printf("analytics rebuild validated: source=%d facts=%d quarantined=%d duplicates=%d sha256=%s",validated.Source,validated.Facts,validated.Quarantined,validated.Duplicates,validated.Checksum)
  if err=cutover(ctx,pool,tenant,generation,consumerName);err!=nil{return fmt.Errorf("atomic analytics generation cutover: %w",err)}
  log.Printf("analytics generation %q is now active for tenant %q; restart analytics-worker with the new generation ID to resume live tail",generation,tenant)
  return nil

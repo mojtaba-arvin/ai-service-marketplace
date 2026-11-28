@@ -5103,7 +5103,18 @@
           "data_ready",
           "eligible_events",
           "excluded_events",
-          "pending_events"
+          "pending_events",
+          "event_time_completeness",
+          "event_time_watermark",
+          "allowed_lateness_seconds",
+          "late_events",
+          "late_events_included",
+          "quarantined_events",
+          "ingestion_backlog_status",
+          "source_coverage_status",
+          "untrusted_ingestion_timestamps",
+          "duplicate_reorder_conflicts",
+          "event_time_policy_version"
         ],
         "properties": {
           "window_from": {
@@ -5168,7 +5179,7 @@
           },
           "data_ready": {
             "type": "boolean",
-            "description": "True only when production-classified market-attributed facts exist in the requested window and the active generation has no pending canonical tenant events."
+            "description": "Ingestion-readiness indicator only: production-classified, market-attributed facts exist and the active generation has no pending canonical tenant events. It does not certify event-time completeness or finality."
           },
           "eligible_events": {
             "type": "integer",
@@ -5186,6 +5197,80 @@
             "format": "int64",
             "minimum": 0,
             "description": "Canonical tenant-scoped outbox events not yet processed by the active generation's consumer."
+          },
+          "event_time_completeness": {
+            "type": "string",
+            "enum": [
+              "unavailable",
+              "incomplete",
+              "correction_required",
+              "immature",
+              "corrected",
+              "finalized"
+            ],
+            "description": "Event-time completeness for the requested [from,to) cohort; independent of ingestion backlog and source coverage."
+          },
+          "event_time_watermark": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Database UTC wall clock minus the order_funnel allowed-lateness policy."
+          },
+          "allowed_lateness_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Versioned order_funnel allowed lateness in seconds; currently 72 hours."
+          },
+          "late_events": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Late facts excluded from this generation's normal metric aggregates."
+          },
+          "late_events_included": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Late facts explicitly included by a correction replay generation."
+          },
+          "quarantined_events": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Quarantined events visible for the tenant/generation; unknown event-time provenance is treated as incomplete."
+          },
+          "ingestion_backlog_status": {
+            "type": "string",
+            "enum": [
+              "drained",
+              "pending"
+            ],
+            "description": "Active-generation canonical outbox ingestion backlog only."
+          },
+          "source_coverage_status": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "unavailable",
+              "incomplete"
+            ],
+            "description": "Producer/source coverage; unknown is not a claim of complete source coverage."
+          },
+          "duplicate_reorder_conflicts": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Identical event IDs whose lower outbox ID arrived after a higher-ID canonical fact; requires deterministic correction replay."
+          },
+          "event_time_policy_version": {
+            "type": "string",
+            "description": "Versioned policy identifier used for the metric-family lateness classification."
+          },
+          "untrusted_ingestion_timestamps": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Facts with missing or legacy/untrusted outbox insertion-time provenance; these prevent event-time completeness."
           }
         }
       },
