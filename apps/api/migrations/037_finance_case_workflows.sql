@@ -153,7 +153,8 @@ DROP TRIGGER IF EXISTS finance_case_state_guard ON finance_cases;
 CREATE TRIGGER finance_case_state_guard BEFORE UPDATE ON finance_cases
 FOR EACH ROW EXECUTE FUNCTION guard_finance_case_transition();
 ),
-    actual_amount_minor bigint NOT NULL CHECK (actual_amount_minor >= 0),
+    actual_debit_minor bigint NOT NULL CHECK (actual_debit_minor >= 0),
+    actual_credit_minor bigint NOT NULL CHECK (actual_credit_minor >= 0),
     actual_currency char(3),
     actor_identity_id text NOT NULL REFERENCES phone_identities(id) ON DELETE RESTRICT,
     reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 1 AND 500),
