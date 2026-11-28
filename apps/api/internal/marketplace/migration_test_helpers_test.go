@@ -31,13 +31,12 @@ func ensureTestOperatorGrants(ctx context.Context, pool *pgxpool.Pool, actor Act
 	if _, err := pool.Exec(ctx, "ALTER TABLE orders ADD COLUMN IF NOT EXISTS tenant_id text"); err != nil {
 		return fmt.Errorf("prepare order tenant key for incident schema: %w", err)
 	}
-	// These migrations are intentionally replay-safe in test schemas. Keep
-	// migration 036 last: it widens the action constraint introduced by 034.
+	// These migrations are intentionally replay-safe in test schemas and run in order.
 	for _, name := range []string{
 		"001_walking_skeleton.sql", "002_identity.sql", "022_identity_memberships.sql",
 		"031_operator_action_grants.sql", "032_operator_permission_event_integrity.sql",
 		"033_incident_report_intake.sql", "034_incident_reviewer_workflow.sql",
-		"035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql", "037_incident_evidence_deletion.sql", "036_incident_evidence_lifecycle.sql",
+		"035_private_incident_evidence.sql", "036_incident_evidence_lifecycle.sql", "037_incident_evidence_deletion.sql",
 	} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if err != nil {
