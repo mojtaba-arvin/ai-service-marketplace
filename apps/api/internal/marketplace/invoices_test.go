@@ -245,6 +245,28 @@ func TestInvoiceIdempotencyAndCorrectionAreAppendOnlySnapshots(t *testing.T) {
 	}
 }
 
+
+func TestInvoiceCancellationCreatesLinkedRecordWithoutVoidingHistory(t *testing.T) {
+	original, err := BuildInvoiceRecord(invoiceTestInput())
+	if err != nil { t.Fatal(err) }
+
+	cancellation := invoiceTestInput()
+	cancellation.ID = "invoice-cancellation-1"
+	cancellation.IdempotencyKey = "cancel-order-1"
+	cancellation.Version = 2
+	cancellation.CorrectionOfID = original.ID
+	cancellation.CorrectionReason = "source order cancelled"
+	cancelled, err := BuildInvoiceRecord(cancellation)
+	if err != nil { t.Fatal(err) }
+	if cancelled.ID == original.ID || cancelled.CorrectionOfID != original.ID ||
+		cancelled.CorrectionReason != "source order cancelled" {
+		t.Fatalf("cancellation must be represented by a new linked record: %#v", cancelled)
+	}
+	if original.Status != "snapshot" || original.TotalMinor != 2200 || original.CorrectionOfID != "" {
+		t.Fatalf("cancellation mutated the original invoice snapshot: %#v", original)
+	}
+}
+
 func TestInvoiceRejectsFinancialCorrectionWithoutCompensatingJournal(t *testing.T) {
 	input := invoiceTestInput()
 	input.CorrectionOfID = "invoice-original"
