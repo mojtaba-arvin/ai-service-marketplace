@@ -3902,10 +3902,6 @@
                           "deletion_state": {
                             "type": "string",
                             "enum": ["active", "deletion_pending", "deleted"]
-                          },
-                          "deletion_state": {
-                            "type": "string",
-                            "enum": ["active", "deletion_pending", "deleted"]
                           }
                         }
                       }
