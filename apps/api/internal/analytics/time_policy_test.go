@@ -10,16 +10,16 @@ func TestEventTimePolicyFamilies(t *testing.T) {
 		"order.created": "order_funnel",
 		"dispatch.offer_created": "order_funnel",
 		"provider.verified": "provider_supply",
-		"review.published": "service_quality",
-		"finance.journal_posted": "finance",
 	} {
 		policy, ok := EventTimePolicyFor(eventType)
 		if !ok || policy.MetricFamily != family || policy.AllowedLateness != 72*time.Hour || policy.Version == "" {
 			t.Fatalf("unexpected policy for %s: %+v ok=%v", eventType, policy, ok)
 		}
 	}
-	if _, ok := EventTimePolicyFor("unknown.event"); ok {
-		t.Fatal("unknown event family must not inherit a metric policy")
+	for _, eventType := range []string{"review.published", "trust.dispute_finalized", "finance.journal_posted", "ledger.reversed", "unknown.event"} {
+		if _, ok := EventTimePolicyFor(eventType); ok {
+			t.Fatalf("%s must fail closed until its family-specific lateness/maturity policy is defined", eventType)
+		}
 	}
 }
 
