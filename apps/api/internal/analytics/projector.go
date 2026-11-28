@@ -147,7 +147,7 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
 		(tenant_id,generation_id,event_id,outbox_event_id,event_type,event_version,occurred_at,ingested_at,
 		 event_time_family,lateness_policy_version,allowed_lateness_seconds,late_arrival,included_in_metrics,ingestion_time_trusted,
 		 aggregate_type,aggregate_id,market_code,traffic_class,data,payload_sha256)
-		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NULLIF($16,''),NULLIF($17,''),$18::jsonb,$19,$20)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NULLIF($17,''),NULLIF($18,''),$19::jsonb,$20)
 		ON CONFLICT DO NOTHING`,
 		domain.TenantID,p.GenerationID,domain.ID,event.ID,domain.Type,domain.Version,domain.OccurredAt.UTC(),ingestedAt.UTC(),
 		policy.MetricFamily,policy.Version,int64(policy.AllowedLateness.Seconds()),classification.Late,includedInMetrics,true,
