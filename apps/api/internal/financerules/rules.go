@@ -91,8 +91,7 @@ func Validate(r Rule) error {
 		return ErrInvalidRule
 	}
 	if r.Basis==Percentage && r.Rate>10000 { return ErrInvalidRule }
-	if r.Basis==FixedMinor && r.Rounding!="" && r.Rounding!=HalfUp && r.Rounding!=Down && r.Rounding!=Up { return ErrInvalidRule }
-	if r.Basis==Percentage && r.Rounding!=HalfUp && r.Rounding!=Down && r.Rounding!=Up { return ErrInvalidRule }
+	if r.Rounding!=HalfUp && r.Rounding!=Down && r.Rounding!=Up { return ErrInvalidRule }
 	if r.EffectiveUntil!=nil && !r.EffectiveUntil.After(r.EffectiveFrom) { return ErrInvalidRule }
 	if r.MinimumMinor!=nil && *r.MinimumMinor<0 { return ErrInvalidRule }
 	if r.MaximumMinor!=nil && *r.MaximumMinor<0 { return ErrInvalidRule }
@@ -137,7 +136,9 @@ func Calculate(r Rule, in Input) (Result,error) {
 	if r.MaximumMinor!=nil && n.Cmp(big.NewInt(*r.MaximumMinor))>0 { n=big.NewInt(*r.MaximumMinor) }
 	if !n.IsInt64()||n.Sign()<0||n.Cmp(big.NewInt(math.MaxInt64))>0{return Result{},ErrOverflow}
 	snapshot,err:=json.Marshal(r);if err!=nil{return Result{},err}
-	inputBytes,err:=json.Marshal(in);if err!=nil{return Result{},err}
+	canonicalInput:=in
+	canonicalInput.At=in.At.UTC()
+	inputBytes,err:=json.Marshal(canonicalInput);if err!=nil{return Result{},err}
 	sum:=sha256.Sum256(inputBytes)
 	return Result{RuleID:r.ID,RuleVersion:r.Version,MarketID:r.MarketID,Currency:r.Currency,Kind:r.Kind,BasisMinor:in.BasisMinor,AmountMinor:n.Int64(),InputHash:hex.EncodeToString(sum[:]),RuleSnapshot:snapshot},nil
 }
