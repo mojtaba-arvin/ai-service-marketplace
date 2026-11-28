@@ -13,6 +13,7 @@ ALTER TABLE incident_evidence ADD CONSTRAINT incident_evidence_deletion_state_co
  OR (deletion_state='deleted' AND deletion_claim_token IS NULL AND deletion_claimed_until IS NULL AND deleted_at IS NOT NULL));
 CREATE INDEX IF NOT EXISTS incident_evidence_deletion_candidates_idx ON incident_evidence(retention_expires_at,created_at,id)
  WHERE legal_hold=false AND deletion_state IN ('active','deletion_pending');
+ALTER TABLE incident_evidence_access_events ADD COLUMN IF NOT EXISTS attempt integer NOT NULL DEFAULT 0 CHECK(attempt>=0);
 ALTER TABLE incident_evidence_access_events DROP CONSTRAINT IF EXISTS incident_evidence_access_events_action_check;
 ALTER TABLE incident_evidence_access_events ADD CONSTRAINT incident_evidence_access_events_action_check CHECK(action IN (
  'upload','download','list','retention_update','legal_hold_set','legal_hold_cleared',
