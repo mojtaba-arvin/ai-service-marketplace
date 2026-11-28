@@ -28,16 +28,26 @@ type EventTimeClassification struct {
 // lateness policy. The 72-hour value applies only to order-funnel and provider
 // supply; it is not a retention, legal, contractual, quality-maturity, or
 // financial-close rule.
-func EventTimePolicyFor(eventType string) (EventTimePolicy, bool) {
-	family := ""
+func MetricFamilyForEventType(eventType string) string {
 	switch {
 	case strings.HasPrefix(eventType, "order."), strings.HasPrefix(eventType, "dispatch."):
-		family = "order_funnel"
+		return "order_funnel"
 	case strings.HasPrefix(eventType, "provider."):
-		family = "provider_supply"
-	// Quality and finance deliberately fail closed until their owners define
-	// the distinct maturity/effective-time rules in #299 and #301.
+		return "provider_supply"
+	case strings.HasPrefix(eventType, "review."), strings.HasPrefix(eventType, "trust."):
+		return "service_quality"
+	case strings.HasPrefix(eventType, "finance."), strings.HasPrefix(eventType, "ledger."):
+		return "finance"
 	default:
+		return ""
+	}
+}
+
+// EventTimePolicyFor returns a policy only for families whose metric owners
+// have defined a bounded-lateness contract. Quality and finance fail closed.
+func EventTimePolicyFor(eventType string) (EventTimePolicy, bool) {
+	family := MetricFamilyForEventType(eventType)
+	if family != "order_funnel" && family != "provider_supply" {
 		return EventTimePolicy{}, false
 	}
 	return EventTimePolicy{MetricFamily: family, Version: EventTimePolicyVersion, AllowedLateness: DefaultAllowedLateness}, true
