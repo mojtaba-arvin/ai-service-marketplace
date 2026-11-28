@@ -76,7 +76,7 @@ func ClassifyEventTime(occurredAt, ingestedAt time.Time, policy EventTimePolicy)
 	return EventTimeClassification{Late: occurredAt.Before(ingestedAt.Add(-policy.AllowedLateness))}, nil
 }
 
-// EventTimeWatermark is based on ingestion clock, never an outbox sequence or
+// EventTimeWatermark is based on database wall clock, never an outbox sequence or
 // the maximum observed occurred_at. A period [from,to) is mature when to is
 // at or before this watermark.
 func EventTimeWatermark(now time.Time, policy EventTimePolicy) time.Time {
