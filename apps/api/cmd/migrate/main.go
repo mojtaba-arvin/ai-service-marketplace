@@ -52,6 +52,7 @@ var migrationFiles = []string{
 	"034_incident_reviewer_workflow.sql",
 	"035_private_incident_evidence.sql",
 	"036_incident_evidence_lifecycle.sql",
+	"037_incident_evidence_deletion.sql",
 }
 
 const advisoryLockID int64 = 824713921734
