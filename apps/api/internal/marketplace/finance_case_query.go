@@ -85,7 +85,7 @@ func (s *Store) ResolveUnknownFinanceCase(ctx context.Context, actor Actor, case
 	if _,err = tx.Exec(ctx,`INSERT INTO finance_case_events
 		(id,case_id,tenant_id,event_type,from_status,to_status,actor_identity_id,reason,details)
 		VALUES($1,$2,$3,$4,'accepted',$5,$6,'authoritative provider query',
-		jsonb_build_object('provider_reference',$7))`,
+		jsonb_build_object('provider_reference',$7::text))`,
 		eventID,caseID,actor.TenantID,eventType,next,actor.SubjectID,result.ProviderReference); err != nil {
 		return FinanceCase{},err
 	}
