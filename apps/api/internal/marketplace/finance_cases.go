@@ -116,7 +116,9 @@ func (v HMACFinanceCaseWebhookVerifier) VerifyFinanceCaseWebhook(ctx context.Con
 		(event.Outcome != "confirmed" && event.Outcome != "failed") ||
 		(event.Outcome == "confirmed" && strings.TrimSpace(event.ProviderReference) == "") ||
 		ValidateAmount(event.AmountMinor, event.Currency) != nil ||
-		len(event.EventID) > 200 || len(event.ProviderIdempotencyKey) > 200 {
+		len(event.EventID) > 200 || len(event.ProviderIdempotencyKey) > 200 ||
+		len(event.ProviderReference) > 200 || len(event.FailureCode) > 200 ||
+		(event.Outcome == "failed" && strings.TrimSpace(event.FailureCode) == "") {
 		return FinanceCaseWebhook{}, ErrFinanceCaseInput
 	}
 	return event, nil
