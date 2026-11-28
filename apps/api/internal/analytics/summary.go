@@ -149,7 +149,7 @@ SELECT
     (SELECT count(*) FROM analytics_event_duplicates d JOIN active_generation ag ON ag.tenant_id=d.tenant_id AND ag.generation_id=d.generation_id
        WHERE d.tenant_id=$1 AND d.event_time_family='order_funnel' AND d.outbox_event_id < d.canonical_outbox_event_id
          AND d.occurred_at >= $2 AND d.occurred_at < $3 AND ($4='' OR d.market_code=$4 OR d.market_code IS NULL)),
-    clock_timestamp() - ($5 * interval '1 second')
+    clock_timestamp() - make_interval(secs => $5::double precision)
 `,tenantID,from,to,filter.MarketCode,latenessSeconds).Scan(
         &result.OrdersCreated,&result.OffersCreated,&result.OffersAccepted,
         &result.OrdersCancelled,&result.OrdersCompleted,
