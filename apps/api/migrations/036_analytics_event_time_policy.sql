@@ -1,6 +1,6 @@
 -- Preserve source event time separately from the durable outbox ingestion time.
 -- Existing immutable facts are backfilled from their source outbox row before
--- the append-only trigger is restored.
+-- the append-only triggers are restored.
 DROP TRIGGER IF EXISTS analytics_event_facts_immutable ON analytics_event_facts;
 DROP TRIGGER IF EXISTS analytics_event_facts_no_truncate ON analytics_event_facts;
 
@@ -14,15 +14,15 @@ ALTER TABLE analytics_event_facts
 
 UPDATE analytics_event_facts f
 SET ingested_at = COALESCE(
-    (SELECT e.created_at FROM outbox_events e WHERE e.id=f.outbox_event_id),
-    f.projected_at
-),
-event_time_family = CASE
-    WHEN f.event_type LIKE 'provider.%' THEN 'provider_supply'
-    WHEN f.event_type LIKE 'review.%' OR f.event_type LIKE 'trust.%' THEN 'service_quality'
-    WHEN f.event_type LIKE 'finance.%' OR f.event_type LIKE 'ledger.%' THEN 'finance'
-    ELSE 'order_funnel'
-END
+        (SELECT e.created_at FROM outbox_events e WHERE e.id=f.outbox_event_id),
+        f.projected_at
+    ),
+    event_time_family = CASE
+        WHEN f.event_type LIKE 'provider.%' THEN 'provider_supply'
+        WHEN f.event_type LIKE 'review.%' OR f.event_type LIKE 'trust.%' THEN 'service_quality'
+        WHEN f.event_type LIKE 'finance.%' OR f.event_type LIKE 'ledger.%' THEN 'finance'
+        ELSE 'order_funnel'
+    END
 WHERE f.ingested_at IS NULL;
 
 ALTER TABLE analytics_event_facts ALTER COLUMN ingested_at SET NOT NULL;
@@ -51,15 +51,15 @@ ALTER TABLE analytics_event_quarantine
 
 UPDATE analytics_event_quarantine q
 SET event_id = e.payload->>'id',
-    event_version = CASE WHEN e.payload->>'version' ~ '^[0-9]+COMMENT ON COLUMN analytics_event_facts.occurred_at IS 'Producer-supplied canonical event time; immutable source timestamp.';
-COMMENT ON COLUMN analytics_event_facts.ingested_at IS 'Durable outbox row created_at; ingestion provenance, not event time or commit-order cursor.';
-COMMENT ON COLUMN analytics_event_facts.included_in_metrics IS 'False for out-of-policy late events until an explicit correction generation replays them.';
- THEN (e.payload->>'version')::integer ELSE NULL END,
+    event_version = CASE
+        WHEN e.payload->>'version' ~ '^[0-9]{1,9}$' THEN (e.payload->>'version')::integer
+        ELSE NULL
+    END,
     ingested_at = e.created_at,
-    market_code = CASE WHEN e.payload->'metadata'->>'market_code' ~ '^[A-Z]{2}COMMENT ON COLUMN analytics_event_facts.occurred_at IS 'Producer-supplied canonical event time; immutable source timestamp.';
-COMMENT ON COLUMN analytics_event_facts.ingested_at IS 'Durable outbox row created_at; ingestion provenance, not event time or commit-order cursor.';
-COMMENT ON COLUMN analytics_event_facts.included_in_metrics IS 'False for out-of-policy late events until an explicit correction generation replays them.';
- THEN e.payload->'metadata'->>'market_code' ELSE NULL END,
+    market_code = CASE
+        WHEN e.payload->'metadata'->>'market_code' ~ '^[A-Z]{2}$' THEN e.payload->'metadata'->>'market_code'
+        ELSE NULL
+    END,
     event_time_family = CASE
         WHEN q.event_type LIKE 'provider.%' THEN 'provider_supply'
         WHEN q.event_type LIKE 'review.%' OR q.event_type LIKE 'trust.%' THEN 'service_quality'
