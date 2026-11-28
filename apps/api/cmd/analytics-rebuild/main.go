@@ -61,7 +61,7 @@ func validateGeneration(ctx context.Context,db *pgxpool.Pool,tenant,generation,c
  if v.Pending!=0||v.Source!=v.Processed||v.Processed!=v.Facts+v.Quarantined+v.Duplicates {
   return v,fmt.Errorf("generation validation failed: source=%d processed=%d facts=%d quarantined=%d duplicates=%d pending=%d",v.Source,v.Processed,v.Facts,v.Quarantined,v.Duplicates,v.Pending)
  }
- // Every source row must have exactly one durable outcome (fact or quarantine).
+ // Every source row must have exactly one durable outcome (fact, quarantine, or idempotent duplicate).
  var missing int64
  err=db.QueryRow(ctx,`SELECT count(*) FROM outbox_events e
  WHERE e.payload->>'tenant_id'=$1
@@ -69,7 +69,7 @@ func validateGeneration(ctx context.Context,db *pgxpool.Pool,tenant,generation,c
  AND NOT EXISTS(SELECT 1 FROM analytics_event_quarantine q WHERE q.tenant_id=$1 AND q.generation_id=$2 AND q.outbox_event_id=e.id)
  AND NOT EXISTS(SELECT 1 FROM analytics_event_duplicates d WHERE d.tenant_id=$1 AND d.generation_id=$2 AND d.outbox_event_id=e.id)`,tenant,generation).Scan(&missing)
  if err!=nil{return v,err}
- if missing!=0{return v,fmt.Errorf("generation validation found %d source events without a fact or quarantine record",missing)}
+ if missing!=0{return v,fmt.Errorf("generation validation found %d source events without a fact, quarantine, or duplicate record",missing)}
  var outcomes,distinctOutcomes int64
  err=db.QueryRow(ctx,`SELECT count(*),count(DISTINCT outbox_event_id) FROM (
   SELECT outbox_event_id FROM analytics_event_facts WHERE tenant_id=$1 AND generation_id=$2
@@ -78,8 +78,8 @@ func validateGeneration(ctx context.Context,db *pgxpool.Pool,tenant,generation,c
  ) projection_outcomes`,tenant,generation).Scan(&outcomes,&distinctOutcomes)
  if err!=nil{return v,err}
  if outcomes!=v.Source||distinctOutcomes!=v.Source{return v,fmt.Errorf("generation outcome set is not one-to-one with source events: source=%d outcomes=%d distinct_outcomes=%d",v.Source,outcomes,distinctOutcomes)}
- // Recompute each source payload digest and compare it with the immutable fact
- // or quarantine record; also produce a deterministic ordered source checksum.
+ // Recompute each source payload digest and compare it with the immutable fact,
+ // quarantine, or duplicate outcome; also produce a deterministic source checksum.
  rows,err:=db.Query(ctx,`SELECT e.id,e.payload,COALESCE(f.payload_sha256,q.payload_sha256,d.payload_sha256),
   (f.outbox_event_id IS NOT NULL),(q.outbox_event_id IS NOT NULL),(d.outbox_event_id IS NOT NULL)
  FROM outbox_events e
