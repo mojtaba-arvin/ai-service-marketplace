@@ -36,7 +36,7 @@ func TestEvidenceDeletionWorkerPostgresRetryHoldMissingAndConcurrency(t *testing
  action text,outcome text,reason_category text,created_at timestamptz DEFAULT now())`);if err!=nil{t.Fatal(err)}
  now:=time.Now().UTC()
  ids:=[]string{"11111111111111111111111111111111","22222222222222222222222222222222","33333333333333333333333333333333","44444444444444444444444444444444","66666666666666666666666666666666"}
- for i,id:=range ids{ if i==4 { continue }
+ for i,id:=range ids{
   state:="active";expiry:=any(now.Add(-time.Hour));hold:=false
   if i==1{hold=true};if i==2{expiry=nil};if i==3{state="deletion_pending";expiry=now.Add(-time.Hour)}
   _,err=db.Exec(ctx,`INSERT INTO incident_evidence(id,tenant_id,report_id,retention_expires_at,legal_hold,deletion_state) VALUES($1,'tenant-a','report-a',$2,$3,$4)`,id,expiry,hold,state);if err!=nil{t.Fatal(err)}
