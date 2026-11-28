@@ -26,6 +26,8 @@ import (
 
 var ErrEvidenceUnavailable = errors.New("incident evidence service unavailable")
 
+// PrivateEvidenceStorage adapters must make Delete idempotent. os.ErrNotExist means
+// the object is definitively absent; nil means deletion is durably acknowledged.
 type PrivateEvidenceStorage interface {
 	Put(context.Context, string, []byte) error
 	Get(context.Context, string, int64) ([]byte, error)
@@ -218,7 +220,21 @@ func (s *FilesystemEvidenceStorage) Delete(ctx context.Context, id string) error
 	if err != nil {
 		return err
 	}
-	return os.Remove(path)
+	if err = os.Remove(path); err != nil {
+		return err
+	}
+	// Persist the directory entry removal before acknowledging deletion. If the
+	// sync fails, the worker leaves a retryable tombstone and retries idempotently.
+	directory, err := os.Open(s.Root)
+	if err != nil {
+		return err
+	}
+	syncErr := directory.Sync()
+	closeErr := directory.Close()
+	if syncErr != nil {
+		return syncErr
+	}
+	return closeErr
 }
 
 func (s *EvidenceService) put(ctx context.Context, id string, data []byte) error {
