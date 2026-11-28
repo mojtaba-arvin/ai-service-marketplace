@@ -40,6 +40,7 @@ func TestEvidenceDeletionWorkerPostgresRetryHoldMissingAndConcurrency(t *testing
   state:="active";expiry:=any(now.Add(-time.Hour));hold:=false
   if i==1{hold=true};if i==2{expiry=nil};if i==3{state="deletion_pending";expiry=now.Add(-time.Hour)}
   _,err=db.Exec(ctx,`INSERT INTO incident_evidence(id,tenant_id,report_id,retention_expires_at,legal_hold,deletion_state) VALUES($1,'tenant-a','report-a',$2,$3,$4)`,id,expiry,hold,state);if err!=nil{t.Fatal(err)}
+  if i==4{_,err=db.Exec(ctx,`UPDATE incident_evidence SET deletion_state='deletion_pending',deletion_claim_token='crashed-worker',deletion_claimed_until=$2 WHERE id=$1`,id,now.Add(-time.Hour));if err!=nil{t.Fatal(err)}}
  }
  storage:=&deletionTestStorage{objects:map[string]bool{ids[0]:true,ids[1]:true,ids[3]:true},failIDs:map[string]bool{ids[0]:true},calls:map[string]int{}}
  w:=&EvidenceDeletionWorker{DB:db,Storage:storage,BatchSize:10,Lease:time.Minute,WorkerID:"worker-a",Now:func()time.Time{return now}}
