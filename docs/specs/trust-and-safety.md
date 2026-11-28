@@ -51,7 +51,7 @@ Every result sets `requires_human_adjudication=true`. AI cannot determine liabil
 
 ## Open gaps
 
-- Complete retryable/idempotent evidence-byte deletion, backup-expiry coordination, key re-encryption and restore rehearsal. The #217 storage/retrieval and separately authorized retention/legal-hold management slices are implemented; do not invent a universal duration or enable automatic deletion without an explicit adopter policy.
+- Complete backup-expiry coordination, key re-encryption and coordinated restore rehearsal. Live-object deletion is implemented by the separate worker in #318; do not infer backup erasure or invent a universal retention duration.
 - Define dispute states, roles, evidence access, appeal and resolution authority before implementing TRUST-003.
 - Define contact relay, disclosure controls, abuse reporting and retention before implementing TRUST-004.
 - Complete backup-expiry coordination; prove encryption-key rotation/restore and scanner/storage failure recovery. Live-object deletion remains distinct from backup erasure. Do not infer that expiry deleted bytes or that legal hold is operational.
