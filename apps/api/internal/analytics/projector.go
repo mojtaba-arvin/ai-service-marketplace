@@ -189,7 +189,7 @@ func (p Projector) quarantine(ctx context.Context,tx pgx.Tx,event outbox.Event,r
 	if domain.Version>0 { eventVersion=domain.Version }
 	if !domain.OccurredAt.IsZero() { occurredAt=domain.OccurredAt.UTC() }
 	if marketCodeValue:=domain.Metadata["market_code"]; marketCodePattern.MatchString(marketCodeValue) { marketCode=marketCodeValue }
-	if policy,ok:=EventTimePolicyFor(domain.Type); ok { family=policy.MetricFamily }
+	if metricFamily:=MetricFamilyForEventType(domain.Type); metricFamily!="" { family=metricFamily }
 	var ingestedAt time.Time
 	var ingestionTimeSource string
 	if err:=tx.QueryRow(ctx,`SELECT created_at,ingested_at_source FROM outbox_events WHERE id=$1`,event.ID).Scan(&ingestedAt,&ingestionTimeSource); err!=nil { return err }
