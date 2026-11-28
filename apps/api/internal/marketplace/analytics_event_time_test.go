@@ -101,6 +101,15 @@ func TestAnalyticsEventTimeLateClockSkewAndCorrectionReplayPostgres(t *testing.T
 	var skewQuarantine int
 	if err = pool.QueryRow(ctx, "SELECT count(*) FROM analytics_event_quarantine WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id=$3 AND reason_code='occurred_at_after_ingestion_time'", tenant,generation,skewEvent.ID).Scan(&skewQuarantine); err != nil { t.Fatal(err) }
 	if skewQuarantine != 1 { t.Fatalf("future source timestamp must be quarantined, got %d", skewQuarantine) }
+	var quarantinedEventID, quarantinedMarket string
+	var quarantinedVersion int
+	var quarantinedOccurred, quarantinedIngested time.Time
+	if err = pool.QueryRow(ctx, `SELECT event_id,event_version,occurred_at,ingested_at,market_code
+		FROM analytics_event_quarantine WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id=$3`,
+		tenant,generation,skewEvent.ID).Scan(&quarantinedEventID,&quarantinedVersion,&quarantinedOccurred,&quarantinedIngested,&quarantinedMarket); err != nil { t.Fatal(err) }
+	if quarantinedEventID!="skew-"+suffix || quarantinedVersion!=1 || !quarantinedOccurred.After(quarantinedIngested) || quarantinedMarket!="OM" {
+		t.Fatalf("quarantine provenance incomplete: event=%q version=%d occurred=%s ingested=%s market=%q",quarantinedEventID,quarantinedVersion,quarantinedOccurred,quarantinedIngested,quarantinedMarket)
+	}
 
 	// A correction is an explicit new immutable generation. It includes the
 	// same source event only because the correction flag is deliberately set.
