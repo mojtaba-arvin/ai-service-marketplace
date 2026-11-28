@@ -384,7 +384,7 @@ func BuildInvoiceRecord(input InvoiceBuildInput) (InvoiceRecord, error) {
 	compensations, err := uniqueInvoiceReferences(input.CompensatingJournalIDs, input.FinancialCorrection)
 	if err != nil { return InvoiceRecord{}, err }
 	record := InvoiceRecord{
-		ID: input.ID, IdempotencyKey: input.IdempotencyKey, Version: input.Version, Status: "issued",
+		ID: input.ID, IdempotencyKey: input.IdempotencyKey, Version: input.Version, Status: "snapshot",
 		IssuedAt: input.IssuedAt.UTC(), IssuerReference: input.IssuerReference,
 		TenantID: input.Source.TenantID, CustomerReference: input.Source.CustomerReference,
 		SourceOrderID: input.Source.OrderID, PriceVersionID: input.Source.PriceVersionID,
