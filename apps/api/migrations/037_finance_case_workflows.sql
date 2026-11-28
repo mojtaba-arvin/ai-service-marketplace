@@ -5,8 +5,7 @@ ALTER TABLE operator_action_grants
 ALTER TABLE operator_action_grants
     ADD CONSTRAINT operator_action_grants_action_check CHECK (action IN (
         'order:read','order:assign','provider:verify','case:read','market:configure',
-        'catalog:manage','policy:manage','analytics:read','operator:permissions:manage',
-        'finance:case:manage'
+        'catalog:manage','policy:manage','analytics:read','operator:permissions:manage','incident:review','finance:case:manage'
     ));
 ALTER TABLE operator_permission_events
     DROP CONSTRAINT IF EXISTS operator_permission_events_action_check;
@@ -49,8 +48,11 @@ CREATE TABLE IF NOT EXISTS finance_cases (
            (case_type<>'payout_reversal' AND reversal_of_case_id IS NULL)),
     CHECK ((status='reconciled' AND reconciled_journal_id IS NOT NULL) OR
            (status<>'reconciled' AND reconciled_journal_id IS NULL)),
-    CHECK ((status='accepted' OR status='provider_confirmed' OR status='reconciled') =
-           (accepted_by_identity_id IS NOT NULL AND length(btrim(acceptance_reason)) BETWEEN 1 AND 500))
+    CHECK ((accepted_by_identity_id IS NULL AND acceptance_reason='') OR
+           (accepted_by_identity_id IS NOT NULL AND length(btrim(acceptance_reason)) BETWEEN 1 AND 500)),
+    CHECK ((status IN ('provider_confirmed','reconciled') AND provider_outcome='confirmed') OR
+           (status='failed' AND provider_outcome='failed') OR
+           (status IN ('requested','accepted') AND provider_outcome IN ('not_submitted','unknown')))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS finance_cases_one_reversal_per_case
     ON finance_cases(reversal_of_case_id) WHERE reversal_of_case_id IS NOT NULL;
@@ -125,6 +127,10 @@ BEGIN
        OR NEW.reversal_of_case_id IS DISTINCT FROM OLD.reversal_of_case_id
        OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
         RAISE EXCEPTION 'finance case request provenance is immutable';
+    END IF;
+    IF NEW.status IN ('accepted','provider_confirmed','reconciled')
+       AND (NEW.accepted_by_identity_id IS NULL OR length(btrim(NEW.acceptance_reason)) NOT BETWEEN 1 AND 500) THEN
+        RAISE EXCEPTION 'financial case requires explicit human acceptance';
     END IF;
     IF OLD.status='requested' AND NEW.status IN ('requested','accepted','failed') THEN RETURN NEW; END IF;
     IF OLD.status='accepted' AND NEW.status IN ('accepted','provider_confirmed','failed') THEN RETURN NEW; END IF;
