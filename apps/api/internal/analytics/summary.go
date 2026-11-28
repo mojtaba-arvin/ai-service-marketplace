@@ -143,7 +143,7 @@ SELECT
     (SELECT count(*) FROM analytics_event_quarantine q JOIN active_generation ag ON ag.tenant_id=q.tenant_id AND ag.generation_id=q.generation_id
        WHERE q.tenant_id=$1 AND (q.occurred_at IS NULL OR (q.occurred_at >= $2 AND q.occurred_at < $3))
          AND ($4='' OR q.market_code=$4 OR q.market_code IS NULL)),
-    (SELECT count(*) FROM active_analytics_event_facts WHERE tenant_id=$1 AND occurred_at >= $2 AND occurred_at < $3 AND ingested_at IS NULL),
+    (SELECT count(*) FROM active_analytics_event_facts WHERE tenant_id=$1 AND occurred_at >= $2 AND occurred_at < $3 AND ingested_at IS NULL AND ($4='' OR market_code=$4 OR market_code IS NULL)),
     (SELECT count(*) FROM analytics_event_duplicates d JOIN active_generation ag ON ag.tenant_id=d.tenant_id AND ag.generation_id=d.generation_id
        WHERE d.tenant_id=$1 AND d.outbox_event_id < d.canonical_outbox_event_id
          AND d.occurred_at >= $2 AND d.occurred_at < $3 AND ($4='' OR d.market_code=$4 OR d.market_code IS NULL)),
