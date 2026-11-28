@@ -111,7 +111,7 @@ func AppendDomainEvent(ctx context.Context, tx Transaction, event DomainEvent) (
 func Append(ctx context.Context,tx Transaction,aggregateType,aggregateID,eventType string,payload json.RawMessage)(int64,error) {
  if tx==nil||strings.TrimSpace(aggregateType)==""||strings.TrimSpace(aggregateID)==""||strings.TrimSpace(eventType)==""||len(payload)==0||len(payload)>256*1024||!json.Valid(payload){return 0,ErrInvalidPolicy}
  var id int64
- err:=tx.QueryRow(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload) VALUES($1,$2,$3,$4::jsonb) RETURNING id`,aggregateType,aggregateID,eventType,[]byte(payload)).Scan(&id)
+ err:=tx.QueryRow(ctx,`INSERT INTO outbox_events(aggregate_type,aggregate_id,event_type,payload,created_at) VALUES($1,$2,$3,$4::jsonb,clock_timestamp()) RETURNING id`,aggregateType,aggregateID,eventType,[]byte(payload)).Scan(&id)
  return id,err
 }
 
