@@ -338,7 +338,7 @@ func invoiceRequestHash(record InvoiceRecord) (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
-// BuildInvoiceRecord creates an immutable in-memory issue snapshot. Persistence,
+// BuildInvoiceRecord creates an immutable in-memory invoice snapshot. Persistence,
 // tenant authorization, source attribution and tax-rule approval must be
 // enforced by the owning transactional Store boundary before this is called.
 func BuildInvoiceRecord(input InvoiceBuildInput) (InvoiceRecord, error) {
