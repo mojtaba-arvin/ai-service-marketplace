@@ -6,35 +6,41 @@ import (
 	"testing"
 )
 
-func TestFinanceCaseWebhookVerifierAuthenticatesAndValidates(t *testing.T) {
-	verifier := HMACFinanceCaseWebhookVerifier{Secret: []byte("offline-fake-webhook-secret-at-least-32-bytes")}
-	event := FinanceCaseWebhook{
-		EventID: "evt-fin-1", ProviderCode: "fake", ProviderIdempotencyKey: "case-key-1",
-		Outcome: "confirmed", ProviderReference: "fake-ref-1", AmountMinor: 1250, Currency: "OMR",
+func TestPaymentProviderFinanceCaseWebhookVerifierUsesFIN003Contract(t *testing.T) {
+	provider := NewFakePaymentProvider(FakeProviderSuccess, []byte("offline-fake-webhook-secret-at-least-32-bytes"))
+	verifier := PaymentProviderFinanceCaseWebhookVerifier{Provider: provider, ProviderCode: "fake"}
+	event := PaymentWebhook{
+		EventID: "evt-fin-1", OperationKey: "case-key-1", Status: "succeeded",
+		ExternalReference: "fake-ref-1", AmountMinor: 1250, Currency: "OMR",
 	}
 	payload, err := json.Marshal(event)
 	if err != nil { t.Fatal(err) }
-	signature := verifier.Sign(payload)
-	got, err := verifier.VerifyFinanceCaseWebhook(context.Background(), payload, signature)
-	if err != nil || got.EventID != event.EventID || got.AmountMinor != event.AmountMinor {
-		t.Fatalf("valid signed callback rejected: %#v %v", got, err)
+	got, err := verifier.VerifyFinanceCaseWebhook(context.Background(), payload, provider.SignWebhook(payload))
+	if err != nil || got.EventID != event.EventID || got.ProviderIdempotencyKey != event.OperationKey ||
+		got.Outcome != "confirmed" || got.AmountMinor != event.AmountMinor {
+		t.Fatalf("valid FIN-003 callback rejected: %#v %v", got, err)
 	}
 	if _, err = verifier.VerifyFinanceCaseWebhook(context.Background(), payload, "00"); err == nil {
-		t.Fatal("invalid signature must be rejected")
+		t.Fatal("invalid provider signature must be rejected")
 	}
-	if _, err = (HMACFinanceCaseWebhookVerifier{Secret: []byte("short")}).VerifyFinanceCaseWebhook(
-		context.Background(), payload, signature); err == nil {
-		t.Fatal("short/missing provider secret must fail closed")
-	}
-	event.Outcome = "succeeded_http_200"
+	event.Status = "succeeded_http_200"
 	payload, _ = json.Marshal(event)
-	if _, err = verifier.VerifyFinanceCaseWebhook(context.Background(), payload, verifier.Sign(payload)); err == nil {
+	if _, err = verifier.VerifyFinanceCaseWebhook(context.Background(), payload, provider.SignWebhook(payload)); err == nil {
 		t.Fatal("HTTP success or unknown provider outcomes must not be treated as confirmation")
 	}
-	event.Outcome = "confirmed"
-	event.ProviderReference = ""
+	event.Status = "succeeded"
+	event.AmountMinor = 0
 	payload, _ = json.Marshal(event)
-	if _, err = verifier.VerifyFinanceCaseWebhook(context.Background(), payload, verifier.Sign(payload)); err == nil {
-		t.Fatal("confirmation without provider reference must fail closed")
+	if _, err = verifier.VerifyFinanceCaseWebhook(context.Background(), payload, provider.SignWebhook(payload)); err == nil {
+		t.Fatal("confirmation without explicit amount/currency must fail closed")
+	}
+	event.AmountMinor = 1250
+	event.Status = "failed"
+	event.FailureCode = "fake_declined"
+	event.ExternalReference = ""
+	payload, _ = json.Marshal(event)
+	got, err = verifier.VerifyFinanceCaseWebhook(context.Background(), payload, provider.SignWebhook(payload))
+	if err != nil || got.Outcome != "failed" || got.FailureCode != event.FailureCode {
+		t.Fatalf("failed provider result must remain distinct: %#v %v", got, err)
 	}
 }
