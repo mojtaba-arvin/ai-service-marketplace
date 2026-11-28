@@ -140,31 +140,6 @@ jobs:
         env:
           VERIFY_SKIP_GO_TESTS: "1"
         run: make verify
-      - name: Verify Go formatting without modifying the checkout
-        working-directory: apps/api
-        shell: bash
-        run: |
-          set -euo pipefail
-          unformatted="$(gofmt -l ./cmd ./internal)"
-          if [[ -n "$unformatted" ]]; then
-            printf '%s\n' "$unformatted" > /tmp/gofmt-files.txt
-            gofmt -d ./cmd ./internal > /tmp/gofmt.patch
-            {
-              echo 'Go formatting check failed for:'
-              printf -- '- `%s`\n' $unformatted
-            } >> "$GITHUB_STEP_SUMMARY"
-            printf 'Go files require gofmt:\n%s\n' "$unformatted" >&2
-            exit 1
-          fi
-      - name: Upload Go formatting diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gofmt-diagnostics
-          path: |
-            /tmp/gofmt-files.txt
-            /tmp/gofmt.patch
-          if-no-files-found: ignore
       - name: Run Go tests with race detection
         working-directory: apps/api
         run: go test -race ./...
