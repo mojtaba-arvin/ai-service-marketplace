@@ -40,7 +40,7 @@ func (w *EvidenceDeletionWorker) RunOnce(ctx context.Context)(int,error) {
  if err!=nil{return 0,err}
  claims:=make([]evidenceDeletionClaim,0,w.BatchSize)
  for rows.Next(){var c evidenceDeletionClaim;if err=rows.Scan(&c.id,&c.tenant,&c.report,&c.attempt);err!=nil{rows.Close();return 0,err}
-  c.token,err=newID();if err!=nil{rows.Close();return 0,err};c.attempt++;claims=append(claims,c)}
+  c.token,err=newID();if err!=nil{rows.Close();return 0,err};if c.attempt<2147483647{c.attempt++};claims=append(claims,c)}
  if err=rows.Err();err!=nil{rows.Close();return 0,err};rows.Close()
  for _,c:=range claims{
   _,err=tx.Exec(ctx,`UPDATE incident_evidence SET deletion_state='deletion_pending',deletion_attempts=LEAST(deletion_attempts+1,2147483647),deletion_claim_token=$2,deletion_claimed_until=$3 WHERE id=$1`,c.id,c.token,now.Add(w.Lease));if err!=nil{return 0,err}
