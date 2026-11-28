@@ -34,10 +34,8 @@ func EventTimePolicyFor(eventType string) (EventTimePolicy, bool) {
 		family = "order_funnel"
 	case strings.HasPrefix(eventType, "provider."):
 		family = "provider_supply"
-	case strings.HasPrefix(eventType, "review."), strings.HasPrefix(eventType, "trust."):
-		family = "service_quality"
-	case strings.HasPrefix(eventType, "finance."), strings.HasPrefix(eventType, "ledger."):
-		family = "finance"
+	// Quality and finance deliberately fail closed until their owners define
+	// the distinct maturity/effective-time rules in #299 and #301.
 	default:
 		return EventTimePolicy{}, false
 	}
