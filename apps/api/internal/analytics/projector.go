@@ -163,10 +163,23 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
 
 func (p Projector) quarantine(ctx context.Context,tx pgx.Tx,event outbox.Event,reason string) error {
 	digest:=sha256.Sum256(event.Payload)
+	var domain outbox.DomainEvent
+	_ = json.Unmarshal(event.Payload,&domain)
+	var eventID, eventVersion, occurredAt, marketCode, family any
+	if strings.TrimSpace(domain.ID)!="" { eventID=domain.ID }
+	if domain.Version>0 { eventVersion=domain.Version }
+	if !domain.OccurredAt.IsZero() { occurredAt=domain.OccurredAt.UTC() }
+	if marketCodeValue:=domain.Metadata["market_code"]; marketCodePattern.MatchString(marketCodeValue) { marketCode=marketCodeValue }
+	if policy,ok:=EventTimePolicyFor(domain.Type); ok { family=policy.MetricFamily }
+	var ingestedAt time.Time
+	if err:=tx.QueryRow(ctx,`SELECT created_at FROM outbox_events WHERE id=$1`,event.ID).Scan(&ingestedAt); err!=nil { return err }
 	_,err:=tx.Exec(ctx,`INSERT INTO analytics_event_quarantine
-		(tenant_id,generation_id,outbox_event_id,event_type,aggregate_type,aggregate_id,reason_code,payload_sha256)
-		VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(tenant_id,generation_id,outbox_event_id) DO NOTHING`,
-		p.tenantID(event),p.GenerationID,event.ID,event.EventType,event.AggregateType,event.AggregateID,strings.TrimSpace(reason),hex.EncodeToString(digest[:]))
+		(tenant_id,generation_id,outbox_event_id,event_id,event_version,occurred_at,ingested_at,market_code,event_time_family,
+		 event_type,aggregate_type,aggregate_id,reason_code,payload_sha256)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+		ON CONFLICT(tenant_id,generation_id,outbox_event_id) DO NOTHING`,
+		p.tenantID(event),p.GenerationID,event.ID,eventID,eventVersion,occurredAt,ingestedAt.UTC(),marketCode,family,
+		event.EventType,event.AggregateType,event.AggregateID,strings.TrimSpace(reason),hex.EncodeToString(digest[:]))
 	return err
 }
 
