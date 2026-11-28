@@ -73,7 +73,7 @@ jobs:
               exit 1
             fi
           elif [[ "$HEAD_REF" == "docs/issue-355-evidence-gated-self-merge" ]]; then
-            protected_changes="$(printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)' | grep -Ev '^\.github/(workflows/work-item-guard\.yml|agents/implementer\\.agent\\.md)$' || true)"
+            protected_changes="$(printf '%s\n' "$changed" | grep -E '^(\.github/|tests/spec/)' | grep -Ev '^\.github/(workflows/work-item-guard\.yml|agents/implementer\.agent\.md)$' || true)"
             if [[ -n "$protected_changes" ]]; then
               printf '%s\n' "$protected_changes"
               echo "The evidence-gated merge policy update may change only the implementer instructions and this guard under protected paths."
