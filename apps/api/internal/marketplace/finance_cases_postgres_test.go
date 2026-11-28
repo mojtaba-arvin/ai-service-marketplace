@@ -102,6 +102,16 @@ func TestFinanceCaseWorkflowPostgres(t *testing.T) {
 		"Explicit finance source attribution from verified order and journal"); bindErr != nil || !bound {
 		t.Fatalf("explicit payment/order binding: bound=%v err=%v",bound,bindErr)
 	}
+	if bound,bindErr := store.BindPaymentOperationToOrder(ctx,requester,op.ID,orderID,sourceJournal.ID,
+		"Idempotent binding replay"); bindErr != nil || bound {
+		t.Fatalf("same source binding must replay without mutation: bound=%v err=%v",bound,bindErr)
+	}
+	if _,err = pool.Exec(ctx,`UPDATE payment_operations SET order_id='other-order' WHERE id=$1`,op.ID); err == nil {
+		t.Fatal("payment/order attribution must be immutable after binding")
+	}
+	if _,err = pool.Exec(ctx,`UPDATE payment_operation_order_bindings SET reason='tampered' WHERE operation_id=$1`,op.ID); err == nil {
+		t.Fatal("payment/order binding evidence must be append-only")
+	}
 
 	base := FinanceCaseInput{CaseType:FinanceCasePayout,OrderID:orderID,
 		SourcePaymentOperationID:op.ID,SourceJournalID:sourceJournal.ID,ProviderCode:"fake",
