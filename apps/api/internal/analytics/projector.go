@@ -124,9 +124,13 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
 	// Read the durable source ingestion timestamp from the outbox row. Never
 	// substitute projected_at or an outbox sequence ID for this timestamp.
 	var ingestedAt time.Time
-	if err:=tx.QueryRow(ctx,`SELECT created_at FROM outbox_events WHERE id=$1 AND payload->>'tenant_id'=$2`,
-		event.ID,domain.TenantID).Scan(&ingestedAt); err!=nil {
+	var ingestionTimeSource string
+	if err:=tx.QueryRow(ctx,`SELECT created_at,ingested_at_source FROM outbox_events WHERE id=$1 AND payload->>'tenant_id'=$2`,
+		event.ID,domain.TenantID).Scan(&ingestedAt,&ingestionTimeSource); err!=nil {
 		return err
+	}
+	if ingestionTimeSource!="insert_clock" {
+		return p.quarantine(ctx,tx,event,"ingestion_time_untrusted")
 	}
 	classification,err:=ClassifyEventTime(domain.OccurredAt,ingestedAt,policy)
 	if err!=nil {
@@ -141,12 +145,12 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
 	digestHex:=hex.EncodeToString(digest[:])
 	tag,err:=tx.Exec(ctx,`INSERT INTO analytics_event_facts
 		(tenant_id,generation_id,event_id,outbox_event_id,event_type,event_version,occurred_at,ingested_at,
-		 event_time_family,lateness_policy_version,allowed_lateness_seconds,late_arrival,included_in_metrics,
+		 event_time_family,lateness_policy_version,allowed_lateness_seconds,late_arrival,included_in_metrics,ingestion_time_trusted,
 		 aggregate_type,aggregate_id,market_code,traffic_class,data,payload_sha256)
-		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NULLIF($16,''),NULLIF($17,''),$18::jsonb,$19)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NULLIF($16,''),NULLIF($17,''),$18::jsonb,$19,$20)
 		ON CONFLICT DO NOTHING`,
 		domain.TenantID,p.GenerationID,domain.ID,event.ID,domain.Type,domain.Version,domain.OccurredAt.UTC(),ingestedAt.UTC(),
-		policy.MetricFamily,policy.Version,int64(policy.AllowedLateness.Seconds()),classification.Late,includedInMetrics,
+		policy.MetricFamily,policy.Version,int64(policy.AllowedLateness.Seconds()),classification.Late,includedInMetrics,true,
 		domain.Aggregate.Type,domain.Aggregate.ID,marketCode,trafficClass,[]byte(domain.Data),digestHex)
 	if err!=nil { return err }
 	if tag.RowsAffected()==0 {
@@ -165,11 +169,11 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
 		if canonicalOutboxID!=event.ID {
 			_,err=tx.Exec(ctx,`INSERT INTO analytics_event_duplicates
 				(tenant_id,generation_id,outbox_event_id,canonical_outbox_event_id,event_id,event_version,
-				 occurred_at,ingested_at,market_code,event_time_family,lateness_policy_version,allowed_lateness_seconds,late_arrival,payload_sha256)
-				VALUES($1,$2,$3,$4,$5,$6,$7,$8,NULLIF($9,''),$10,$11,$12,$13,$14)
+				 occurred_at,ingested_at,market_code,event_time_family,ingestion_time_source,lateness_policy_version,allowed_lateness_seconds,late_arrival,payload_sha256)
+				VALUES($1,$2,$3,$4,$5,$6,$7,$8,NULLIF($9,''),$10,$11,$12,$13,$14,$15)
 				ON CONFLICT(tenant_id,generation_id,outbox_event_id) DO NOTHING`,
 				domain.TenantID,p.GenerationID,event.ID,canonicalOutboxID,domain.ID,domain.Version,
-				domain.OccurredAt.UTC(),ingestedAt.UTC(),marketCode,policy.MetricFamily,policy.Version,int64(policy.AllowedLateness.Seconds()),classification.Late,digestHex)
+				domain.OccurredAt.UTC(),ingestedAt.UTC(),marketCode,policy.MetricFamily,ingestionTimeSource,policy.Version,int64(policy.AllowedLateness.Seconds()),classification.Late,digestHex)
 			if err!=nil { return err }
 		}
 	}
@@ -187,14 +191,15 @@ func (p Projector) quarantine(ctx context.Context,tx pgx.Tx,event outbox.Event,r
 	if marketCodeValue:=domain.Metadata["market_code"]; marketCodePattern.MatchString(marketCodeValue) { marketCode=marketCodeValue }
 	if policy,ok:=EventTimePolicyFor(domain.Type); ok { family=policy.MetricFamily }
 	var ingestedAt time.Time
-	if err:=tx.QueryRow(ctx,`SELECT created_at FROM outbox_events WHERE id=$1`,event.ID).Scan(&ingestedAt); err!=nil { return err }
+	var ingestionTimeSource string
+	if err:=tx.QueryRow(ctx,`SELECT created_at,ingested_at_source FROM outbox_events WHERE id=$1`,event.ID).Scan(&ingestedAt,&ingestionTimeSource); err!=nil { return err }
 	_,err:=tx.Exec(ctx,`INSERT INTO analytics_event_quarantine
 		(tenant_id,generation_id,outbox_event_id,event_id,event_version,occurred_at,ingested_at,market_code,event_time_family,
-		 event_type,aggregate_type,aggregate_id,reason_code,payload_sha256)
-		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+		 ingestion_time_source,ingestion_time_trusted,event_type,aggregate_type,aggregate_id,reason_code,payload_sha256)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
 		ON CONFLICT(tenant_id,generation_id,outbox_event_id) DO NOTHING`,
 		p.tenantID(event),p.GenerationID,event.ID,eventID,eventVersion,occurredAt,ingestedAt.UTC(),marketCode,family,
-		event.EventType,event.AggregateType,event.AggregateID,strings.TrimSpace(reason),hex.EncodeToString(digest[:]))
+		ingestionTimeSource,ingestionTimeSource=="insert_clock",event.EventType,event.AggregateType,event.AggregateID,strings.TrimSpace(reason),hex.EncodeToString(digest[:]))
 	return err
 }
 
