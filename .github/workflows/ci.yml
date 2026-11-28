@@ -80,17 +80,17 @@ jobs:
               while IFS= read -r path; do
                 [[ -z "$path" ]] && continue
                 case "$path" in
-                  apps/api/*|apps/web/*|infra/*|packages/contracts/*|packages/domain-*/*|scripts/e2e-*.sh)
+                  apps/api/*|apps/web/*|infra/*|packages/contracts/*|packages/domain-*/*|scripts/e2e-*.sh|.github/workflows/ci.yml)
                     integration=true
                     ;;
                 esac
                 case "$path" in
-                  apps/api/*|.dockerignore)
+                  apps/api/*|.dockerignore|.github/workflows/ci.yml)
                     api_image=true
                     ;;
                 esac
                 case "$path" in
-                  apps/web/*|.dockerignore)
+                  apps/web/*|.dockerignore|.github/workflows/ci.yml)
                     web_image=true
                     ;;
                 esac
