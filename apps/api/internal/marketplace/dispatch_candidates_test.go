@@ -104,6 +104,7 @@ func TestDispatchCandidatesRequireAllEligibilityAndAvailabilityGatesPostgres(t *
 	// non-requested state rather than a stale pre-transition snapshot.
 	stateBlocker,err:=pool.Begin(ctx)
 	if err!=nil { t.Fatal(err) }
+	var lockedOrderID string
 	if err=stateBlocker.QueryRow(ctx,`SELECT id FROM orders WHERE id=$1 FOR UPDATE`,order.ID).Scan(&lockedOrderID); err!=nil {
 		_ = stateBlocker.Rollback(ctx); t.Fatal(err)
 	}
