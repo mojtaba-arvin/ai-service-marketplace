@@ -2,7 +2,7 @@
 
 The registry is constructed from explicitly supplied market/locale entries and then treated as immutable.
 
-Each entry requires an uppercase two-letter market identifier, language/region locale, uppercase three-letter currency code, valid IANA time-zone name, and explicit policy version.
+Each entry requires an uppercase market identifier of 2–8 letters (matching the authoritative database constraint), a language/region locale, an uppercase three-letter currency code, a valid IANA time-zone name, and an explicit policy version. The registry validates the currency code's shape; approved market configuration remains responsible for supplying a valid ISO currency.
 
 Resolution is exact. There is no default market, locale fallback, currency inference, or policy-version fallback. Unknown and malformed combinations fail closed.
 
