@@ -165,11 +165,11 @@ func (p Projector) Handle(ctx context.Context,tx pgx.Tx,event outbox.Event) erro
 		if canonicalOutboxID!=event.ID {
 			_,err=tx.Exec(ctx,`INSERT INTO analytics_event_duplicates
 				(tenant_id,generation_id,outbox_event_id,canonical_outbox_event_id,event_id,event_version,
-				 occurred_at,ingested_at,market_code,event_time_family,payload_sha256)
-				VALUES($1,$2,$3,$4,$5,$6,$7,$8,NULLIF($9,''),$10,$11)
+				 occurred_at,ingested_at,market_code,event_time_family,lateness_policy_version,allowed_lateness_seconds,late_arrival,payload_sha256)
+				VALUES($1,$2,$3,$4,$5,$6,$7,$8,NULLIF($9,''),$10,$11,$12,$13,$14)
 				ON CONFLICT(tenant_id,generation_id,outbox_event_id) DO NOTHING`,
 				domain.TenantID,p.GenerationID,event.ID,canonicalOutboxID,domain.ID,domain.Version,
-				domain.OccurredAt.UTC(),ingestedAt.UTC(),marketCode,policy.MetricFamily,digestHex)
+				domain.OccurredAt.UTC(),ingestedAt.UTC(),marketCode,policy.MetricFamily,policy.Version,int64(policy.AllowedLateness.Seconds()),classification.Late,digestHex)
 			if err!=nil { return err }
 		}
 	}
