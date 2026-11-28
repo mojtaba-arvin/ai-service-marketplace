@@ -64,6 +64,8 @@ func TestAnalyticsEventTimeLateClockSkewAndCorrectionReplayPostgres(t *testing.T
 	lateEvent := appendEvent("late-"+suffix, lateOccurredAt)
 	duplicateEvent := appendEvent("late-"+suffix, lateOccurredAt)
 	conflictingEvent := appendEvent("late-"+suffix, lateOccurredAt.Add(time.Second))
+	reorderedLowID := appendEvent("reordered-"+suffix, lateOccurredAt)
+	reorderedHighID := appendEvent("reordered-"+suffix, lateOccurredAt)
 	skewEvent := appendEvent("skew-"+suffix, time.Now().UTC().Add(time.Minute))
 	liveProjector := analytics.Projector{DB:pool,ConsumerName:consumerName,GenerationID:generation,TenantID:tenant}
 	liveConsumer := liveProjector.Consumer()
@@ -73,10 +75,17 @@ func TestAnalyticsEventTimeLateClockSkewAndCorrectionReplayPostgres(t *testing.T
 	if applied, processErr := liveConsumer.Process(ctx, lateEvent); processErr != nil || !applied { t.Fatalf("process late event: applied=%v err=%v", applied, processErr) }
 	if applied, processErr := liveConsumer.Process(ctx, duplicateEvent); processErr != nil || !applied { t.Fatalf("process duplicate logical event: applied=%v err=%v", applied, processErr) }
 	if applied, processErr := liveConsumer.Process(ctx, conflictingEvent); processErr != nil || !applied { t.Fatalf("process conflicting event ID: applied=%v err=%v", applied, processErr) }
+	// Deliver the higher outbox ID first; the lower-ID duplicate later reveals
+	// that deterministic replay will choose a different canonical source row.
+	if applied, processErr := liveConsumer.Process(ctx, reorderedHighID); processErr != nil || !applied { t.Fatalf("process higher-ID duplicate first: applied=%v err=%v", applied, processErr) }
+	if applied, processErr := liveConsumer.Process(ctx, reorderedLowID); processErr != nil || !applied { t.Fatalf("process lower-ID duplicate second: applied=%v err=%v", applied, processErr) }
 	if applied, processErr := liveConsumer.Process(ctx, lateEvent); processErr != nil || applied { t.Fatalf("same outbox delivery must be a no-op: applied=%v err=%v", applied, processErr) }
 	var duplicateCount int
 	if err = pool.QueryRow(ctx, "SELECT count(*) FROM analytics_event_duplicates WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id=$3", tenant,generation,duplicateEvent.ID).Scan(&duplicateCount); err != nil { t.Fatal(err) }
 	if duplicateCount != 1 { t.Fatalf("identical logical event must have one duplicate outcome, got %d", duplicateCount) }
+	var reorderConflictCount int
+	if err = pool.QueryRow(ctx, "SELECT count(*) FROM analytics_event_duplicates WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id=$3 AND outbox_event_id < canonical_outbox_event_id", tenant,generation,reorderedLowID.ID).Scan(&reorderConflictCount); err != nil { t.Fatal(err) }
+	if reorderConflictCount != 1 { t.Fatalf("out-of-order lower-ID duplicate must request deterministic correction, got %d", reorderConflictCount) }
 	var conflictCount int
 	if err = pool.QueryRow(ctx, "SELECT count(*) FROM analytics_event_quarantine WHERE tenant_id=$1 AND generation_id=$2 AND outbox_event_id=$3 AND reason_code='event_id_payload_conflict'", tenant,generation,conflictingEvent.ID).Scan(&conflictCount); err != nil { t.Fatal(err) }
 	if conflictCount != 1 { t.Fatalf("conflicting payload for same event ID must quarantine, got %d", conflictCount) }
