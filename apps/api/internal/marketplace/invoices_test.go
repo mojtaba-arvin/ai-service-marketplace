@@ -198,6 +198,26 @@ func TestInvoiceIdempotencyAndCorrectionAreAppendOnlySnapshots(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	if err := CheckInvoiceIdempotency(original, replay); err != nil { t.Fatalf("exact replay rejected: %v", err) }
 
+	// The same client request must replay the original snapshot after tax rules
+	// change; the persistence boundary returns original rather than re-issuing.
+	configChanged := invoiceTestInput()
+	configChanged.ID = "candidate-after-config-change"
+	configChanged.Version = 9
+	configChanged.IssuedAt = configChanged.IssuedAt.Add(24 * time.Hour)
+	configChanged.TaxInputs[0].CalculatedAt = configChanged.TaxInputs[0].CalculatedAt.Add(24 * time.Hour)
+	configChanged.TaxRules[0].ID = "tax-rule-2"
+	configChanged.TaxRules[0].Version = 2
+	configChanged.TaxRules[0].RateNumerator = 2
+	configChanged.TaxRules[0].ApprovedAt = configChanged.TaxRules[0].ApprovedAt.Add(24 * time.Hour)
+	afterConfigChange, err := BuildInvoiceRecord(configChanged)
+	if err != nil { t.Fatal(err) }
+	if afterConfigChange.RequestHash != original.RequestHash || afterConfigChange.TotalMinor == original.TotalMinor {
+		t.Fatal("request hash must be stable while the resolved tax snapshot changes")
+	}
+	if err := CheckInvoiceIdempotency(original, afterConfigChange); err != nil {
+		t.Fatalf("configuration change must not invalidate replay of the original request: %v", err)
+	}
+
 	changed := invoiceTestInput()
 	changed.Source.Lines[0].Description = "changed source description"
 	candidate, err := BuildInvoiceRecord(changed)
