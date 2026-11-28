@@ -24,6 +24,13 @@ type Summary struct {
     DataReady bool `json:"data_ready"`
     EligibleEvents int64 `json:"eligible_events"`
     PendingEvents int64 `json:"pending_events"`
+    EventTimeCompleteness string `json:"event_time_completeness"`
+    EventTimeWatermark time.Time `json:"event_time_watermark"`
+    AllowedLatenessSeconds int64 `json:"allowed_lateness_seconds"`
+    LateEvents int64 `json:"late_events"`
+    LateEventsIncluded int64 `json:"late_events_included"`
+    IngestionBacklogStatus string `json:"ingestion_backlog_status"`
+    SourceCoverageStatus string `json:"source_coverage_status"`
     ExcludedEvents int64 `json:"excluded_events"`
     OrdersCreated int64 `json:"orders_created"`
     OffersCreated int64 `json:"offers_created"`
@@ -135,6 +142,22 @@ SELECT
         &result.EligibleEvents,&result.ExcludedEvents,&result.PendingEvents,&result.LateEvents,&result.LateEventsIncluded)
     if err!=nil { return Summary{},err }
     result.DataReady=result.EligibleEvents>0 && result.PendingEvents==0
+    policy,_:=EventTimePolicyFor("order.created")
+    result.AllowedLatenessSeconds=int64(policy.AllowedLateness.Seconds())
+    result.EventTimeWatermark=EventTimeWatermark(time.Now().UTC(),policy)
+    switch {
+    case result.LateEvents>result.LateEventsIncluded:
+        result.EventTimeCompleteness="correction_required"
+    case result.WindowTo.After(result.EventTimeWatermark):
+        result.EventTimeCompleteness="immature"
+    case result.LateEvents>0:
+        result.EventTimeCompleteness="corrected"
+    default:
+        result.EventTimeCompleteness="finalized"
+    }
+    if result.PendingEvents==0 { result.IngestionBacklogStatus="drained" } else { result.IngestionBacklogStatus="pending" }
+    result.SourceCoverageStatus="unknown"
+    if result.EligibleEvents==0 { result.SourceCoverageStatus="unavailable" } else if result.ExcludedEvents>0 { result.SourceCoverageStatus="incomplete" }
     if result.OffersCreated>0 { result.OfferAcceptanceRate=float64(result.OffersAccepted)/float64(result.OffersCreated) }
     if result.OrdersCreated>0 {
         result.CancellationRate=float64(result.OrdersCancelled)/float64(result.OrdersCreated)
