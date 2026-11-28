@@ -57,7 +57,8 @@ func (s *Store) ResolveUnknownFinanceCase(ctx context.Context, actor Actor, case
 		result.AmountMinor != c.AmountMinor || result.Currency != c.Currency ||
 		(result.Outcome != "confirmed" && result.Outcome != "failed" && result.Outcome != "unknown") ||
 		(result.Outcome == "confirmed" && strings.TrimSpace(result.ProviderReference) == "") ||
-		(result.Outcome == "failed" && strings.TrimSpace(result.FailureCode) == "") {
+		(result.Outcome == "failed" && strings.TrimSpace(result.FailureCode) == "") ||
+		len(result.ProviderReference) > 200 || len(result.FailureCode) > 200 {
 		return c,ErrFinanceCaseConflict
 	}
 	if result.Outcome == "unknown" { return c,nil }
