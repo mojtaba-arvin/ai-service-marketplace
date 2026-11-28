@@ -2,10 +2,7 @@ package marketplace
 
 import (
 	"context"
-	"crypto/hmac"
 	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -85,43 +82,6 @@ type FinanceCaseWebhook struct {
 
 type FinanceCaseWebhookVerifier interface {
 	VerifyFinanceCaseWebhook(context.Context, []byte, string) (FinanceCaseWebhook, error)
-}
-
-// HMACFinanceCaseWebhookVerifier is a deterministic provider-neutral contract
-// implementation for tests and adapters. Production secrets must be injected.
-type HMACFinanceCaseWebhookVerifier struct { Secret []byte }
-
-func (v HMACFinanceCaseWebhookVerifier) Sign(payload []byte) string {
-	mac := hmac.New(sha256.New, v.Secret)
-	_, _ = mac.Write(payload)
-	return hex.EncodeToString(mac.Sum(nil))
-}
-
-func (v HMACFinanceCaseWebhookVerifier) VerifyFinanceCaseWebhook(ctx context.Context, payload []byte, signature string) (FinanceCaseWebhook, error) {
-	if err := ctx.Err(); err != nil { return FinanceCaseWebhook{}, err }
-	if len(v.Secret) < 32 || len(payload) == 0 { return FinanceCaseWebhook{}, errors.New("webhook verifier is not configured") }
-	provided, err := hex.DecodeString(signature)
-	if err != nil { return FinanceCaseWebhook{}, errors.New("invalid finance webhook signature") }
-	expected, _ := hex.DecodeString(v.Sign(payload))
-	if len(provided) != len(expected) || subtle.ConstantTimeCompare(provided, expected) != 1 {
-		return FinanceCaseWebhook{}, errors.New("invalid finance webhook signature")
-	}
-	var event FinanceCaseWebhook
-	if err = json.Unmarshal(payload, &event); err != nil { return FinanceCaseWebhook{}, err }
-	event.EventID = strings.TrimSpace(event.EventID)
-	event.ProviderCode = strings.ToLower(strings.TrimSpace(event.ProviderCode))
-	event.ProviderIdempotencyKey = strings.TrimSpace(event.ProviderIdempotencyKey)
-	event.Currency = strings.ToUpper(strings.TrimSpace(event.Currency))
-	if event.EventID == "" || event.ProviderIdempotencyKey == "" ||
-		(event.Outcome != "confirmed" && event.Outcome != "failed") ||
-		(event.Outcome == "confirmed" && strings.TrimSpace(event.ProviderReference) == "") ||
-		ValidateAmount(event.AmountMinor, event.Currency) != nil ||
-		len(event.EventID) > 200 || len(event.ProviderIdempotencyKey) > 200 ||
-		len(event.ProviderReference) > 200 || len(event.FailureCode) > 200 ||
-		(event.Outcome == "failed" && strings.TrimSpace(event.FailureCode) == "") {
-		return FinanceCaseWebhook{}, ErrFinanceCaseInput
-	}
-	return event, nil
 }
 
 func scanFinanceCase(row pgx.Row) (FinanceCase, error) {
